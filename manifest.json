@@ -1,0 +1,20 @@
+{
+  "name": "Forest House PMS",
+  "short_name": "ForestPMS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a4731",
+  "theme_color": "#1a4731",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=192&q=80",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=512&q=80",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

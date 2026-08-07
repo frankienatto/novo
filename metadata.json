@@ -1,0 +1,11 @@
+{
+  "name": "foresthouse beach hostel ",
+  "description": "Sistema completo de gestão hoteleira (PMS, CM, POS, Marketing AI) com Portal do Hóspede, Feed de Comunidade e Stories estilo redes sociais para maior engajamento dos hóspedes.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "prompt": "",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

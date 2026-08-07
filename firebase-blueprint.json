@@ -1,0 +1,25 @@
+{
+    "entities": {
+        "User": {
+            "title": "User",
+            "description": "User profile in the application",
+            "type": "object",
+            "properties": {
+                "id": { "type": "string" },
+                "email": { "type": "string" }
+            }
+        },
+        "Document": {
+            "title": "Document",
+            "description": "Any generic document for the property",
+            "type": "object",
+            "properties": {}
+        }
+    },
+    "firestore": {
+        "synapse_hospitality/{datasetId}": {
+            "schema": "Document",
+            "description": "Catch-all for initial sync of massive states"
+        }
+    }
+}

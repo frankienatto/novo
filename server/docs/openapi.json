@@ -1,0 +1,1964 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Synapse Hospitality API",
+    "description": "Especificação Oficial OpenAPI 3.0 para a Plataforma Synapse Hospitality (PMS, CRM, AI Orchestrator, Governança, Manutenção, Recepção e Integrações).",
+    "termsOfService": "https://synapsehospitality.com.br/terms",
+    "contact": {
+      "name": "Suporte Técnico Synapse Hospitality",
+      "email": "suporte@synapsehospitality.com.br",
+      "url": "https://synapsehospitality.com.br"
+    },
+    "license": {
+      "name": "Proprietary",
+      "url": "https://synapsehospitality.com.br/license"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "API v1 - Versão Oficial Padronizada"
+    },
+    {
+      "url": "/api",
+      "description": "API Base - Endpoints da Aplicação"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    },
+    {
+      "OrganizationHeader": [],
+      "PropertyHeader": []
+    }
+  ],
+  "paths": {
+    "/ai/copilot": {
+      "post": {
+        "tags": ["AI Orchestrator"],
+        "summary": "Executa comando no Copilot / Orquestrador com Memória e Contexto Operacional",
+        "description": "Processa um prompt de linguagem natural utilizando roteamento determinístico entre os agentes especialistas da Synapse Hospitality.",
+        "operationId": "executeAiCopilot",
+        "parameters": [
+          { "$ref": "#/components/parameters/XRequestId" },
+          { "$ref": "#/components/parameters/XCorrelationId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIRequest"
+              },
+              "example": {
+                "prompt": "Qual a taxa de ocupação projetada e sugestão de tarifa para o próximo final de semana?",
+                "agentId": "revenue_agent",
+                "sessionId": "sess_dev_123",
+                "organizationId": "org_dev_default",
+                "propertyId": "prop_dev_default"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agente executado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIResponse"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/ai/orchestrate": {
+      "post": {
+        "tags": ["AI Orchestrator"],
+        "summary": "Executa fluxo direto do orquestrador de IA",
+        "operationId": "orchestrateAi",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AIRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sucesso",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AIResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/pms/categories": {
+      "get": {
+        "tags": ["PMS - Property Management"],
+        "summary": "Lista todas as categorias de unidades hoteleiras (UHs)",
+        "operationId": "listRoomCategories",
+        "parameters": [
+          { "$ref": "#/components/parameters/OrganizationHeaderParam" },
+          { "$ref": "#/components/parameters/PropertyHeaderParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de categorias retornada com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/RoomCategory" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "post": {
+        "tags": ["PMS - Property Management"],
+        "summary": "Cria uma nova categoria de acomodação",
+        "operationId": "createRoomCategory",
+        "parameters": [
+          { "$ref": "#/components/parameters/OrganizationHeaderParam" },
+          { "$ref": "#/components/parameters/PropertyHeaderParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RoomCategory" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Categoria criada com sucesso",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RoomCategory" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/pms/units": {
+      "get": {
+        "tags": ["PMS - Property Management"],
+        "summary": "Lista todas as unidades hoteleiras (UHs)",
+        "operationId": "listRoomUnits",
+        "parameters": [
+          { "$ref": "#/components/parameters/OrganizationHeaderParam" },
+          { "$ref": "#/components/parameters/PropertyHeaderParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de unidades hoteleiras",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/RoomUnit" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "post": {
+        "tags": ["PMS - Property Management"],
+        "summary": "Cadastra uma nova unidade hoteleira (UH)",
+        "operationId": "createRoomUnit",
+        "parameters": [
+          { "$ref": "#/components/parameters/OrganizationHeaderParam" },
+          { "$ref": "#/components/parameters/PropertyHeaderParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RoomUnit" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "UH criada com sucesso",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RoomUnit" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/pms/inventory/summary": {
+      "get": {
+        "tags": ["PMS - Property Management"],
+        "summary": "Retorna o resumo geral do inventário de UHs da propriedade",
+        "operationId": "getPmsInventorySummary",
+        "parameters": [
+          { "$ref": "#/components/parameters/OrganizationHeaderParam" },
+          { "$ref": "#/components/parameters/PropertyHeaderParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resumo do inventário de UHs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalCategories": { "type": "integer", "example": 5 },
+                    "totalUnits": { "type": "integer", "example": 20 },
+                    "activeUnitsCount": { "type": "integer", "example": 18 },
+                    "unitsByStatus": {
+                      "type": "object",
+                      "properties": {
+                        "clean": { "type": "integer", "example": 10 },
+                        "dirty": { "type": "integer", "example": 4 },
+                        "inspected": { "type": "integer", "example": 2 },
+                        "maintenance": { "type": "integer", "example": 1 },
+                        "out_of_service": { "type": "integer", "example": 1 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pms/reservations": {
+      "get": {
+        "tags": ["PMS - Reservas"],
+        "summary": "Lista todas as reservas da propriedade com filtros opcionais",
+        "operationId": "listReservations",
+        "parameters": [
+          { "$ref": "#/components/parameters/OrganizationHeaderParam" },
+          { "$ref": "#/components/parameters/PropertyHeaderParam" },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filtra por status da reserva",
+            "schema": {
+              "type": "string",
+              "enum": ["confirmed", "checked_in", "checked_out", "cancelled", "no_show"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de reservas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Reservation" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["PMS - Reservas"],
+        "summary": "Cria uma nova reserva no PMS",
+        "operationId": "createReservation",
+        "parameters": [
+          { "$ref": "#/components/parameters/OrganizationHeaderParam" },
+          { "$ref": "#/components/parameters/PropertyHeaderParam" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateReservationDTO" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Reserva criada com sucesso",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Reservation" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/pms/reservations/{reservationId}/check-in": {
+      "post": {
+        "tags": ["PMS - Reservas"],
+        "summary": "Realiza o Check-in da reserva",
+        "operationId": "checkInReservation",
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check-in realizado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Reservation" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/pms/reservations/{reservationId}/check-out": {
+      "post": {
+        "tags": ["PMS - Reservas"],
+        "summary": "Realiza o Check-out da reserva e gera ordem de limpeza de governança",
+        "operationId": "checkOutReservation",
+        "parameters": [
+          {
+            "name": "reservationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check-out realizado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Reservation" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/crm/guests": {
+      "get": {
+        "tags": ["CRM - Hóspedes"],
+        "summary": "Lista de hóspedes com busca, paginação e ordenação",
+        "operationId": "listGuests",
+        "parameters": [
+          { "$ref": "#/components/parameters/OrganizationHeaderParam" },
+          { "$ref": "#/components/parameters/PageQueryParam" },
+          { "$ref": "#/components/parameters/LimitQueryParam" },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Filtro por nome, e-mail, telefone ou documento",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista paginada de hóspedes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "SUCCESS" },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Guest" }
+                    },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["CRM - Hóspedes"],
+        "summary": "Cadastra um novo hóspede no CRM",
+        "operationId": "createGuest",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateGuestDTO" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Hóspede cadastrado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Guest" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/crm/guests/{guestId}": {
+      "get": {
+        "tags": ["CRM - Hóspedes"],
+        "summary": "Obtém os detalhes cadastrais e estatísticas do hóspede",
+        "operationId": "getGuestById",
+        "parameters": [
+          {
+            "name": "guestId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Perfil do hóspede",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Guest" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/crm/guests/{guestId}/timeline": {
+      "get": {
+        "tags": ["CRM - Timeline"],
+        "summary": "Retorna o histórico/timeline paginado de interações do hóspede",
+        "operationId": "getGuestTimeline",
+        "parameters": [
+          {
+            "name": "guestId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          { "$ref": "#/components/parameters/PageQueryParam" },
+          { "$ref": "#/components/parameters/LimitQueryParam" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timeline paginada do hóspede",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "SUCCESS" },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/GuestTimelineEvent" }
+                    },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/crm/guests/{guestId}/intelligence": {
+      "get": {
+        "tags": ["CRM - Intelligence"],
+        "summary": "Calcula a inteligência do hóspede, preferências agregadas e sugestões deupsell",
+        "operationId": "getGuestIntelligence",
+        "parameters": [
+          {
+            "name": "guestId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inteligência calculada do hóspede",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GuestIntelligence" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reception/dashboard": {
+      "get": {
+        "tags": ["Recepção"],
+        "summary": "Retorna os dados consolidados do Copilot de Recepção (alertas, VIPs, sugestões)",
+        "operationId": "getReceptionDashboard",
+        "responses": {
+          "200": {
+            "description": "Dashboard de recepção carregado com sucesso"
+          }
+        }
+      }
+    },
+    "/revenue/dashboard": {
+      "get": {
+        "tags": ["Revenue Intelligence"],
+        "summary": "Retorna o Dashboard completo de Revenue Intelligence (ADR, RevPAR, Ocupação, Forecast e Canais)",
+        "operationId": "getRevenueDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard de Revenue retornado com sucesso"
+          }
+        }
+      }
+    },
+    "/revenue/metrics": {
+      "get": {
+        "tags": ["Revenue Intelligence"],
+        "summary": "Retorna os KPIs e métricas comerciais consolidados (ADR, RevPAR, Lead Time, Pickup, Pace)",
+        "operationId": "getRevenueMetrics",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Métricas consolidadas de Revenue retornadas com sucesso"
+          }
+        }
+      }
+    },
+    "/revenue/forecast": {
+      "get": {
+        "tags": ["Revenue Intelligence"],
+        "summary": "Retorna a projeção e forecast de ocupação e faturamento (7, 15, 30 dias)",
+        "operationId": "getRevenueForecast",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" },
+          {
+            "name": "days",
+            "in": "query",
+            "description": "Número de dias para a projeção do forecast (padrão 30)",
+            "schema": { "type": "integer", "default": 30 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projeção de ocupação calculada com sucesso"
+          }
+        }
+      }
+    },
+    "/revenue/channels": {
+      "get": {
+        "tags": ["Revenue Intelligence"],
+        "summary": "Retorna a distribuição de receita e ADR por canal de venda",
+        "operationId": "getRevenueChannels",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receita por canais de venda retornada com sucesso"
+          }
+        }
+      }
+    },
+    "/revenue/categories": {
+      "get": {
+        "tags": ["Revenue Intelligence"],
+        "summary": "Retorna o desempenho comercial e RevPAR por categoria de acomodação",
+        "operationId": "getRevenueCategories",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receita por categorias de acomodação retornada com sucesso"
+          }
+        }
+      }
+    },
+    "/direct-booking/dashboard": {
+      "get": {
+        "tags": ["Direct Booking & Commercial CRM"],
+        "summary": "Retorna o dashboard comercial com métricas do funil de vendas e propostas recentes",
+        "operationId": "getDirectBookingDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard comercial retornado com sucesso"
+          }
+        }
+      }
+    },
+    "/direct-booking/metrics": {
+      "get": {
+        "tags": ["Direct Booking & Commercial CRM"],
+        "summary": "Retorna métricas consolidadas do funil comercial, conversão por canal e atendente",
+        "operationId": "getDirectBookingMetrics",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Métricas comerciais retornadas com sucesso"
+          }
+        }
+      }
+    },
+    "/direct-booking/proposals": {
+      "get": {
+        "tags": ["Direct Booking & Commercial CRM"],
+        "summary": "Lista propostas comerciais ativas/históricas com filtro opcional por status",
+        "operationId": "listCommercialProposals",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filtro por status da proposta (sent, negotiating, accepted, expired, etc)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de propostas comerciais retornada com sucesso"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Direct Booking & Commercial CRM"],
+        "summary": "Cria uma nova proposta comercial (Cotação / Lead de Reserva Direta)",
+        "operationId": "createCommercialProposal",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "201": {
+            "description": "Proposta comercial criada com sucesso"
+          }
+        }
+      }
+    },
+    "/direct-booking/proposals/{proposalId}": {
+      "put": {
+        "tags": ["Direct Booking & Commercial CRM"],
+        "summary": "Atualiza o status ou condições de negociação de uma proposta comercial",
+        "operationId": "updateCommercialProposal",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" },
+          {
+            "name": "proposalId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proposta comercial atualizada com sucesso"
+          }
+        }
+      }
+    },
+    "/sales/dashboard": {
+      "get": {
+        "tags": ["Sales CRM & Gestão do Pipeline Commercial"],
+        "summary": "Retorna o dashboard do Sales CRM com métricas do funil, oportunidades em destaque e follow-ups",
+        "operationId": "getSalesDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard comercial retornado com sucesso"
+          }
+        }
+      }
+    },
+    "/sales/metrics": {
+      "get": {
+        "tags": ["Sales CRM & Gestão do Pipeline Commercial"],
+        "summary": "Retorna métricas consolidadas do pipeline de vendas, conversões por canal e por responsável",
+        "operationId": "getSalesMetrics",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Métricas de vendas retornadas com sucesso"
+          }
+        }
+      }
+    },
+    "/sales/opportunities": {
+      "get": {
+        "tags": ["Sales CRM & Gestão do Pipeline Commercial"],
+        "summary": "Lista oportunidades comerciais com filtros opcionais por estágio, responsável e temperatura",
+        "operationId": "listSalesOpportunities",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" },
+          {
+            "name": "stage",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "temperature",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de oportunidades comerciais retornada com sucesso"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Sales CRM & Gestão do Pipeline Commercial"],
+        "summary": "Cadastra uma nova oportunidade comercial no pipeline",
+        "operationId": "createSalesOpportunity",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "201": {
+            "description": "Oportunidade comercial criada com sucesso"
+          }
+        }
+      }
+    },
+    "/sales/opportunities/{id}": {
+      "get": {
+        "tags": ["Sales CRM & Gestão do Pipeline Commercial"],
+        "summary": "Obtém detalhes de uma oportunidade comercial por ID",
+        "operationId": "getSalesOpportunityById",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Oportunidade comercial retornada com sucesso"
+          }
+        }
+      },
+      "put": {
+        "tags": ["Sales CRM & Gestão do Pipeline Commercial"],
+        "summary": "Atualiza estágio, valor ou responsável de uma oportunidade comercial",
+        "operationId": "updateSalesOpportunity",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Oportunidade comercial atualizada com sucesso"
+          }
+        }
+      }
+    },
+    "/sales/opportunities/{id}/interactions": {
+      "post": {
+        "tags": ["Sales CRM & Gestão do Pipeline Commercial"],
+        "summary": "Registra uma nova interação comercial (Ligação, WhatsApp, Email, Nota)",
+        "operationId": "addSalesInteraction",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Interação registrada com sucesso"
+          }
+        }
+      }
+    },
+    "/sales/opportunities/{id}/follow-up": {
+      "post": {
+        "tags": ["Sales CRM & Gestão do Pipeline Commercial"],
+        "summary": "Agenda ou atualiza o próximo follow-up da oportunidade",
+        "operationId": "scheduleSalesFollowUp",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Follow-up agendado com sucesso"
+          }
+        }
+      }
+    },
+    "/marketing/dashboard": {
+      "get": {
+        "tags": ["Marketing Intelligence & Segmentação"],
+        "summary": "Retorna o painel consolidado de Marketing Intelligence com segmentos, jornada, retenção e mercados",
+        "operationId": "getMarketingDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard de Marketing Intelligence retornado com sucesso"
+          }
+        }
+      }
+    },
+    "/marketing/segments": {
+      "get": {
+        "tags": ["Marketing Intelligence & Segmentação"],
+        "summary": "Retorna os segmentos inteligentes de público e métricas de LTV por perfil",
+        "operationId": "getMarketingSegments",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Segmentos de marketing retornados com sucesso"
+          }
+        }
+      }
+    },
+    "/marketing/journey": {
+      "get": {
+        "tags": ["Marketing Intelligence & Segmentação"],
+        "summary": "Retorna as métricas e taxas de conversão da jornada do cliente (Customer Journey)",
+        "operationId": "getMarketingCustomerJourney",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Métricas da jornada do cliente retornadas com sucesso"
+          }
+        }
+      }
+    },
+    "/marketing/markets": {
+      "get": {
+        "tags": ["Marketing Intelligence & Segmentação"],
+        "summary": "Retorna dados geográficos de mercado, países, estados e idiomas predominantes",
+        "operationId": "getMarketingMarkets",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mercados geográficos retornados com sucesso"
+          }
+        }
+      }
+    },
+    "/marketing/channels": {
+      "get": {
+        "tags": ["Marketing Intelligence & Segmentação"],
+        "summary": "Retorna o desempenho de conversão e receita por canal de marketing",
+        "operationId": "getMarketingChannels",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Desempenho de canais de marketing retornado com sucesso"
+          }
+        }
+      }
+    },
+    "/marketing/retention": {
+      "get": {
+        "tags": ["Marketing Intelligence & Segmentação"],
+        "summary": "Retorna análises de retenção, taxa de recorrentes, LTV médio e acomodações preferidas",
+        "operationId": "getMarketingRetention",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Análises de retenção e recorrência retornadas com sucesso"
+          }
+        }
+      }
+    },
+    "/executive/dashboard": {
+      "get": {
+        "tags": ["Inteligência Executiva & Diretoria"],
+        "summary": "Retorna o painel consolidado do Executive Intelligence com KPIs, alertas e prioridades",
+        "operationId": "getExecutiveDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard executivo retornado com sucesso"
+          }
+        }
+      }
+    },
+    "/executive/kpis": {
+      "get": {
+        "tags": ["Inteligência Executiva & Diretoria"],
+        "summary": "Retorna os KPIs consolidados de receita, comercial, marketing e operações",
+        "operationId": "getExecutiveKpis",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "KPIs executivos retornados com sucesso"
+          }
+        }
+      }
+    },
+    "/executive/alerts": {
+      "get": {
+        "tags": ["Inteligência Executiva & Diretoria"],
+        "summary": "Retorna alertas estratégicos e operacionais da diretoria",
+        "operationId": "getExecutiveAlerts",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alertas executivos retornados com sucesso"
+          }
+        }
+      }
+    },
+    "/executive/priorities": {
+      "get": {
+        "tags": ["Inteligência Executiva & Diretoria"],
+        "summary": "Retorna as prioridades diárias e riscos operacionais",
+        "operationId": "getExecutivePriorities",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prioridades executivas retornadas com sucesso"
+          }
+        }
+      }
+    },
+    "/executive/summary": {
+      "get": {
+        "tags": ["Inteligência Executiva & Diretoria"],
+        "summary": "Retorna os resumos operacionais e comerciais consolidados por módulos",
+        "operationId": "getExecutiveSummary",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resumo executivo retornado com sucesso"
+          }
+        }
+      }
+    },
+    "/executive-copilot/dashboard": {
+      "get": {
+        "tags": ["Executive Copilot & Strategic Decision"],
+        "summary": "Retorna o dashboard completo do Executive Copilot com Health Scores, Riscos e Oportunidades",
+        "operationId": "getExecutiveCopilotDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Dashboard do Executive Copilot retornado com sucesso" }
+        }
+      }
+    },
+    "/executive-copilot/summary": {
+      "get": {
+        "tags": ["Executive Copilot & Strategic Decision"],
+        "summary": "Retorna o resumo executivo compacto para acompanhamento rápido",
+        "operationId": "getExecutiveCopilotSummary",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Resumo do Executive Copilot retornado com sucesso" }
+        }
+      }
+    },
+    "/executive-copilot/health": {
+      "get": {
+        "tags": ["Executive Copilot & Strategic Decision"],
+        "summary": "Retorna os scores de saúde estratégica e setoriais da propriedade",
+        "operationId": "getExecutiveCopilotHealth",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Health scores executivos retornados com sucesso" }
+        }
+      }
+    },
+    "/executive-copilot/risks": {
+      "get": {
+        "tags": ["Executive Copilot & Strategic Decision"],
+        "summary": "Retorna os Top 10 riscos operacionais e estratégicos identificados pelo Copilot",
+        "operationId": "getExecutiveCopilotRisks",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Riscos executivos retornados com sucesso" }
+        }
+      }
+    },
+    "/executive-copilot/opportunities": {
+      "get": {
+        "tags": ["Executive Copilot & Strategic Decision"],
+        "summary": "Retorna as Top 10 oportunidades estratégicas recomendadas pelo Copilot",
+        "operationId": "getExecutiveCopilotOpportunities",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Oportunidades executivas retornadas com sucesso" }
+        }
+      }
+    },
+    "/executive-copilot/brief": {
+      "get": {
+        "tags": ["Executive Copilot & Strategic Decision"],
+        "summary": "Retorna o Executive Daily Brief condensado da diretoria",
+        "operationId": "getExecutiveCopilotBrief",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Executive Daily Brief retornado com sucesso" }
+        }
+      }
+    },
+    "/decision/dashboard": {
+      "get": {
+        "tags": ["Decision Engine & Human Approval"],
+        "summary": "Retorna o dashboard do Decision Engine com a Executive Action Queue e recomendações priorizadas",
+        "operationId": "getDecisionDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Dashboard do Decision Engine retornado com sucesso" }
+        }
+      }
+    },
+    "/decision/recommendations": {
+      "get": {
+        "tags": ["Decision Engine & Human Approval"],
+        "summary": "Retorna a lista de recomendações operacionais e estratégicas pendentes de aprovação humana",
+        "operationId": "getDecisionRecommendations",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Lista de recomendações retornada com sucesso" }
+        }
+      }
+    },
+    "/decision/priorities": {
+      "get": {
+        "tags": ["Decision Engine & Human Approval"],
+        "summary": "Retorna as prioridades diárias, gargalos críticos e ações de maior prioridade do hotel",
+        "operationId": "getDecisionPriorities",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Prioridades do Decision Engine retornadas com sucesso" }
+        }
+      }
+    },
+    "/decision/summary": {
+      "get": {
+        "tags": ["Decision Engine & Human Approval"],
+        "summary": "Retorna o resumo executivo das recomendações e taxa média de confiança",
+        "operationId": "getDecisionSummary",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Resumo do Decision Engine retornado com sucesso" }
+        }
+      }
+    },
+    "/strategy/dashboard": {
+      "get": {
+        "tags": ["Strategic Simulation & Explainable AI"],
+        "summary": "Retorna o dashboard consolidado de simulações estratégicas, potencial financeiro e métricas em memória",
+        "operationId": "getStrategyDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Dashboard de estratégia retornado com sucesso" }
+        }
+      }
+    },
+    "/strategy/scenarios": {
+      "get": {
+        "tags": ["Strategic Simulation & Explainable AI"],
+        "summary": "Retorna a lista de cenários de simulação What If disponíveis com Explainable AI completa",
+        "operationId": "getStrategyScenarios",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Lista de cenários de simulação retornada com sucesso" }
+        }
+      }
+    },
+    "/strategy/simulate": {
+      "post": {
+        "tags": ["Strategic Simulation & Explainable AI"],
+        "summary": "Executa uma simulação tática/estratégica customizada em memória sem alterar nenhum dado no banco",
+        "operationId": "simulateCustomStrategy",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scenarioType": { "type": "string", "example": "adr_increase" },
+                  "adrIncreasePercent": { "type": "number", "example": 10 },
+                  "cancellationReductionPercent": { "type": "number", "example": 30 },
+                  "conversionIncreasePercent": { "type": "number", "example": 15 },
+                  "occupancyIncreasePercent": { "type": "number", "example": 8 },
+                  "customName": { "type": "string", "example": "Simulação Alta Temporada 2026" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Simulação executada com sucesso em memória" }
+        }
+      }
+    },
+    "/strategy/summary": {
+      "get": {
+        "tags": ["Strategic Simulation & Explainable AI"],
+        "summary": "Retorna o resumo agregado das simulações estratégicas para a IA (ContextService)",
+        "operationId": "getStrategySummary",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Resumo de estratégia retornado com sucesso" }
+        }
+      }
+    },
+    "/approval/dashboard": {
+      "get": {
+        "tags": ["Human Approval Workflow & Audit Foundation"],
+        "summary": "Retorna o dashboard de aprovação humana, métricas de backlog, tempos médios e contagens",
+        "operationId": "getApprovalDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Dashboard de aprovação retornado com sucesso" }
+        }
+      }
+    },
+    "/approval/pending": {
+      "get": {
+        "tags": ["Human Approval Workflow & Audit Foundation"],
+        "summary": "Retorna a lista de recomendações pendentes de aprovação humana explícita",
+        "operationId": "getPendingApprovals",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Lista de aprovações pendentes retornada com sucesso" }
+        }
+      }
+    },
+    "/approval/history": {
+      "get": {
+        "tags": ["Human Approval Workflow & Audit Foundation"],
+        "summary": "Retorna o histórico auditável completo de aprovações, rejeições e decisões",
+        "operationId": "getApprovalHistory",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Histórico de aprovações retornado com sucesso" }
+        }
+      }
+    },
+    "/approval/summary": {
+      "get": {
+        "tags": ["Human Approval Workflow & Audit Foundation"],
+        "summary": "Retorna o resumo sintético de aprovações e governança para a IA (ContextService)",
+        "operationId": "getApprovalSummary",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Resumo de aprovações retornado com sucesso" }
+        }
+      }
+    },
+    "/approval/approve": {
+      "post": {
+        "tags": ["Human Approval Workflow & Audit Foundation"],
+        "summary": "Registra a aprovação humana de uma recomendação sem executar ação operacional externa",
+        "operationId": "approveRecommendation",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["recommendationId"],
+                "properties": {
+                  "recommendationId": { "type": "string", "example": "rec_rev_adr_increase" },
+                  "decisionBy": { "type": "string", "example": "Gerente Geral" },
+                  "reason": { "type": "string", "example": "Aprovado após análise de demanda local" },
+                  "comments": { "type": "string", "example": "Implementar alteração tarifária manualmente no Aloha PMS" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Aprovação humana registrada com sucesso no Synapse" }
+        }
+      }
+    },
+    "/approval/reject": {
+      "post": {
+        "tags": ["Human Approval Workflow & Audit Foundation"],
+        "summary": "Registra a rejeição humana de uma recomendação sem alterar sistemas externos",
+        "operationId": "rejectRecommendation",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["recommendationId"],
+                "properties": {
+                  "recommendationId": { "type": "string", "example": "rec_mkt_campaign_discount" },
+                  "decisionBy": { "type": "string", "example": "Diretor Comercial" },
+                  "reason": { "type": "string", "example": "Incompatível com o posicionamento tarifário do período" },
+                  "comments": { "type": "string", "example": "Rejeitado no conselho executivo" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Rejeição humana registrada com sucesso no Synapse" }
+        }
+      }
+    },
+    "/planning/dashboard": {
+      "get": {
+        "tags": ["Operational Planning & Playbook Foundation"],
+        "summary": "Retorna o dashboard de planejamento operacional e estatísticas de playbooks",
+        "operationId": "getPlanningDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Dashboard de planejamento retornado com sucesso" }
+        }
+      }
+    },
+    "/planning/playbooks": {
+      "get": {
+        "tags": ["Operational Planning & Playbook Foundation"],
+        "summary": "Lista todos os playbooks operacionais em execução manual ou planejados",
+        "operationId": "getPlanningPlaybooks",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Playbooks operacionais retornados com sucesso" }
+        }
+      }
+    },
+    "/planning/summary": {
+      "get": {
+        "tags": ["Operational Planning & Playbook Foundation"],
+        "summary": "Retorna o resumo do planejamento operacional formatado para o ContextService da IA",
+        "operationId": "getPlanningSummary",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Resumo de planejamento retornado com sucesso" }
+        }
+      }
+    },
+    "/planning/generate": {
+      "post": {
+        "tags": ["Operational Planning & Playbook Foundation"],
+        "summary": "Gera playbooks operacionais de execução manual a partir das recomendações aprovadas",
+        "operationId": "generatePlanningPlaybooks",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Playbooks gerados com sucesso para execução manual" }
+        }
+      }
+    },
+    "/planning/rebuild": {
+      "post": {
+        "tags": ["Operational Planning & Playbook Foundation"],
+        "summary": "Reconstrói sequências e dependências de playbooks em memória sem ação externa",
+        "operationId": "rebuildPlanningPlaybooks",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Playbooks reconstruídos com sucesso" }
+        }
+      }
+    },
+    "/execution/dashboard": {
+      "get": {
+        "tags": ["Operational Execution Tracking & Performance Foundation"],
+        "summary": "Retorna o dashboard de acompanhamento de execução operacional humana e produtividade",
+        "operationId": "getExecutionDashboard",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Dashboard de execução retornado com sucesso" }
+        }
+      }
+    },
+    "/execution/list": {
+      "get": {
+        "tags": ["Operational Execution Tracking & Performance Foundation"],
+        "summary": "Lista todas as execuções operacionais manuais registradas",
+        "operationId": "getExecutionList",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Lista de execuções operacionais retornada com sucesso" }
+        }
+      }
+    },
+    "/execution/summary": {
+      "get": {
+        "tags": ["Operational Execution Tracking & Performance Foundation"],
+        "summary": "Retorna o resumo sintético de execução operacional para o ContextService da IA",
+        "operationId": "getExecutionSummary",
+        "parameters": [
+          { "$ref": "#/components/parameters/XOrganizationId" },
+          { "$ref": "#/components/parameters/XPropertyId" }
+        ],
+        "responses": {
+          "200": { "description": "Resumo de execução retornado com sucesso" }
+        }
+      }
+    },
+    "/execution/start": {
+      "post": {
+        "tags": ["Operational Execution Tracking & Performance Foundation"],
+        "summary": "Inicia o acompanhamento da execução manual de um playbook",
+        "operationId": "startExecution",
+        "responses": {
+          "200": { "description": "Acompanhamento de execução iniciado com sucesso" }
+        }
+      }
+    },
+    "/execution/update": {
+      "post": {
+        "tags": ["Operational Execution Tracking & Performance Foundation"],
+        "summary": "Atualiza o progresso, checklist ou estado de bloqueio de uma execução manual",
+        "operationId": "updateExecutionProgress",
+        "responses": {
+          "200": { "description": "Progresso da execução atualizado com sucesso" }
+        }
+      }
+    },
+    "/execution/complete": {
+      "post": {
+        "tags": ["Operational Execution Tracking & Performance Foundation"],
+        "summary": "Conclui o acompanhamento de uma execução manual",
+        "operationId": "completeExecution",
+        "responses": {
+          "200": { "description": "Execução manual concluída e registrada" }
+        }
+      }
+    },
+    "/housekeeping/tasks": {
+      "get": {
+        "tags": ["Governança - Housekeeping"],
+        "summary": "Lista todas as tarefas de governança da propriedade",
+        "operationId": "listHousekeepingTasks",
+        "responses": {
+          "200": {
+            "description": "Lista de tarefas de governança",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/HousekeepingTask" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/maintenance/tasks": {
+      "get": {
+        "tags": ["Manutenção"],
+        "summary": "Lista todas as ordens de serviço de manutenção da propriedade",
+        "operationId": "listMaintenanceTasks",
+        "responses": {
+          "200": {
+            "description": "Lista de tarefas de manutenção",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/MaintenanceTask" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/integration/n8n/webhook": {
+      "post": {
+        "tags": ["Integrações - n8n"],
+        "summary": "Webhook receptor de sincronização de reservas do n8n / Aloha PMS",
+        "operationId": "receiveN8nWebhook",
+        "responses": {
+          "200": { "description": "Sincronização executada com sucesso" },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/health/liveness": {
+      "get": {
+        "tags": ["Health Check"],
+        "summary": "Liveness Probe para verificar se o processo do servidor está vivo",
+        "operationId": "checkLiveness",
+        "responses": {
+          "200": {
+            "description": "Servidor operando normalmente",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthStatus" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/readiness": {
+      "get": {
+        "tags": ["Health Check"],
+        "summary": "Readiness Probe para verificar se todas as dependências críticas estão prontas",
+        "operationId": "checkReadiness",
+        "responses": {
+          "200": {
+            "description": "Servidor pronto para receber tráfego",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthStatus" }
+              }
+            }
+          },
+          "503": {
+            "description": "Servidor indisponível ou em estado degradado"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": ["Métricas & Performance"],
+        "summary": "Expõe métricas de runtime do servidor, memória, latência HTTP, cache e chamadas de IA",
+        "operationId": "getMetrics",
+        "responses": {
+          "200": {
+            "description": "Resumo de métricas de desempenho em tempo real",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MetricsSummary" }
+              }
+            }
+          },
+          "403": { "description": "Métricas desativadas na configuração" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Autenticação via Token JWT Bearer"
+      },
+      "OrganizationHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-organization-id",
+        "description": "Identificador do Tenant (Organização)"
+      },
+      "PropertyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-property-id",
+        "description": "Identificador do Tenant (Propriedade Hoteleira)"
+      }
+    },
+    "parameters": {
+      "OrganizationHeaderParam": {
+        "name": "x-organization-id",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string", "default": "org_dev_default" },
+        "description": "ID da organização do Tenant"
+      },
+      "PropertyHeaderParam": {
+        "name": "x-property-id",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string", "default": "prop_dev_default" },
+        "description": "ID da propriedade hoteleira do Tenant"
+      },
+      "XRequestId": {
+        "name": "X-Request-ID",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "UUID único da requisição para auditoria"
+      },
+      "XCorrelationId": {
+        "name": "X-Correlation-ID",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "UUID de correlação para rastreamento distribuído"
+      },
+      "PageQueryParam": {
+        "name": "page",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer", "default": 1 },
+        "description": "Número da página (1-indexed)"
+      },
+      "LimitQueryParam": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer", "default": 20 },
+        "description": "Quantidade de itens por página"
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Requisição inválida ou dados incorretos",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Recurso não encontrado",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Limite de requisições excedido (Rate Limit)",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Erro interno no processamento do servidor",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["status", "error"],
+        "properties": {
+          "status": { "type": "string", "example": "ERROR" },
+          "error": { "type": "string", "example": "Requisição inválida" },
+          "message": { "type": "string", "example": "O parâmetro 'prompt' é obrigatório." },
+          "code": { "type": "string", "example": "INVALID_PAYLOAD" },
+          "correlationId": { "type": "string", "example": "85dd190a-4046-4fbc-b703-15a53a6827f5" },
+          "timestamp": { "type": "string", "format": "date-time", "example": "2026-08-04T12:30:00.000Z" }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer", "example": 1 },
+          "limit": { "type": "integer", "example": 20 },
+          "totalItems": { "type": "integer", "example": 85 },
+          "totalPages": { "type": "integer", "example": 5 },
+          "hasNextPage": { "type": "boolean", "example": true },
+          "hasPrevPage": { "type": "boolean", "example": false }
+        }
+      },
+      "Guest": {
+        "type": "object",
+        "required": ["guestId", "fullName", "email"],
+        "properties": {
+          "guestId": { "type": "string", "example": "guest_123" },
+          "organizationId": { "type": "string", "example": "org_dev_default" },
+          "fullName": { "type": "string", "example": "Carlos Eduardo Silva" },
+          "email": { "type": "string", "example": "carlos.silva@exemplo.com" },
+          "phone": { "type": "string", "example": "+55 11 98888-7777" },
+          "cpf": { "type": "string", "example": "123.456.789-00" },
+          "documentType": { "type": "string", "example": "CPF" },
+          "documentNumber": { "type": "string", "example": "12345678900" },
+          "classification": { "type": "string", "enum": ["STANDARD", "VIP", "BLACK_LIST", "FREQUENT"], "example": "VIP" },
+          "preferences": {
+            "type": "array",
+            "items": { "type": "string" },
+            "example": ["Andar alto", "Travesseiro de penas", "Quarto silencioso"]
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "example": ["Aniversariante", "Corporativo"]
+          },
+          "stats": {
+            "type": "object",
+            "properties": {
+              "totalStays": { "type": "integer", "example": 4 },
+              "totalSpent": { "type": "number", "example": 3500.00 },
+              "lastStayDate": { "type": "string", "format": "date", "example": "2026-07-15" }
+            }
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateGuestDTO": {
+        "type": "object",
+        "required": ["fullName", "email"],
+        "properties": {
+          "fullName": { "type": "string", "example": "Ana Maria Braga" },
+          "email": { "type": "string", "example": "ana.braga@exemplo.com" },
+          "phone": { "type": "string", "example": "+55 21 99999-0000" },
+          "cpf": { "type": "string", "example": "987.654.321-11" },
+          "preferences": { "type": "array", "items": { "type": "string" } },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "GuestTimelineEvent": {
+        "type": "object",
+        "required": ["eventId", "guestId", "category", "title"],
+        "properties": {
+          "eventId": { "type": "string", "example": "evt_456" },
+          "guestId": { "type": "string", "example": "guest_123" },
+          "category": { "type": "string", "example": "CHECK_IN" },
+          "title": { "type": "string", "example": "Check-in realizado na UH 102" },
+          "description": { "type": "string", "example": "Atendido com prioridade VIP pelo recepcionista Gabriel." },
+          "source": { "type": "string", "example": "reception" },
+          "actor": { "type": "string", "example": "Gabriel" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "GuestIntelligence": {
+        "type": "object",
+        "properties": {
+          "guestId": { "type": "string", "example": "guest_123" },
+          "calculatedCategory": { "type": "string", "example": "VIP" },
+          "aggregatedPreferences": { "type": "array", "items": { "type": "string" } },
+          "upsellOpportunities": { "type": "array", "items": { "type": "string" } },
+          "satisfactionScore": { "type": "number", "example": 9.5 }
+        }
+      },
+      "Reservation": {
+        "type": "object",
+        "required": ["reservationId", "guestId", "checkInDate", "checkOutDate", "status"],
+        "properties": {
+          "reservationId": { "type": "string", "example": "res_789" },
+          "organizationId": { "type": "string", "example": "org_dev_default" },
+          "propertyId": { "type": "string", "example": "prop_dev_default" },
+          "guestId": { "type": "string", "example": "guest_123" },
+          "unitId": { "type": "string", "example": "unit_101" },
+          "categoryId": { "type": "string", "example": "cat_suite_luxo" },
+          "status": { "type": "string", "enum": ["confirmed", "checked_in", "checked_out", "cancelled", "no_show"] },
+          "checkInDate": { "type": "string", "format": "date", "example": "2026-08-10" },
+          "checkOutDate": { "type": "string", "format": "date", "example": "2026-08-15" },
+          "totalPrice": { "type": "number", "example": 1450.00 },
+          "guestsCount": { "type": "integer", "example": 2 },
+          "origin": { "type": "string", "example": "Direct" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateReservationDTO": {
+        "type": "object",
+        "required": ["guestId", "checkInDate", "checkOutDate", "totalPrice"],
+        "properties": {
+          "guestId": { "type": "string", "example": "guest_123" },
+          "categoryId": { "type": "string", "example": "cat_suite_luxo" },
+          "unitId": { "type": "string", "example": "unit_101" },
+          "checkInDate": { "type": "string", "format": "date", "example": "2026-08-10" },
+          "checkOutDate": { "type": "string", "format": "date", "example": "2026-08-15" },
+          "totalPrice": { "type": "number", "example": 1450.00 },
+          "guestsCount": { "type": "integer", "example": 2 }
+        }
+      },
+      "RoomCategory": {
+        "type": "object",
+        "required": ["categoryId", "name"],
+        "properties": {
+          "categoryId": { "type": "string", "example": "cat_suite_luxo" },
+          "name": { "type": "string", "example": "Suíte Luxo Frente Mar" },
+          "code": { "type": "string", "example": "LUX_MAR" },
+          "description": { "type": "string", "example": "Suíte ampla com varanda e vista para o oceano." },
+          "baseCapacity": { "type": "integer", "example": 2 },
+          "maxCapacity": { "type": "integer", "example": 4 },
+          "active": { "type": "boolean", "example": true }
+        }
+      },
+      "RoomUnit": {
+        "type": "object",
+        "required": ["unitId", "unitNumber", "status"],
+        "properties": {
+          "unitId": { "type": "string", "example": "unit_101" },
+          "categoryId": { "type": "string", "example": "cat_suite_luxo" },
+          "unitNumber": { "type": "string", "example": "101" },
+          "status": { "type": "string", "enum": ["clean", "dirty", "inspected", "maintenance", "out_of_service"], "example": "clean" },
+          "floor": { "type": "integer", "example": 1 },
+          "active": { "type": "boolean", "example": true }
+        }
+      },
+      "HousekeepingTask": {
+        "type": "object",
+        "required": ["taskId", "unitId", "status", "type"],
+        "properties": {
+          "taskId": { "type": "string", "example": "hk_task_01" },
+          "unitId": { "type": "string", "example": "unit_101" },
+          "type": { "type": "string", "example": "checkout_cleaning" },
+          "status": { "type": "string", "enum": ["pending", "in_progress", "completed", "inspected"], "example": "pending" },
+          "priority": { "type": "string", "enum": ["low", "medium", "high"], "example": "high" },
+          "assignedTo": { "type": "string", "example": "Maria Governança" },
+          "notes": { "type": "string", "example": "Cliente VIP com check-in antecipado às 13h." }
+        }
+      },
+      "MaintenanceTask": {
+        "type": "object",
+        "required": ["taskId", "title", "status"],
+        "properties": {
+          "taskId": { "type": "string", "example": "maint_task_01" },
+          "unitId": { "type": "string", "example": "unit_104" },
+          "title": { "type": "string", "example": "Verificar aquecedor de água" },
+          "description": { "type": "string", "example": "Oscilação de temperatura na ducha da UH 104." },
+          "priority": { "type": "string", "enum": ["low", "medium", "high", "urgent"], "example": "urgent" },
+          "status": { "type": "string", "enum": ["open", "in_progress", "resolved", "cancelled"], "example": "open" },
+          "reportedBy": { "type": "string", "example": "Recepção - Carlos" },
+          "assignedTo": { "type": "string", "example": "Técnico João" },
+          "cost": { "type": "number", "example": 150.00 }
+        }
+      },
+      "AIRequest": {
+        "type": "object",
+        "required": ["prompt"],
+        "properties": {
+          "prompt": { "type": "string", "example": "Como está o status de ocupação hoje e quais VIPs chegam tarde?" },
+          "agentId": { "type": "string", "example": "reception_agent" },
+          "sessionId": { "type": "string", "example": "sess_dev_123" },
+          "organizationId": { "type": "string", "example": "org_dev_default" },
+          "propertyId": { "type": "string", "example": "prop_dev_default" },
+          "userId": { "type": "string", "example": "user_dev_01" }
+        }
+      },
+      "AIResponse": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": { "type": "string", "example": "A ocupação hoje está em 85%. O hóspede VIP Carlos Silva chega às 19:30." },
+          "data": { "type": "object" },
+          "agentId": { "type": "string", "example": "reception_agent" },
+          "source": { "type": "string", "example": "gemini_pro" },
+          "metadata": { "type": "object" }
+        }
+      },
+      "HealthStatus": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "UP" },
+          "service": { "type": "string", "example": "synapse-hospitality-api" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "uptimeSeconds": { "type": "number", "example": 1245.8 }
+        }
+      },
+      "MetricsSummary": {
+        "type": "object",
+        "properties": {
+          "timestamp": { "type": "string", "format": "date-time" },
+          "uptimeSeconds": { "type": "number", "example": 3600 },
+          "memoryUsage": {
+            "type": "object",
+            "properties": {
+              "rss": { "type": "string", "example": "120 MB" },
+              "heapTotal": { "type": "string", "example": "80 MB" },
+              "heapUsed": { "type": "string", "example": "45 MB" }
+            }
+          },
+          "httpRequests": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer", "example": 1500 },
+              "avgDurationMs": { "type": "number", "example": 12.4 }
+            }
+          },
+          "contextCache": {
+            "type": "object",
+            "properties": {
+              "hits": { "type": "integer", "example": 450 },
+              "misses": { "type": "integer", "example": 50 },
+              "invalidations": { "type": "integer", "example": 12 },
+              "hitRatioPercent": { "type": "number", "example": 90.0 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Caveat:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-serif: "Playfair Display", serif;
+  --font-script: "Caveat", cursive;
+  
+  --color-brand-green: #1a4332;
+  --color-brand-green-light: #2d5a27;
+  --color-brand-accent: #c5a35e;
+  --color-brand-sand: #fdfaf3;
+  --color-brand-ocean: #0e7490;
+  --color-brand-dark: #0f172a;
+  --color-brand-light: #ffffff;
+
+  --animate-slow-zoom: slow-zoom 20s ease-in-out infinite alternate;
+  --animate-fade-in-down: fade-in-down 0.8s ease-out forwards;
+  --animate-fade-in-up: fade-in-up 0.8s ease-out forwards;
+
+  @keyframes slow-zoom {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.05); }
+  }
+  @keyframes fade-in-down {
+    0% { opacity: 0; transform: translateY(-10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in-up {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  --animate-story-progress: story-progress 3s linear forwards;
+  @keyframes story-progress {
+    from { width: 0%; }
+    to { width: 100%; }
+  }
+}
+
+@layer base {
+  html {
+    @apply antialiased scroll-smooth;
+    font-size: 16px;
+    /* Suporte a safe areas para mobile */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  body {
+    @apply font-sans leading-relaxed text-brand-dark bg-brand-light;
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight text-brand-dark;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-green-light text-white font-semibold py-3 px-8 rounded-full transition-all hover:bg-brand-green hover:shadow-lg active:scale-95 text-sm uppercase tracking-wider;
+  }
+  
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-xl;
+  }
+  
+  .beach-gradient {
+    @apply bg-gradient-to-br from-brand-green-light via-brand-green to-brand-accent/20;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
