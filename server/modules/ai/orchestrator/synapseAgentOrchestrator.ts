@@ -42,7 +42,16 @@ async function withRetryServer<T>(fn: () => Promise<T>, retries = 3): Promise<T>
     } catch (error: any) {
       lastError = error;
       const errorMsg = String(error?.message || error || "");
-      if (errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED') || errorMsg.includes('UNAVAILABLE')) {
+      if (
+        errorMsg.includes('429') || 
+        errorMsg.includes('RESOURCE_EXHAUSTED') || 
+        errorMsg.includes('UNAVAILABLE') || 
+        errorMsg.includes('503') || 
+        errorMsg.includes('502') || 
+        errorMsg.includes('500') || 
+        errorMsg.includes('504') ||
+        errorMsg.includes('Service Unavailable')
+      ) {
         const backoffMs = Math.pow(2, i) * 1000 + Math.floor(Math.random() * 500);
         console.warn(`⚠️ [SynapseAgentOrchestrator RateLimit] Tentativa ${i + 1}/${retries} aguardando ${backoffMs}ms...`);
         await sleepServer(backoffMs);

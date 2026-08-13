@@ -42,19 +42,42 @@ import { docsRouter } from "./server/routes/docsRouter.ts";
 import { logger } from "./server/utils/logger.ts";
 
 // Patch to intercept and silence benign gRPC idle stream warnings/errors from Firestore SDK in Node.js
+let isServerLoggingError = false;
 const originalConsoleError = console.error;
-console.error = function (...args) {
-  const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-  if (
-    msg.includes('Disconnecting idle stream') || 
-    msg.includes('Timed out waiting for new targets') || 
-    msg.includes('GrpcConnection RPC') ||
-    (msg.includes('Listen') && msg.includes('CANCELLED'))
-  ) {
-    // Silence benign gRPC connection warnings from Firestore SDK quietly (no "error" in text)
-    return;
+console.error = function (...args: any[]) {
+  if (isServerLoggingError) return;
+  isServerLoggingError = true;
+  try {
+    let shouldSilence = false;
+    for (let i = 0; i < args.length; i++) {
+      const arg = args[i];
+      let str = '';
+      if (typeof arg === 'string') {
+        str = arg;
+      } else if (arg && typeof arg === 'object') {
+        if (typeof arg.message === 'string') str = arg.message;
+        else if (typeof arg.description === 'string') str = arg.description;
+      }
+      if (
+        str && (
+          str.includes('Disconnecting idle stream') || 
+          str.includes('Timed out waiting for new targets') || 
+          str.includes('GrpcConnection RPC') ||
+          (str.includes('Listen') && str.includes('CANCELLED'))
+        )
+      ) {
+        shouldSilence = true;
+        break;
+      }
+    }
+    if (!shouldSilence) {
+      originalConsoleError.apply(console, args);
+    }
+  } catch {
+    // Fail silently in interceptor to avoid breaking server console logging
+  } finally {
+    isServerLoggingError = false;
   }
-  originalConsoleError.apply(console, args);
 };
 
 const appDir = process.cwd();
@@ -303,18 +326,19 @@ function getRandomChoice(arr: any[]) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function generateMockFromSchema(schema: any, promptPhrase: string = ""): any {
-  if (!schema) return {};
+function generateMockFromSchema(schema: any, promptPhrase: string = "", depth: number = 0): any {
+  if (!schema || depth > 8) return {};
   
   // Normalize type
   const type = String(schema.type || "OBJECT").toUpperCase();
 
   if (type === "ARRAY") {
     const itemsSchema = schema.items;
+    if (!itemsSchema) return [];
     const items = [];
     const count = 2; // Fixed count for consistency and layout size
     for (let i = 0; i < count; i++) {
-      items.push(generateMockFromSchema(itemsSchema, promptPhrase + `_index_${i}`));
+      items.push(generateMockFromSchema(itemsSchema, promptPhrase + `_index_${i}`, depth + 1));
     }
     return items;
   }
@@ -323,7 +347,7 @@ function generateMockFromSchema(schema: any, promptPhrase: string = ""): any {
     const obj: any = {};
     if (schema.properties) {
       for (const [key, value] of Object.entries(schema.properties)) {
-        obj[key] = generateMockFromSchema(value, key);
+        obj[key] = generateMockFromSchema(value, key, depth + 1);
       }
     }
     return obj;
@@ -615,7 +639,16 @@ async function withRetryServer<T>(fn: () => Promise<T>, retries = 3): Promise<T>
     } catch (error: any) {
       lastError = error;
       const errorMsg = String(error?.message || error || "");
-      if (errorMsg.includes('429') || errorMsg.includes('RESOURCE_EXHAUSTED') || errorMsg.includes('UNAVAILABLE')) {
+      if (
+        errorMsg.includes('429') || 
+        errorMsg.includes('RESOURCE_EXHAUSTED') || 
+        errorMsg.includes('UNAVAILABLE') || 
+        errorMsg.includes('503') || 
+        errorMsg.includes('502') || 
+        errorMsg.includes('500') || 
+        errorMsg.includes('504') ||
+        errorMsg.includes('Service Unavailable')
+      ) {
         const backoffMs = Math.pow(2, i) * 1000 + Math.floor(Math.random() * 500);
         console.warn(`⚠️ [Gemini RateLimit] Tentativa ${i + 1}/${retries} aguardando ${backoffMs}ms...`);
         await sleepServer(backoffMs);

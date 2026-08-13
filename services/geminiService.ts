@@ -35,8 +35,20 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3): Promise<T> => {
             return await fn();
         } catch (error: any) {
             lastError = error;
-            if (error.message?.includes('429')) {
-                await sleep(Math.pow(2, i) * 1000);
+            const errorMsg = String(error?.message || error || "");
+            if (
+                errorMsg.includes('429') || 
+                errorMsg.includes('503') || 
+                errorMsg.includes('502') || 
+                errorMsg.includes('504') || 
+                errorMsg.includes('500') ||
+                errorMsg.includes('RESOURCE_EXHAUSTED') || 
+                errorMsg.includes('UNAVAILABLE') ||
+                errorMsg.includes('Service Unavailable') ||
+                errorMsg.includes('Failed to fetch')
+            ) {
+                const backoffMs = Math.pow(2, i) * 1000 + Math.floor(Math.random() * 300);
+                await sleep(backoffMs);
                 continue;
             }
             throw error;
