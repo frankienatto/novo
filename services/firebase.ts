@@ -1,10 +1,20 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer, setLogLevel } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, doc, getDocFromServer, setLogLevel } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+// Inicializa Firestore com auto-detect de Long Polling para garantir conectividade contínua em iframes
+let firestoreDb;
+try {
+  firestoreDb = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true,
+  }, firebaseConfig.firestoreDatabaseId);
+} catch {
+  firestoreDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+}
+export const db = firestoreDb;
 
 // Silencia logs do SDK do Firestore para evitar alertas benignos de stream ociosa (idle disconnects)
 try {
@@ -66,11 +76,21 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 // Connectivity check
 async function testConnection() {
+  // Concede um pequeno intervalo para que o transporte de rede e Long Polling se estabeleçam no navegador/iframe
+  await new Promise((resolve) => setTimeout(resolve, 800));
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+      // Se na primeira fração de segundo der offline, tenta novamente após estabilização de rede
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (retryError) {
+        if (retryError instanceof Error && retryError.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
     }
   }
 }

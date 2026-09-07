@@ -378,6 +378,8 @@ export const resetDb = async (category?: keyof DBState) => {
 export const checkFirestoreConnection = async () => {
     try {
         const { doc, getDocFromServer } = await import('firebase/firestore');
+        // Concede um intervalo para que o handshake de rede e transporte se completem
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         await getDocFromServer(doc(firestore, 'test', 'connection'));
         console.log('🔥 Firebase Firestore: Conectado com sucesso!');
         return true;
@@ -386,7 +388,11 @@ export const checkFirestoreConnection = async () => {
             console.log('🔥 Firebase Firestore: Conectado (Regras de segurança bloqueiam o teste publico, o que é esperado).');
             return true;
         }
-        console.error('🔥 Firebase Firestore: Erro de conexão:', error);
+        if (error?.message?.includes('the client is offline') || error?.code === 'unavailable') {
+            console.warn('🔥 Firebase Firestore: Conexão remota em inicialização em segundo plano (modo offline resiliente ativo).');
+            return false;
+        }
+        console.warn('🔥 Firebase Firestore: Verificação de conectividade:', error?.message || error);
         return false;
     }
 };

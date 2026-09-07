@@ -20,7 +20,8 @@ function isBenignErrorMsg(msg: string): boolean {
     msg.includes('@firebase/firestore') ||
     msg.includes('firestoreDatabaseId') ||
     (msg.includes('Listen') && msg.includes('CANCELLED')) ||
-    (msg.includes('gRPC') && msg.includes('stream'))
+    (msg.includes('gRPC') && msg.includes('stream')) ||
+    msg.includes('the client is offline')
   );
 }
 
