@@ -1,0 +1,110 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  assertFails,
+  assertSucceeds,
+  initializeTestEnvironment,
+  type RulesTestEnvironment,
+} from '@firebase/rules-unit-testing';
+import { doc, setDoc } from 'firebase/firestore';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const projectId = 'synapse-p01b-rules';
+let testEnv: RulesTestEnvironment;
+
+const adminA = {
+  organizationId: 'org_a',
+  propertyId: 'prop_a',
+  role: 'Admin',
+  permissions: ['manage_users'],
+  name: 'Admin A'
+};
+
+const userA = {
+  organizationId: 'org_a',
+  propertyId: 'prop_a',
+  role: 'Receptionist',
+  permissions: ['view_dashboard'],
+  name: 'User A'
+};
+
+beforeAll(async () => {
+  testEnv = await initializeTestEnvironment({
+    projectId,
+    firestore: {
+      rules: fs.readFileSync(path.resolve(process.cwd(), 'firestore.rules'), 'utf8'),
+      host: '127.0.0.1',
+      port: 8080,
+    },
+  });
+});
+
+beforeEach(async () => {
+  await testEnv.clearFirestore();
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'staff', 'admin_a'), adminA);
+    await setDoc(doc(db, 'staff', 'user_a'), userA);
+  });
+});
+
+afterAll(async () => {
+  await testEnv.cleanup();
+});
+
+describe('Firestore Rules Emulator: staff privilege escalation', () => {
+  it('A. rejects unauthenticated staff creation', async () => {
+    await assertFails(setDoc(doc(testEnv.unauthenticatedContext().firestore(), 'staff', 'anonymous'), userA));
+  });
+
+  it('B/C. rejects a normal user creating a self staff document in any tenant', async () => {
+    const db = testEnv.authenticatedContext('user_b').firestore();
+    await assertFails(setDoc(doc(db, 'staff', 'user_b'), { ...userA, organizationId: 'org_a' }));
+    await assertFails(setDoc(doc(db, 'staff', 'user_b'), { ...userA, organizationId: 'org_b', propertyId: 'prop_b' }));
+  });
+
+  it('D. rejects a normal user promoting themselves to admin', async () => {
+    const db = testEnv.authenticatedContext('user_a').firestore();
+    await assertFails(setDoc(doc(db, 'staff', 'user_a'), { ...userA, role: 'Admin' }));
+  });
+
+  it('E/F. rejects role and permission changes by the staff member', async () => {
+    const db = testEnv.authenticatedContext('user_a').firestore();
+    await assertFails(setDoc(doc(db, 'staff', 'user_a'), { ...userA, role: 'Super Administrador' }));
+    await assertFails(setDoc(doc(db, 'staff', 'user_a'), { ...userA, permissions: ['manage_users'] }));
+  });
+
+  it('G/H. rejects organization and property changes by the staff member', async () => {
+    const db = testEnv.authenticatedContext('user_a').firestore();
+    await assertFails(setDoc(doc(db, 'staff', 'user_a'), { ...userA, organizationId: 'org_b' }));
+    await assertFails(setDoc(doc(db, 'staff', 'user_a'), { ...userA, propertyId: 'prop_b' }));
+  });
+
+  it('I. allows an existing tenant admin to create staff in their own tenant', async () => {
+    const db = testEnv.authenticatedContext('admin_a').firestore();
+    await assertSucceeds(setDoc(doc(db, 'staff', 'new_user_a'), {
+      ...userA,
+      organizationId: 'org_a',
+      propertyId: 'prop_a'
+    }));
+  });
+
+  it('J. rejects an admin creating staff in another tenant', async () => {
+    const db = testEnv.authenticatedContext('admin_a').firestore();
+    await assertFails(setDoc(doc(db, 'staff', 'new_user_b'), {
+      ...userA,
+      organizationId: 'org_b',
+      propertyId: 'prop_b'
+    }));
+  });
+
+  it('K. allows a staff member to update only their own non-authorisation profile fields', async () => {
+    const db = testEnv.authenticatedContext('user_a').firestore();
+    await assertSucceeds(setDoc(doc(db, 'staff', 'user_a'), {
+      ...userA,
+      name: 'Updated User A',
+      phone: '+55 11 99999-0000',
+      updatedAt: '2026-09-07T00:00:00.000Z'
+    }));
+  });
+});

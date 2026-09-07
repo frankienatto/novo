@@ -90,8 +90,12 @@ async function ensureSystemAuthenticated() {
     console.log("🔐 Webhook Auth: System already authenticated as", auth.currentUser.email);
     return;
   }
-  const email = "system-webhook@foresthouse.com.br";
-  const password = "SystemWebhookFH@2026";
+  const email = process.env.SYSTEM_WEBHOOK_EMAIL;
+  const password = process.env.SYSTEM_WEBHOOK_PASSWORD;
+
+  if (!email || !password) {
+    throw new Error('System webhook credentials are not configured.');
+  }
   
   try {
     await signInWithEmailAndPassword(auth, email, password);
@@ -1041,13 +1045,17 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   app.post("/api/webhooks/aloha-pro", async (req, res) => {
     try {
         const secretHeader = req.headers["x-aloha-secret"];
-        const secretQuery = req.query.secret;
-        const secretBody = req.body.secret;
-        const expectedSecret = "aloha_pro_sec_3218739a8";
+        const expectedSecret = process.env.ALOHA_PRO_WEBHOOK_SECRET;
+
+        if (!expectedSecret) {
+            return res.status(503).json({ error: "Aloha Pro webhook is not configured." });
+        }
         
-        const providedSecret = secretHeader || secretQuery || secretBody;
+        // Never accept a webhook secret in URL query/body, where it can be
+        // captured by access logs or persisted with the inbound payload.
+        const providedSecret = secretHeader;
         if (providedSecret !== expectedSecret) {
-            console.warn(`🚨 Webhook unauthorized attempt with secret: ${providedSecret}`);
+            console.warn("Aloha Pro webhook unauthorized attempt.");
             return res.status(401).json({ error: "Sua chave secreta do webhook é inválida." });
         }
 

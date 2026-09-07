@@ -3,16 +3,20 @@ import { n8nService } from './n8nService.ts';
 import { N8nWebhookPayload } from './integrationTypes.ts';
 import { parsePaginationParams, paginateArray } from '../../utils/pagination.ts';
 import { cacheConfig } from '../../config/cacheConfig.ts';
+import { env } from '../../config/environment.ts';
 
 export const n8nRouter = Router();
 
 // Middleware de Autenticação para Ingestão do n8n
-const authenticateN8n = (req: Request, res: Response, next: NextFunction) => {
+export const authenticateN8n = (req: Request, res: Response, next: NextFunction) => {
   const apiKeyHeader = req.headers['x-n8n-api-key'] || req.headers['authorization'];
-  const expectedApiKey = process.env.N8N_API_KEY || 'synapse_n8n_secret_key_2026';
+  const expectedApiKey = env.N8N_SECRET;
 
-  // Em ambiente de desenvolvimento ou se a chave corresponder
-  if (apiKeyHeader === expectedApiKey || apiKeyHeader === `Bearer ${expectedApiKey}` || process.env.NODE_ENV !== 'production') {
+  if (!expectedApiKey) {
+    return res.status(503).json({ error: 'Barramento n8n n\u00e3o configurado.' });
+  }
+
+  if (apiKeyHeader === expectedApiKey || apiKeyHeader === `Bearer ${expectedApiKey}`) {
     return next();
   }
 
@@ -23,9 +27,19 @@ const authenticateN8n = (req: Request, res: Response, next: NextFunction) => {
 };
 
 // Middleware de Contexto Multi-tenant
-const extractTenantContext = (req: Request, res: Response, next: NextFunction) => {
-  const orgId = (req.headers['x-organization-id'] as string) || req.body?.organizationId || 'org_dev_default';
-  const propId = (req.headers['x-property-id'] as string) || req.body?.propertyId || 'prop_dev_default';
+export const extractTenantContext = (req: Request, res: Response, next: NextFunction) => {
+  const orgId = env.N8N_ORGANIZATION_ID;
+  const propId = env.N8N_PROPERTY_ID;
+
+  if (!orgId || !propId) {
+    return res.status(503).json({ error: 'Contexto de tenant do n8n n\u00e3o configurado.' });
+  }
+
+  const requestedOrgId = (req.headers['x-organization-id'] as string) || req.body?.organizationId;
+  const requestedPropId = (req.headers['x-property-id'] as string) || req.body?.propertyId;
+  if ((requestedOrgId && requestedOrgId !== orgId) || (requestedPropId && requestedPropId !== propId)) {
+    return res.status(403).json({ error: 'Contexto de tenant n\u00e3o autorizado.' });
+  }
 
   (req as any).organizationId = orgId;
   (req as any).propertyId = propId;

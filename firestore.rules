@@ -20,6 +20,12 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/staff/$(request.auth.uid));
     }
 
+    // Only an already-provisioned administrator may manage staff records.
+    // A signed-in user must never bootstrap their own staff profile.
+    function isTenantAdmin() {
+      return isStaff() && staffDoc().role in ['Admin', 'Super Administrador', 'owner'];
+    }
+
     // Checks if staff member belongs to the tenant of the document being read/updated/deleted
     function isStaffOfTenant(resData) {
       return isStaff() && (
@@ -43,6 +49,13 @@ service cloud.firestore {
           && (!('propertyId' in request.resource.data) || !('propertyId' in resource.data) || request.resource.data.propertyId == resource.data.propertyId);
     }
 
+    // Roles, permissions and tenant scope are admin-owned. A staff member may
+    // maintain only their own non-authorisation profile fields.
+    function isSafeSelfStaffProfileUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['name', 'email', 'phone', 'avatarUrl', 'photoURL', 'updatedAt']);
+    }
+
     // --- Connectivity Test Collection ---
     match /test/{testId} {
       allow read, write: if isSignedIn();
@@ -51,9 +64,12 @@ service cloud.firestore {
     // --- Core User & Identity Collections ---
     match /staff/{staffId} {
       allow read: if isSignedIn() && (request.auth.uid == staffId || isStaffOfTenant(resource.data));
-      allow create: if isSignedIn() && (request.auth.uid == staffId || isAllowedTenantCreate());
-      allow update: if isSignedIn() && (request.auth.uid == staffId || isStaffOfTenant(resource.data)) && isTenantMatch();
-      allow delete: if isStaffOfTenant(resource.data);
+      allow create: if isTenantAdmin()
+          && staffId != request.auth.uid
+          && isAllowedTenantCreate();
+      allow update: if isTenantAdmin() && isStaffOfTenant(resource.data) && isTenantMatch()
+          || (isSignedIn() && request.auth.uid == staffId && isSafeSelfStaffProfileUpdate());
+      allow delete: if isTenantAdmin() && isStaffOfTenant(resource.data);
     }
 
     match /guests/{guestId} {

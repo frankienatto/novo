@@ -3,10 +3,12 @@ import { z } from 'zod';
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().or(z.number()).transform(val => Number(val)).default(3000),
-  GEMINI_API_KEY: z.string().optional().default(process.env.GEMINI_API_KEY || 'dev_gemini_key_placeholder'),
-  JWT_SECRET: z.string().min(8, 'JWT_SECRET deve ter no mínimo 8 caracteres').default('synapse_jwt_secret_dev_key_2026_safe'),
-  N8N_SECRET: z.string().min(8, 'N8N_SECRET deve ter no mínimo 8 caracteres').default('synapse_n8n_secret_token_dev_2026'),
-  ALOHA_API_KEY: z.string().optional().default('aloha_dev_api_key_2026'),
+  GEMINI_API_KEY: z.string().min(1).optional(),
+  JWT_SECRET: z.string().min(8).optional(),
+  N8N_SECRET: z.string().min(8).optional(),
+  N8N_ORGANIZATION_ID: z.string().min(1).optional(),
+  N8N_PROPERTY_ID: z.string().min(1).optional(),
+  ALOHA_API_KEY: z.string().min(1).optional(),
   // Feature Flags
   ENABLE_SWAGGER: z.string().default('true').transform(val => val === 'true'),
   ENABLE_CACHE: z.string().default('true').transform(val => val === 'true'),
@@ -21,6 +23,13 @@ let parsedEnv: EnvConfig;
 
 try {
   parsedEnv = envSchema.parse(process.env);
+  if (parsedEnv.NODE_ENV === 'production') {
+    const missing = ['JWT_SECRET', 'N8N_SECRET']
+      .filter((key) => !parsedEnv[key as 'JWT_SECRET' | 'N8N_SECRET']);
+    if (missing.length > 0) {
+      throw new Error(`Missing required production environment variables: ${missing.join(', ')}`);
+    }
+  }
   console.log('✅ [Environment] Variáveis de ambiente validadas com sucesso. Modo:', parsedEnv.NODE_ENV);
 } catch (err: any) {
   if (err instanceof z.ZodError) {
@@ -34,10 +43,9 @@ try {
   if (process.env.NODE_ENV === 'production') {
     process.exit(1);
   }
-  // Fallback para dev
-  parsedEnv = envSchema.parse({
-    NODE_ENV: 'development'
-  });
+  // Development/test may run without optional integrations, but never receive
+  // predictable fallback credentials.
+  parsedEnv = envSchema.parse({ NODE_ENV: process.env.NODE_ENV || 'development' });
 }
 
 export const env = parsedEnv;

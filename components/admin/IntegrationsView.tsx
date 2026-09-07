@@ -134,7 +134,7 @@ Meio de Pagamento Escolhido: Pix Online`
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-aloha-secret': 'aloha_pro_sec_3218739a8'
+                    'x-aloha-secret': 'WEBHOOK_SECRET_CONFIGURED_SERVER_SIDE'
                 },
                 body: JSON.stringify({ content: simulatedContent })
             });
@@ -358,11 +358,11 @@ Meio de Pagamento Escolhido: Pix Online`
                                                         <label className="block text-[9px] font-black uppercase text-amber-700 tracking-wider mb-1">Chave Secreta do Webhook (Header: x-aloha-secret)</label>
                                                         <div className="flex gap-2">
                                                             <div className="flex-1 bg-white px-3 py-2 rounded-xl border border-gray-100 text-[10px] font-mono select-all text-gray-700">
-                                                                aloha_pro_sec_3218739a8
+                                                                WEBHOOK_SECRET_CONFIGURED_SERVER_SIDE
                                                             </div>
                                                             <button 
                                                                 onClick={() => {
-                                                                    navigator.clipboard.writeText("aloha_pro_sec_3218739a8");
+                                                                    navigator.clipboard.writeText("WEBHOOK_SECRET_CONFIGURED_SERVER_SIDE");
                                                                     alert("Chave copiada com sucesso!");
                                                                 }}
                                                                 className="px-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 text-gray-500 transition-colors"
@@ -405,7 +405,7 @@ Meio de Pagamento Escolhido: Pix Online`
                                                             <div>• <strong>Headers:</strong></div>
                                                             <div className="pl-4">
                                                                 - <code>Content-Type</code>: <code>application/json</code><br />
-                                                                - <code>x-aloha-secret</code>: <code>aloha_pro_sec_3218739a8</code>
+                                                                - <code>x-aloha-secret</code>: <code>WEBHOOK_SECRET_CONFIGURED_SERVER_SIDE</code>
                                                             </div>
                                                             <div>• <strong>Body Content Type:</strong> JSON</div>
                                                             <div>• <strong>Specify Body:</strong> Using Fields Below (ou JSON)</div>
