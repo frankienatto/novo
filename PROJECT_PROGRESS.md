@@ -2,6 +2,104 @@
 
 ## Estrutura Oficial de Milestones (Marcos)
 
+### INTELIGÊNCIA ARTIFICIAL & GOVERNANÇA — FASE 4.4: End-to-End Operational Validation & Closed-Loop Human Deliberation [CONCLUÍDO]
+- [x] **Resolução de Recursão Crítica no ApprovalRepository**: Implementada barreira de reentrância com `activeResolutions` Set e garantia determinística de liberação no bloco `finally`, eliminando o risco de `Maximum call stack size exceeded`.
+- [x] **Estabilização do GoalPlanner**: Tratamento defensivo contra arrays nulos e suporte oficial a planos de ação explícitos (`actionPlan`) para governança precisa de missões estratégicas.
+- [x] **Suíte E2E de Closed-Loop e Governança ADR-005 (`closedLoopAndGovernance.test.ts`)**: 5/5 testes aprovados cobrindo o fluxo fechado completo (PMS -> Contexto -> Orquestrador -> Decisão -> Aprovação Humana -> GoalEngine -> KPIs) e neutralização de tentativas de bypass por IA.
+- [x] **Suíte de Isolamento Multi-Tenant (`multiTenancyIsolation.test.ts`)**: 8/8 testes aprovados garantindo isolamento absoluto de queries e blindagem contra mutação indevida de tenant.
+- [x] **Suíte de Validação das APIs E2E (`apiRoutesE2E.test.ts`)**: 35/35 testes aprovados cobrindo o catálogo de 23 agentes e endpoints vitais da plataforma.
+- [x] **Verificação de Compilação e Tipagem**: 100% de sucesso em `lint_applet` (`tsc --noEmit` com 0 erros) e `compile_applet` (`vite build && esbuild server.ts`).
+
+### INTELIGÊNCIA ARTIFICIAL & GOVERNANÇA — FASE 4.3: Contextual Intelligence Distribution & Operational UI Integration [CONCLUÍDO]
+- [x] **Endpoints REST de Contexto Distribuído (`decisionController.ts`)**: Implementados endpoints `GET /api/decision/distributed-context`, `GET /api/decision/context/:module` e `POST /api/decision/context/:insightId/status` com extração e validação estrita de tenancy via headers (`x-organization-id`, `x-property-id`) e query params.
+- [x] **Contratos de API e Cache Frontend (`QUERY_KEYS` & `decisionApi`)**: Adicionadas queryKeys escopadas por organização, propriedade e módulo, além dos métodos `getDistributedContext` e `getModuleContext` em `src/core/api/moduleApis.ts` com proteção contra IDs vazios.
+- [x] **Remoção de Fallbacks Inseguros e Suporte SSR (`httpClient.ts`)**: Atualizado o cliente HTTP para eliminar fallbacks de desenvolvimento inseguros (`org_dev_default`/`prop_dev_default`) e garantir suporte robusto a ambientes server-side e de teste onde `localStorage` não está presente.
+- [x] **Componente Operacional de Inteligência Contextual (`ContextualIntelligenceBanner.tsx`)**: Criado componente visual calmo com badges semânticos de prioridade e categoria, detalhamento de impacto projetado/mensurado, justificativa prescritiva e encaminhamento direto para deliberação no Approval Center oficial (ADR-005).
+- [x] **Governança Estrita ADR-005 Preservada**: Recomendações exigem obrigatoriamente chancela humana; nenhum módulo operacional dispara mutações automáticas não autorizadas.
+- [x] **Suíte Completa de Testes Automatizados (`contextDistributionUI.test.ts`)**: 20/20 testes unitários e de integração aprovados no Vitest cobrindo renderização, estado calmo, ordenação, isolamento multi-tenant, expiração, governança, cache e resiliência nos 10 módulos operacionais oficiais.
+
+### INTELIGÊNCIA ARTIFICIAL & GOVERNANÇA — FASE 4.2: Contextual Intelligence Distribution Engine [CONCLUÍDO]
+- [x] **Motor de Distribuição de Inteligência Contextual (`ContextDistributionService`)**: Implementado motor de entrega de contexto consultivo top-down conectando o planejamento estratégico, o GoalEngine e o impacto real medido a todos os 10 módulos operacionais (`server/modules/ai/context/contextDistributionService.ts`).
+- [x] **Definições de Tipos e Contratos Estruturados (`contextDistributionTypes.ts`)**: Modelagem de tipos para insights contextuais, prioridades (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`), desfechos e filtros de roteamento departamental.
+- [x] **Governança Estrita ADR-005 (Approval Center)**: Recomendações nascem obrigatoriamente com status `PENDING_APPROVAL` e `requiresApproval: true`, proibindo qualquer execução operacional autônoma sem deliberação humana prévia.
+- [x] **Roteamento e Relevância Determinística**: Inferência de destinatários operacionais com base em KPIs e perfis de agentes, ordenação determinística por criticidade e nível de confiança (`confidence score`).
+- [x] **Gerenciamento de Ciclo de Vida e Expiração (TTL)**: Suporte a `expiresAt`, limpeza automática de insights expirados e notificação via `AgentEventBus`.
+- [x] **Integrações de Contexto**: Resumos integrados ao `ContextService` (`distributedContext`), `ExecutiveCopilotService` (`getDistributedContextSummary`) e `DecisionService` (`getDistributedContextForDepartment`).
+- [x] **Isolamento Estrito Multi-Tenant e Multi-Property**: Particionamento por chave `${organizationId}:${propertyId}` com memória isolada no `AgentSharedMemory`.
+- [x] **Suíte de Testes Automatizados (`contextDistribution.test.ts`)**: 20/20 testes unitários e de integração aprovados no Vitest cobrindo todos os fluxos, filtros, eventos, governança e isolamento de tenants.
+
+### INTELIGÊNCIA ARTIFICIAL & GOVERNANÇA — FASE 4.1: Closed-Loop Feedback & Impact Measurement Engine [CONCLUÍDO]
+- [x] **Motor de Medição de Impacto Real (`StrategicImpactEvaluator`)**: Implementado motor de comparação determinística entre o impacto projetado (*Expected Impact*) e o resultado real mensurado (*Actual Impact*) pós-execução de missões estratégicas (`server/modules/ai/planning/strategicImpactEvaluator.ts`).
+- [x] **Classificação de Outcomes & Variance**: Classificação em 7 estados formais (`EXCEEDED`, `ACHIEVED`, `PARTIALLY_ACHIEVED`, `FAILED`, `NEGATIVE_IMPACT`, `NEUTRAL`, `INSUFFICIENT_DATA`), cálculo de variance percentual e achievement rate composto de múltiplos KPIs.
+- [x] **Calibração Determinística de Confiança**: Ajuste calibrado de confidence score com limites de segurança (mínimo 0.50 e máximo 0.98), retroalimentando o `StrategicForecastEngine` e `StrategicPlanner`.
+- [x] **Isolamento Estrito Multi-Tenant**: Histórico de avaliações e calibrações de confiança isolados rigidamente por `organizationId` e `propertyId`.
+- [x] **Integração de Eventos & XAI**: Publicação de eventos `planning:impact_evaluated` no `AgentEventBus`, memória compartilhada (`AgentSharedMemory`), resumos executivos para `ExecutiveCopilot` e `DecisionService`, e preservação irrestrita do ADR-005 (zero mutações operacionais automáticas não aprovadas).
+- [x] **Suíte de Testes Automatizados (`strategicImpact.test.ts`)**: 19/19 testes aprovados no Vitest cobrindo todos os cenários de calibração, janelas de medição, limites e retroalimentação.
+
+### PERSISTÊNCIA DURÁVEL FIRESTORE — P1 FASE 8: Direct Booking Repository [CONCLUÍDO]
+- [x] **Migração do `DirectBookingRepository` para Firestore**: Removida a persistência em memória (`Map<string, CommercialProposal>`) e migrados todos os métodos para chamadas assíncronas ao Firestore via Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+- [x] **Coleção Estruturada**: Preservada a coleção oficial existente `'commercialProposals'`, conforme arquitetura do projeto e modelo de dados de reservas diretas.
+- [x] **Preservação do Contrato**: Mantidos 100% dos nomes de métodos, parâmetros, retornos, interfaces (`IDirectBookingRepository`) e tipos (`CommercialProposal`, `CreateProposalDTO`, `UpdateProposalDTO`, `DirectBookingMetrics`, `DirectBookingSummaryForAI`).
+- [x] **Proteção de Isolamento & Imutabilidade Multi-Tenant**: Validação para impedir alteração de `organizationId` e `propertyId` em atualizações e filtragem por tenant nas consultas.
+- [x] **Suíte de Testes de Persistência Automatizados (`directBookingRepository.test.ts`)**: 17/17 testes unitários e de integração aprovados no Vitest, incluindo a verificação obrigatória de persistência durável após destruição e recriação do objeto de instância do repositório, cálculo de noites/valores, ciclo de conversão e regressão com `DirectBookingService`.
+
+### PERSISTÊNCIA DURÁVEL FIRESTORE — P1 FASE 7: Sales Repository [CONCLUÍDO]
+- [x] **Migração do `SalesRepository` para Firestore**: Removida a persistência em memória (`Map<string, SalesOpportunity>`) e migrados todos os métodos para chamadas assíncronas ao Firestore via Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+- [x] **Coleção Estruturada**: Preservada a coleção oficial existente `'salesOpportunities'`, conforme arquitetura do projeto e modelo de dados de CRM comercial.
+- [x] **Preservação do Contrato**: Mantidos 100% dos nomes de métodos, parâmetros, retornos, interfaces (`ISalesRepository`) e tipos (`SalesOpportunity`, `CreateOpportunityDTO`, `UpdateOpportunityDTO`, `AddInteractionDTO`, `ScheduleFollowUpDTO`, `PipelineStage`, `LeadTemperature`, `LeadSource`, `CommercialInteraction`, `NextFollowUp`).
+- [x] **Proteção de Isolamento & Imutabilidade Multi-Tenant**: Validação para impedir alteração de `organizationId` e `propertyId` em atualizações e filtragem por tenant nas consultas.
+- [x] **Suíte de Testes de Persistência Automatizados (`salesRepository.test.ts`)**: 17/17 testes unitários e de integração aprovados no Vitest, incluindo a verificação obrigatória de persistência durável após destruição e recriação do objeto de instância do repositório, cálculo de score, filtros e regressão com `SalesService`.
+
+### PERSISTÊNCIA DURÁVEL FIRESTORE — P1 FASE 6: Maintenance Repository [CONCLUÍDO]
+- [x] **Migração do `MaintenanceRepository` para Firestore**: Removida a persistência em memória (`Map<string, MaintenanceTask>` e `history: MaintenanceHistory[]`) e migrados todos os métodos para chamadas assíncronas ao Firestore via Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+- [x] **Coleção Estruturada**: Preservada a coleção oficial existente `'tasks'` e a subcoleção `'history'` (`tasks/{taskId}/history/{historyId}`), conforme arquitetura do projeto e regras de segurança Firestore.
+- [x] **Preservação do Contrato**: Mantidos 100% dos nomes de métodos, parâmetros, retornos, interfaces (`IMaintenanceRepository`) e tipos (`MaintenanceTask`, `MaintenanceHistory`, `MaintenanceStatus`, `MaintenanceCategory`, `MaintenancePriority`, `CreateMaintenanceTaskDTO`, `UpdateMaintenanceTaskDTO`, `MaintenanceTaskFilters`, `MaintenanceDashboardSummary`).
+- [x] **Proteção de Isolamento & Imutabilidade Multi-Tenant**: Validação para impedir alteração de `organizationId` e `propertyId` em atualizações e filtragem por tenant nas consultas.
+- [x] **Suíte de Testes de Persistência Automatizados (`maintenanceRepository.test.ts`)**: 17/17 testes unitários e de integração aprovados no Vitest, incluindo a verificação obrigatória de persistência durável após destruição e recriação do objeto de instância do repositório, histórico de auditoria, filtros e regressão com `MaintenanceService`.
+
+### PERSISTÊNCIA DURÁVEL FIRESTORE — P1 FASE 5: Housekeeping Repository [CONCLUÍDO]
+- [x] **Migração do `HousekeepingRepository` para Firestore**: Removida a persistência em memória (`Map<string, HousekeepingTask>`) e migrados todos os métodos para chamadas assíncronas ao Firestore via Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+- [x] **Coleção Estruturada**: Preservada a coleção oficial existente `'tasks'`, conforme arquitetura do projeto e regras de segurança Firestore, evitando criação de coleções paralelas.
+- [x] **Preservação do Contrato**: Mantidos 100% dos nomes de métodos, parâmetros, retornos, interfaces (`IHousekeepingRepository`) e tipos (`HousekeepingTask`, `CleaningStatus`, `InspectionStatus`, `TaskPriority`, `CreateHousekeepingTaskDTO`, `UpdateHousekeepingTaskDTO`, `HousekeepingTaskFilters`, `HousekeepingDashboardSummary`).
+- [x] **Proteção de Isolamento & Imutabilidade Multi-Tenant**: Validação para impedir alteração de `organizationId` e `propertyId` em atualizações e filtragem por tenant nas consultas.
+- [x] **Suíte de Testes de Persistência Automatizados (`housekeepingRepository.test.ts`)**: 16/16 testes unitários e de integração aprovados no Vitest, incluindo a verificação obrigatória de persistência durável após destruição e recriação do objeto de instância do repositório, ordenação de prioridade, filtros e regressão com `HousekeepingService`.
+
+### PERSISTÊNCIA DURÁVEL FIRESTORE — P1 FASE 4: Guest Repository [CONCLUÍDO]
+- [x] **Migração do `GuestRepository` para Firestore**: Removida a persistência em memória (`Map<string, GuestProfile>`) e migrados todos os métodos para chamadas assíncronas ao Firestore via Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+- [x] **Coleção Estruturada**: Suporte à coleção `guests` com leitura/escrita durável e IDs estáveis.
+- [x] **Preservação do Contrato**: Mantidos 100% dos nomes de métodos, parâmetros, retornos, interfaces (`IGuestRepository`) e tipos (`GuestProfile`, `GuestPreferences`, `GuestDocument`, `GuestStayRecord`, `CreateGuestDTO`, `UpdateGuestDTO`, `GuestQueryFilters`).
+- [x] **Proteção de Isolamento & Imutabilidade Multi-Tenant**: Validação para impedir alteração de `organizationId` e `guestId` em atualizações e filtragem por tenant nas consultas.
+- [x] **Suíte de Testes de Persistência Automatizados (`guestRepository.test.ts`)**: 15/15 testes unitários e de integração aprovados no Vitest, incluindo a verificação obrigatória de persistência durável após destruição e recriação do objeto de instância do repositório, busca por documento/e-mail, histórico de estadias e regressão com `CrmService`.
+
+### PERSISTÊNCIA DURÁVEL FIRESTORE — P1 FASE 3: Reservation Repository [CONCLUÍDO]
+- [x] **Migração do `ReservationRepository` para Firestore**: Removida a persistência em memória (`Map<string, Reservation>`) e migrados todos os métodos para chamadas assíncronas ao Firestore via Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+- [x] **Coleção Estruturada**: Suporte à coleção `bookings` com leitura/escrita durável e IDs estáveis.
+- [x] **Preservação do Contrato**: Mantidos 100% dos nomes de métodos, parâmetros, retornos, interfaces (`IReservationRepository`) e tipos (`Reservation`, `StayPeriod`, `PaymentSummary`, `Guest`, `ReservationFilterDTO`).
+- [x] **Proteção de Isolamento & Imutabilidade Multi-Tenant**: Validação para impedir alteração de `organizationId`, `propertyId` e `reservationId` em atualizações e filtragem por tenant nas consultas.
+- [x] **Suíte de Testes de Persistência Automatizados (`reservationRepository.test.ts`)**: 17/17 testes unitários e de integração aprovados no Vitest, incluindo a verificação obrigatória de persistência durável após destruição e recriação do objeto de instância do repositório, conflitos de overbooking e regressão com `ReservationService`.
+
+### PERSISTÊNCIA DURÁVEL FIRESTORE — P1 FASE 2: Room Repository [CONCLUÍDO]
+- [x] **Migração do `RoomRepository` para Firestore**: Removida a persistência em memória (`Map<string, RoomCategory>`, `Map<string, RoomUnit>`) e migrados todos os métodos para chamadas assíncronas ao Firestore via Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+- [x] **Coleções Estruturadas**: Suporte a `roomCategories` e `rooms` com leitura/escrita durável e IDs estáveis.
+- [x] **Preservação do Contrato**: Mantidos 100% dos nomes de métodos, parâmetros, retornos, interfaces (`IRoomRepository`) e tipos (`RoomCategory`, `RoomUnit`, `RoomStatus`).
+- [x] **Proteção de Isolamento & Imutabilidade Multi-Tenant**: Validação para impedir alteração de `organizationId` e `propertyId` em atualizações e filtragem por tenant nas consultas.
+- [x] **Suíte de Testes de Persistência Automatizados (`roomRepository.test.ts`)**: 16/16 testes unitários aprovados no Vitest, incluindo a verificação obrigatória de persistência durável após destruição e recriação do objeto de instância do repositório e regressão com `PmsService`.
+
+### PERSISTÊNCIA DURÁVEL FIRESTORE — P1 FASE 1: Organization Repository [CONCLUÍDO]
+- [x] **Migração do `OrganizationRepository` para Firestore**: Removida a persistência em memória (`Map<string, Entity>`) e migrados todos os métodos para chamadas assíncronas ao Firestore via Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+- [x] **Coleções Estruturadas**: Suporte a `organizations`, `properties`, `users` e `integrations` com leitura/escrita durável.
+- [x] **Preservação do Contrato**: Mantidos 100% dos nomes de métodos, parâmetros, retornos e tipos.
+- [x] **Suíte de Testes de Persistência Automatizados (`organizationRepository.test.ts`)**: 16/16 testes unitários aprovados no Vitest, incluindo a verificação obrigatória de persistência durável após destruição e recriação do objeto de instância do repositório.
+- [x] **Resiliência na Pipeline HTTP**: Tratamento contra indisponibilidade de banco no `authMiddleware` garantindo estabilidade no fluxo de verificação de tokens.
+
+### HARDENING DE SEGURANÇA E TENANCY — Isolamento Multi-Tenant Server-Side [CONCLUÍDO]
+- [x] **Hardening de Autorização no `tenantMiddleware.ts`**: Validação estrita baseada na identidade autenticada (`req.saasUser`), com bloqueio por HTTP 403 contra spoofing de tenant via headers, query string ou body payload.
+- [x] **Refatoração dos Roteadores Operacionais e Estratégicos**: 12+ roteadores adaptados para consumir estritamente `req.organizationId!` e `req.propertyId!` garantidos pelo middleware.
+- [x] **Proteção Global no Pipeline HTTP Express (`server.ts`)**: Injeção da cadeia de middlewares `[authMiddleware, tenantMiddleware]` em todas as rotas operacionais sob `/api/`.
+- [x] **Suíte de Testes Automatizados (`tenantMiddleware.test.ts`)**: 9 testes de unidade no Vitest cobrindo todos os cenários de autorização, isolamento de tenant/propriedade e bloqueios de organizações inativas.
+
+---
+
 ### MILESTONE 1 — Núcleo de IA Estável [CONCLUÍDO & CONSOLIDADO]
 - [x] **Sprint 01**: Execução e Proxificação Server-Side de IA (Segurança & Isolamento de Credenciais)
 - [x] **Sprint 02**: Prompt Registry Server-Side & Desacoplamento de Prompts

@@ -48,6 +48,18 @@ export const decisionApi = {
   getRecommendations: async (orgId: string, propId: string) => {
     return httpClient.get<{ success: boolean; data: unknown[] }>(`/api/decision/recommendations?orgId=${orgId}&propertyId=${propId}`);
   },
+  getDistributedContext: async (orgId: string, propId: string) => {
+    return httpClient.get<{ status: string; data: Record<string, any> }>(`/api/decision/distributed-context?orgId=${orgId}&propertyId=${propId}`);
+  },
+  getModuleContext: async (orgId: string, propId: string, module: string, minPriority?: string, minConfidence?: number) => {
+    if (!orgId || !propId || !module) {
+      return null;
+    }
+    let url = `/api/decision/context/${module}?orgId=${orgId}&propertyId=${propId}`;
+    if (minPriority) url += `&minPriority=${minPriority}`;
+    if (minConfidence) url += `&minConfidence=${minConfidence}`;
+    return httpClient.get<{ status: string; data: { summary: any; insights: any[] } }>(url);
+  },
 };
 
 export const revenueApi = {

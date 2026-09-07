@@ -233,7 +233,11 @@ const BookingWidgetView: React.FC<BookingWidgetViewProps> = ({ db, onBookingCrea
             <WidgetThemeStyles themeSettings={db.themeSettings} />
             <div className="min-h-screen font-sans">
                 <header className="p-4 flex justify-center items-center gap-4 bg-[var(--widget-card-bg)] shadow-md">
-                    <img src={db.themeSettings.adminPanel.logoUrl} alt="Logo" style={{ height: db.themeSettings.publicSite.logoHeight }} />
+                    <img 
+                        src={db.themeSettings?.adminPanel?.logoUrl || 'https://i.imgur.com/jiDNGTh.png'} 
+                        alt="Logo" 
+                        style={{ height: db.themeSettings?.publicSite?.logoHeight || '80px' }} 
+                    />
                     <h1 className="text-xl font-bold text-[var(--widget-text)]">{activeProperty.name}</h1>
                 </header>
                 <div className="container mx-auto p-4 sm:p-6">

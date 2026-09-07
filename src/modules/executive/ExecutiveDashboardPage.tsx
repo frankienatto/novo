@@ -3,7 +3,7 @@ import { useSynapsePlatform } from '../../contexts/SynapsePlatformContext';
 import { useExecutiveKernel } from '../../core/hooks/useExecutiveKernel';
 import { ExecutiveOverview } from './ExecutiveOverview';
 import { ExecutiveInsightsDrawer } from './ExecutiveInsightsDrawer';
-import { Loading, Badge, Button } from '../../shared/ui';
+import { Loading, Badge, Button, SynapseContextBar } from '../../shared/ui';
 import {
   Sparkles,
   RefreshCw,
@@ -116,6 +116,9 @@ export const ExecutiveDashboardPage: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Synapse Context Bar — Executive */}
+      <SynapseContextBar module="executive" defaultExpanded={true} />
 
       {/* Visão Consolidada */}
       <ExecutiveOverview

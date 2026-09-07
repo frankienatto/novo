@@ -12,13 +12,14 @@ import { cacheConfig } from '../../config/cacheConfig.ts';
 
 export const crmRouter = Router();
 
-// Middleware de Extração de Tenant Context (com suporte a Organization ID)
+// Middleware de Verificação de Tenant Context (populado pelo tenantMiddleware)
 const extractTenantContext = (req: Request, res: Response, next: any) => {
-  const orgId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-  const propId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
-
-  (req as any).organizationId = orgId;
-  (req as any).propertyId = propId;
+  if (!req.organizationId || !req.propertyId) {
+    return res.status(401).json({
+      error: 'Não Autorizado',
+      message: 'Contexto de Tenant não resolvido.'
+    });
+  }
   next();
 };
 

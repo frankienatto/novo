@@ -139,8 +139,14 @@ interface AppSession {
     token: string | null;
 }
 
-const ThemeStyles: React.FC<{ themeSettings: ThemeSettings }> = ({ themeSettings }) => {
-    const { publicSite, adminPanel, guestPortal } = themeSettings;
+const defaultTheme: ThemeSettings = localDefaultDb.themeSettings;
+
+const ThemeStyles: React.FC<{ themeSettings?: ThemeSettings | null }> = ({ themeSettings }) => {
+    const effectiveTheme = themeSettings || defaultTheme;
+    const publicSite = effectiveTheme?.publicSite || defaultTheme.publicSite;
+    const adminPanel = effectiveTheme?.adminPanel || defaultTheme.adminPanel;
+    const guestPortal = effectiveTheme?.guestPortal || defaultTheme.guestPortal;
+
     const styles = `
         :root {
             /* Public Site */
@@ -194,8 +200,10 @@ const ThemeStyles: React.FC<{ themeSettings: ThemeSettings }> = ({ themeSettings
     return <style>{styles}</style>;
 };
 
-const WidgetThemeStyles: React.FC<{ themeSettings: ThemeSettings }> = ({ themeSettings }) => {
-    const { publicSite } = themeSettings;
+const WidgetThemeStyles: React.FC<{ themeSettings?: ThemeSettings | null }> = ({ themeSettings }) => {
+    const effectiveTheme = themeSettings || defaultTheme;
+    const publicSite = effectiveTheme?.publicSite || defaultTheme.publicSite;
+
     const styles = `
         body {
              background-color: ${publicSite.backgroundColor};
@@ -311,7 +319,8 @@ export const App: React.FC = () => {
                 }
 
                 if (matchedUser) {
-                    setSession({ user: matchedUser, token: 'firebase-auth' });
+                    const idToken = await fbUser.getIdToken().catch(() => 'firebase-auth');
+                    setSession({ user: matchedUser, token: idToken });
                 } else {
                     console.warn("App: Authenticated but could not find user document for", fbUser.email);
                     // We might be in the middle of registration, give it a moment or show restricted access
@@ -343,23 +352,21 @@ export const App: React.FC = () => {
         const initialLoad = async () => {
             console.log("App: starting initialLoad");
             try {
-                console.log("App: Aguardando sincronização do Firebase...");
-                const timeoutPromise = new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error("Timeout ao conectar com banco de dados")), 8000)
+                const timeoutPromise = new Promise((resolve) => 
+                    setTimeout(() => resolve(null), 3000)
                 );
                 await Promise.race([apiService.dbReady, timeoutPromise]);
                 await Promise.all([fetchData(), fetchChatData()]);
                 console.log("App: data load successful");
             } catch (err) {
-                console.error("App: data load failed or timed out", err);
-                // Fallback: Tentamos carregar os dados mesmo assim (podem vir do cache ou local)
+                console.warn("App: data load fallback active", err);
                 try {
                     await Promise.all([fetchData(), fetchChatData()]);
                 } catch (e) {
-                    console.error("Fallback load also failed", e);
+                    console.warn("Fallback load active", e);
                 }
             }
-            console.log("App: data load finished silently");
+            console.log("App: data load finished");
 
             const handleNewNotification = (notification: AppNotification) => {
                 setNotifications(prev => [notification, ...prev]);

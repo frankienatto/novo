@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Room, RoomStatus, Staff, StaffTask, TaskStatus, DBState, PropertyUnitId } from '../../types';
 import { Section } from './shared';
 import { SprayCan, Bed, User, Check, AlertTriangle, Eye, CheckCircle, ClipboardList, ClipboardCheck, Loader2, X, Building2, Waves, Trees } from 'lucide-react';
+import { SynapseContextBar } from '../../src/shared/ui';
 
 interface HousekeepingViewProps {
     db: DBState;
@@ -169,6 +170,7 @@ const HousekeepingView: React.FC<HousekeepingViewProps> = ({ db, rooms, staff, s
 
     return (
         <Section title="Painel de Governança Multi-Unidades" icon={SprayCan}>
+            <SynapseContextBar module="housekeeping" className="mb-4" />
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-emerald-50 p-4 rounded-2xl border border-emerald-200/60">
                 <div>
                     <h2 className="font-extrabold text-gray-800 text-sm flex items-center gap-2">

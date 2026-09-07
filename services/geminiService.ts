@@ -71,6 +71,12 @@ const callGemini = async (prompt: string, schema: any, systemInstruction?: strin
                  body: JSON.stringify({ prompt, schema, systemInstruction })
              });
              
+             const contentType = result.headers.get('content-type') || '';
+             if (!contentType.includes('application/json')) {
+                 const text = await result.text().catch(() => '');
+                 throw new Error(`Resposta do servidor não é JSON (${result.status})`);
+             }
+
              if (!result.ok) {
                  const errorData = await result.json().catch(() => ({}));
                  throw new Error(errorData.error || `HTTP error ${result.status}`);
@@ -82,10 +88,7 @@ const callGemini = async (prompt: string, schema: any, systemInstruction?: strin
         geminiCache[cacheKey] = { data: response, timestamp: Date.now() };
         return response;
     } catch (error: any) {
-        console.error("Gemini Proxy Call Error:", error);
-        import('./apiService').then(({ eventBus }) => {
-            eventBus.emit('new-toast', { type: 'error', title: 'Erro de IA', message: error.message || 'Falha ao conectar com o modelo GEMINI.' });
-        });
+        console.warn("Gemini Proxy Call Warning:", error?.message || error);
         return null;
     }
 };
@@ -1000,13 +1003,14 @@ export const callGeminiAgent = async (agentId: string, prompt: string, schema?: 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ agentId, prompt, schema, systemInstruction, context })
         });
-        if (!response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json') || !response.ok) {
             throw new Error(`HTTP error ${response.status}`);
         }
         const result = await response.json();
         return result.data ?? result;
     } catch (err: any) {
-        console.error(`Error executing agent ${agentId}:`, err);
+        console.warn(`Warning executing agent ${agentId}:`, err?.message || err);
         return null;
     }
 };
@@ -1015,10 +1019,11 @@ export const callGeminiAgent = async (agentId: string, prompt: string, schema?: 
 export const getPromptRegistryList = async () => {
     try {
         const res = await fetch('/api/prompts');
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return [];
         const json = await res.json();
         return json.prompts || [];
     } catch (e) {
-        console.error('Error fetching prompts from registry:', e);
         return [];
     }
 };
@@ -1026,10 +1031,11 @@ export const getPromptRegistryList = async () => {
 export const getPromptRegistryByAgent = async (agentId: string) => {
     try {
         const res = await fetch(`/api/prompts/${agentId}`);
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return null;
         const json = await res.json();
         return json.prompt || null;
     } catch (e) {
-        console.error(`Error fetching prompt for agent ${agentId}:`, e);
         return null;
     }
 };
@@ -1041,10 +1047,11 @@ export const updatePromptRegistry = async (agentId: string, systemInstruction: s
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ agentId, systemInstruction, name, description })
         });
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) return null;
         const json = await res.json();
         return json.prompt || null;
     } catch (e) {
-        console.error('Error updating prompt in registry:', e);
         return null;
     }
 };

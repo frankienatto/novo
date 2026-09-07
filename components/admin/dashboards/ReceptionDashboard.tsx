@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { DBState, Staff, Booking, RoomStatus, StaffTask, TaskStatus, Room } from '../../../types';
 import { Sun, Moon, AlertTriangle, Loader2, Bed, Users, Wallet, CheckCircle, X, Wrench, SprayCan, UserPlus, ClipboardList, BedDouble } from 'lucide-react';
 import Modal from '../Modal';
+import { SynapseContextBar } from '../../../src/shared/ui';
 
 interface ReceptionDashboardProps {
     db: DBState;
@@ -162,6 +163,7 @@ export const ReceptionDashboard: React.FC<ReceptionDashboardProps> = (props) => 
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold">Painel da Recepção</h1>
+            <SynapseContextBar module="reception" />
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
                 <div className="lg:col-span-1"><DailyFlowColumn/></div>
                 <div className="lg:col-span-1"><QuickActionsColumn/></div>

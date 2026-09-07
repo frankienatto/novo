@@ -69,7 +69,24 @@ export class DecisionService {
       confidenceAverage: dash.confidenceAverage
     };
   }
+
+  /**
+   * Obtém o resumo de impacto e aprendizado Closed-Loop para apoiar tomadas de decisão
+   */
+  async getClosedLoopImpactSummary(organizationId: string, propertyId: string) {
+    const { strategicImpactEvaluator } = await import('../ai/planning/strategicImpactEvaluator.ts');
+    return strategicImpactEvaluator.getClosedLoopSummaryForAI(organizationId, propertyId);
+  }
+
+  /**
+   * Obtém a inteligência contextual distribuída para um departamento específico
+   */
+  async getDistributedContextForDepartment(organizationId: string, propertyId: string, module: any) {
+    const { contextDistributionService } = await import('../ai/context/contextDistributionService.ts');
+    return contextDistributionService.getModuleContextSummary(module, organizationId, propertyId);
+  }
 }
 
 export const decisionService = new DecisionService();
+
 

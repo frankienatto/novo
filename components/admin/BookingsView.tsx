@@ -5,6 +5,7 @@ import { DBState, Booking, RoomStatus, PropertyUnitId } from '../../types';
 import { Section } from './shared';
 import { ClipboardList, PlusCircle, Moon, CheckCircle, Loader2, Wallet, Printer, Sparkles } from 'lucide-react';
 import Receipt from './Receipt';
+import { SynapseContextBar } from '../../src/shared/ui';
 
 interface BookingsViewProps {
     db: DBState;
@@ -86,6 +87,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ db, selectedUnit = 'all', o
                 </button>
             </div>
         }>
+            <SynapseContextBar module="reservations" className="mb-4" />
             <div className="space-y-3">
                 {filteredBookings.length === 0 ? (
                     <div className="bg-white p-8 text-center rounded-xl border border-dashed border-gray-300">

@@ -12,8 +12,8 @@ export const housekeepingRouter = Router();
  */
 housekeepingRouter.get('/tasks', async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
     const cleaningStatus = req.query.cleaningStatus as CleaningStatus | undefined;
     const inspectionStatus = req.query.inspectionStatus as InspectionStatus | undefined;
     const priority = req.query.priority as TaskPriority | undefined;
@@ -45,8 +45,8 @@ housekeepingRouter.get('/tasks', async (req: Request, res: Response) => {
  */
 housekeepingRouter.post('/tasks', validateRequest({ body: housekeepingSchemas.createTask }), async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.body.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.body.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
     const { unitId, unitNumber, reservationId, guestId, priority, notes, slaMinutes, assignedStaffId, assignedStaffName } = req.body;
 
     if (!unitId) {
@@ -85,8 +85,8 @@ housekeepingRouter.post('/tasks', validateRequest({ body: housekeepingSchemas.cr
 housekeepingRouter.patch('/tasks/:id', async (req: Request, res: Response) => {
   try {
     const taskId = String(req.params.id);
-    const organizationId = String(req.body.organizationId || req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.body.propertyId || req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const { cleaningStatus, inspectionStatus, priority, assignedStaffId, assignedStaffName, notes } = req.body;
 
@@ -118,8 +118,8 @@ housekeepingRouter.patch('/tasks/:id', async (req: Request, res: Response) => {
  */
 housekeepingRouter.get('/dashboard', async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const summary = await housekeepingService.getDashboardSummary(organizationId, propertyId);
 

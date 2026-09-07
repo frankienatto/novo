@@ -9,8 +9,8 @@ export const planningRouter = Router();
  */
 planningRouter.get('/dashboard', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const dashboard = await planningService.getDashboard(organizationId, propertyId);
     return res.status(200).json(dashboard);
@@ -26,8 +26,8 @@ planningRouter.get('/dashboard', async (req: Request, res: Response) => {
  */
 planningRouter.get('/playbooks', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const playbooks = await planningService.getPlaybooks(organizationId, propertyId);
     return res.status(200).json(playbooks);
@@ -43,8 +43,8 @@ planningRouter.get('/playbooks', async (req: Request, res: Response) => {
  */
 planningRouter.get('/summary', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const summary = await planningService.getPlanningSummaryForAI(organizationId, propertyId);
     return res.status(200).json(summary);
@@ -61,8 +61,8 @@ planningRouter.get('/summary', async (req: Request, res: Response) => {
  */
 planningRouter.post('/generate', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.body.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.body.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const playbooks = await planningService.generate(organizationId, propertyId);
     return res.status(200).json({
@@ -84,8 +84,8 @@ planningRouter.post('/generate', async (req: Request, res: Response) => {
  */
 planningRouter.post('/rebuild', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.body.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.body.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const playbooks = await planningService.rebuild(organizationId, propertyId);
     return res.status(200).json({

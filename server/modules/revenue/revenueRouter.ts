@@ -11,8 +11,11 @@ revenueRouter.use(rateLimiters.rest);
  * Helper para extrair IDs Multi-Tenant dos cabeçalhos com fallback seguro
  */
 function getTenantHeaders(req: Request) {
-  const organizationId = (req.headers['x-organization-id'] as string) || 'org_dev_default';
-  const propertyId = (req.headers['x-property-id'] as string) || 'prop_dev_default';
+  const organizationId = req.organizationId;
+  const propertyId = req.propertyId;
+  if (!organizationId || !propertyId) {
+    throw new Error('Contexto de Tenant não resolvido.');
+  }
   return { organizationId, propertyId };
 }
 

@@ -9,8 +9,8 @@ export const receptionRouter = Router();
  */
 receptionRouter.get('/dashboard', async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const dashboard = await receptionService.getDashboardData(organizationId, propertyId);
 
@@ -32,8 +32,8 @@ receptionRouter.get('/dashboard', async (req: Request, res: Response) => {
  */
 receptionRouter.get('/checkins/today', async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const checkins = await receptionService.getTodayCheckins(organizationId, propertyId);
 
@@ -56,8 +56,8 @@ receptionRouter.get('/checkins/today', async (req: Request, res: Response) => {
  */
 receptionRouter.get('/checkouts/today', async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const checkouts = await receptionService.getTodayCheckouts(organizationId, propertyId);
 
@@ -80,8 +80,8 @@ receptionRouter.get('/checkouts/today', async (req: Request, res: Response) => {
  */
 receptionRouter.get('/alerts', async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const alerts = await receptionService.getOperationalAlerts(organizationId, propertyId);
 
@@ -104,8 +104,8 @@ receptionRouter.get('/alerts', async (req: Request, res: Response) => {
  */
 receptionRouter.get('/vips', async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const vips = await receptionService.getVipArrivals(organizationId, propertyId);
 

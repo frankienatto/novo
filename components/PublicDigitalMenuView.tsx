@@ -83,7 +83,7 @@ const PublicDigitalMenuView: React.FC<PublicDigitalMenuViewProps> = ({ db, onPla
                     <div className="relative z-10 text-center px-4">
                          {activeProperty && (
                             <img 
-                                src={themeSettings.publicSite.logoUrl} 
+                                src={themeSettings?.publicSite?.logoUrl || 'https://i.imgur.com/uEFOBeo.png'} 
                                 alt={`${activeProperty.name} Logo`} 
                                 className="h-16 mx-auto mb-4 brightness-0 invert" 
                             />

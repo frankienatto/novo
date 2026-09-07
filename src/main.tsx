@@ -4,7 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './core/queryClient';
 import { App } from '../App';
 import '../index.css';
-import { ErrorBoundary } from '../ErrorBoundary';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { SynapsePlatformProvider } from './contexts/SynapsePlatformContext';
 
 // Patch to intercept and silence benign gRPC idle stream warnings/errors from Firestore SDK

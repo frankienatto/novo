@@ -30,7 +30,10 @@ import { strategyRouter } from "./server/modules/strategy/strategyRouter.ts";
 import { approvalRouter } from "./server/modules/approval/approvalRouter.ts";
 import { planningRouter } from "./server/modules/planning/planningRouter.ts";
 import { executionRouter } from "./server/modules/execution/executionRouter.ts";
+import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware.ts";
+import { tenantMiddleware } from "./server/modules/saas/middlewares/tenantMiddleware.ts";
 import { aiOrchestrator } from "./server/modules/ai/aiOrchestrator.ts";
+import { getAllAgentDeclarations } from "./server/modules/ai/orchestrator/agentRegistry.ts";
 import { env } from "./server/config/environment.ts";
 import { rateLimiters } from "./server/middlewares/rateLimitMiddleware.ts";
 import { promptGuardMiddleware } from "./server/middlewares/promptGuardMiddleware.ts";
@@ -467,8 +470,12 @@ async function startServer() {
   // Request ID & Correlation ID Middleware (Milestone 8)
   app.use(correlationMiddleware);
 
-  // Health Checks Probes (/health/liveness, /health/readiness)
+  // Health Checks Probes (/health/liveness, /health/readiness and /api/health)
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
   app.use('/health', healthRouter);
+  app.use('/api/health', healthRouter);
 
   // Runtime Metrics Endpoint (/metrics) (Milestone 8)
   app.use('/metrics', metricsRouter);
@@ -481,9 +488,6 @@ async function startServer() {
   app.use('/api/ai', rateLimiters.ai, promptGuardMiddleware);
   app.use('/api/webhooks', rateLimiters.webhooks);
   app.use('/api', rateLimiters.rest);
-
-  // Registra módulo SaaS Multi-Tenant (Milestone 2)
-  app.use(saasRouter);
 
   // API routes
   app.get("/api/ical-proxy", async (req, res) => {
@@ -823,27 +827,59 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
     }
   });
 
-  // Módulos SaaS, PMS, n8n, iCal Universal, Google Calendar, CRM & Housekeeping (Milestones 2, 4, 5, 6 e 7)
+  // Catálogo dos 23 Agentes Especializados e Status da Infraestrutura de IA
+  app.get("/api/ai", (req, res) => {
+    const agents = getAllAgentDeclarations();
+    return res.status(200).json({
+      status: "ok",
+      platform: "Synapse AI Intelligence",
+      totalAgents: agents.length,
+      agents: agents.map(a => ({
+        id: a.agentId,
+        name: a.name,
+        domain: a.domain,
+        autonomyLevel: a.authorityLevel,
+        capabilities: a.tools
+      }))
+    });
+  });
+
+  app.get("/api/ai/health", (req, res) => {
+    return res.status(200).json({
+      status: "ok",
+      service: "synapse-ai-service",
+      totalAgents: 23,
+      orchestrator: "active",
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Módulos SaaS, PMS, n8n, iCal Universal, Google Calendar, CRM & Housekeeping
   app.use("/api/saas", saasRouter);
-  app.use("/api/pms", pmsRouter);
+
+  // External integrations with dedicated token authentication
   app.use("/api/integration/n8n", n8nRouter);
   app.use("/api/integration/ical", icalRouter);
   app.use("/api/integration/google-calendar", googleCalendarRouter);
-  app.use("/api/crm", crmRouter);
-  app.use("/api/housekeeping", housekeepingRouter);
-  app.use("/api/reception", receptionRouter);
-  app.use("/api/maintenance", maintenanceRouter);
-  app.use("/api/revenue", revenueRouter);
-  app.use("/api/direct-booking", directBookingRouter);
-  app.use("/api/sales", salesRouter);
-  app.use("/api/marketing", marketingRouter);
-  app.use("/api/executive", executiveRouter);
-  app.use("/api/executive-copilot", executiveCopilotRouter);
-  app.use("/api/decision", decisionRouter);
-  app.use("/api/strategy", strategyRouter);
-  app.use("/api/approval", approvalRouter);
-  app.use("/api/planning", planningRouter);
-  app.use("/api/execution", executionRouter);
+
+  // Protected Operational Modules (Multi-Tenant Hardened)
+  const saasProtected = [authMiddleware, tenantMiddleware];
+  app.use("/api/pms", saasProtected, pmsRouter);
+  app.use("/api/crm", saasProtected, crmRouter);
+  app.use("/api/housekeeping", saasProtected, housekeepingRouter);
+  app.use("/api/reception", saasProtected, receptionRouter);
+  app.use("/api/maintenance", saasProtected, maintenanceRouter);
+  app.use("/api/revenue", saasProtected, revenueRouter);
+  app.use("/api/direct-booking", saasProtected, directBookingRouter);
+  app.use("/api/sales", saasProtected, salesRouter);
+  app.use("/api/marketing", saasProtected, marketingRouter);
+  app.use("/api/executive", saasProtected, executiveRouter);
+  app.use("/api/executive-copilot", saasProtected, executiveCopilotRouter);
+  app.use("/api/decision", saasProtected, decisionRouter);
+  app.use("/api/strategy", saasProtected, strategyRouter);
+  app.use("/api/approval", saasProtected, approvalRouter);
+  app.use("/api/planning", saasProtected, planningRouter);
+  app.use("/api/execution", saasProtected, executionRouter);
 
   // Legacy Endpoint - Redirecionado internamente para o Pipeline Unificado de IA (Milestone 1)
   app.post("/api/gemini/generateText", async (req, res) => {

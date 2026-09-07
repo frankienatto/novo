@@ -1,4 +1,5 @@
 import { HousekeepingTask, HousekeepingTaskFilters } from './housekeepingTypes.ts';
+import { getAdminFirestore } from '../../config/firebaseAdmin.ts';
 
 export interface IHousekeepingRepository {
   save(task: HousekeepingTask): Promise<HousekeepingTask>;
@@ -7,45 +8,80 @@ export interface IHousekeepingRepository {
   findActiveByUnitId(organizationId: string, propertyId: string, unitId: string): Promise<HousekeepingTask | null>;
   findTasks(organizationId: string, propertyId: string, filters?: HousekeepingTaskFilters): Promise<HousekeepingTask[]>;
   delete(organizationId: string, propertyId: string, taskId: string): Promise<boolean>;
+  seedDevData?(): Promise<void>;
 }
 
 export class HousekeepingRepository implements IHousekeepingRepository {
-  private tasksMap: Map<string, HousekeepingTask> = new Map();
+  private get db() {
+    return getAdminFirestore();
+  }
 
   async save(task: HousekeepingTask): Promise<HousekeepingTask> {
-    const key = `${task.organizationId}_${task.propertyId}_${task.taskId}`;
-    const copy = JSON.parse(JSON.stringify(task));
-    this.tasksMap.set(key, copy);
-    return JSON.parse(JSON.stringify(copy));
+    if (!task.organizationId || !task.propertyId || !task.taskId) {
+      throw new Error("Invalid HousekeepingTask: organizationId, propertyId and taskId are required.");
+    }
+
+    // Verificar se o documento já existe para garantir integridade de multi-tenancy
+    const docRef = this.db.collection('tasks').doc(task.taskId);
+    const existingSnap = await docRef.get();
+    
+    if (existingSnap.exists) {
+      const existingData = existingSnap.data() as HousekeepingTask;
+      if (
+        existingData.organizationId !== task.organizationId ||
+        existingData.propertyId !== task.propertyId
+      ) {
+        throw new Error("Tenant mismatch: Cannot alter organizationId or propertyId of an existing task.");
+      }
+    }
+
+    const taskToSave: HousekeepingTask = {
+      ...task,
+      updatedAt: task.updatedAt || new Date().toISOString(),
+      createdAt: task.createdAt || new Date().toISOString()
+    };
+
+    await docRef.set(taskToSave, { merge: true });
+    return JSON.parse(JSON.stringify(taskToSave));
   }
 
   async findById(organizationId: string, propertyId: string, taskId: string): Promise<HousekeepingTask | null> {
-    const key = `${organizationId}_${propertyId}_${taskId}`;
-    const found = this.tasksMap.get(key);
-    if (!found) return null;
-    return JSON.parse(JSON.stringify(found));
+    if (!organizationId || !propertyId || !taskId) return null;
+
+    const docSnap = await this.db.collection('tasks').doc(taskId).get();
+    if (!docSnap.exists) return null;
+
+    const task = docSnap.data() as HousekeepingTask;
+    if (task.organizationId !== organizationId || task.propertyId !== propertyId) {
+      return null;
+    }
+
+    return JSON.parse(JSON.stringify(task));
   }
 
   async findByUnitId(organizationId: string, propertyId: string, unitId: string): Promise<HousekeepingTask[]> {
+    if (!organizationId || !propertyId || !unitId) return [];
+
+    const snapshot = await this.db.collection('tasks')
+      .where('organizationId', '==', organizationId)
+      .where('propertyId', '==', propertyId)
+      .where('unitId', '==', unitId)
+      .get();
+
     const list: HousekeepingTask[] = [];
-    for (const task of this.tasksMap.values()) {
-      if (
-        task.organizationId === organizationId &&
-        task.propertyId === propertyId &&
-        task.unitId === unitId
-      ) {
-        list.push(JSON.parse(JSON.stringify(task)));
-      }
-    }
+    snapshot.forEach(doc => {
+      list.push(doc.data() as HousekeepingTask);
+    });
+
     return list;
   }
 
   async findActiveByUnitId(organizationId: string, propertyId: string, unitId: string): Promise<HousekeepingTask | null> {
-    for (const task of this.tasksMap.values()) {
+    if (!organizationId || !propertyId || !unitId) return null;
+
+    const tasks = await this.findByUnitId(organizationId, propertyId, unitId);
+    for (const task of tasks) {
       if (
-        task.organizationId === organizationId &&
-        task.propertyId === propertyId &&
-        task.unitId === unitId &&
         task.cleaningStatus !== 'available' &&
         task.cleaningStatus !== 'cancelled'
       ) {
@@ -56,34 +92,35 @@ export class HousekeepingRepository implements IHousekeepingRepository {
   }
 
   async findTasks(organizationId: string, propertyId: string, filters?: HousekeepingTaskFilters): Promise<HousekeepingTask[]> {
-    const list: HousekeepingTask[] = [];
-    for (const task of this.tasksMap.values()) {
-      if (task.organizationId !== organizationId || task.propertyId !== propertyId) {
-        continue;
-      }
+    if (!organizationId || !propertyId) return [];
 
-      if (filters?.cleaningStatus && task.cleaningStatus !== filters.cleaningStatus) {
-        continue;
-      }
+    let query = this.db.collection('tasks')
+      .where('organizationId', '==', organizationId)
+      .where('propertyId', '==', propertyId);
 
-      if (filters?.inspectionStatus && task.inspectionStatus !== filters.inspectionStatus) {
-        continue;
-      }
-
-      if (filters?.priority && task.priority !== filters.priority) {
-        continue;
-      }
-
-      if (filters?.unitId && task.unitId !== filters.unitId) {
-        continue;
-      }
-
-      if (filters?.assignedStaffId && task.assignedStaffId !== filters.assignedStaffId) {
-        continue;
-      }
-
-      list.push(JSON.parse(JSON.stringify(task)));
+    if (filters?.unitId) {
+      query = query.where('unitId', '==', filters.unitId);
     }
+    if (filters?.assignedStaffId) {
+      query = query.where('assignedStaffId', '==', filters.assignedStaffId);
+    }
+    if (filters?.cleaningStatus) {
+      query = query.where('cleaningStatus', '==', filters.cleaningStatus);
+    }
+    if (filters?.priority) {
+      query = query.where('priority', '==', filters.priority);
+    }
+
+    const snapshot = await query.get();
+    const list: HousekeepingTask[] = [];
+
+    snapshot.forEach(doc => {
+      const task = doc.data() as HousekeepingTask;
+      if (filters?.inspectionStatus && task.inspectionStatus !== filters.inspectionStatus) {
+        return;
+      }
+      list.push(task);
+    });
 
     // Ordenar por prioridade (urgent > high > normal > low) e depois createdAt asc
     const priorityOrder: Record<string, number> = { urgent: 4, high: 3, normal: 2, low: 1 };
@@ -98,9 +135,20 @@ export class HousekeepingRepository implements IHousekeepingRepository {
   }
 
   async delete(organizationId: string, propertyId: string, taskId: string): Promise<boolean> {
-    const key = `${organizationId}_${propertyId}_${taskId}`;
-    return this.tasksMap.delete(key);
+    if (!organizationId || !propertyId || !taskId) return false;
+
+    const docSnap = await this.db.collection('tasks').doc(taskId).get();
+    if (!docSnap.exists) return false;
+
+    const task = docSnap.data() as HousekeepingTask;
+    if (task.organizationId !== organizationId || task.propertyId !== propertyId) {
+      return false;
+    }
+
+    await this.db.collection('tasks').doc(taskId).delete();
+    return true;
   }
 }
 
 export const housekeepingRepository = new HousekeepingRepository();
+

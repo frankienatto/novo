@@ -10,19 +10,14 @@ export const pmsRouter = Router();
 // Sub-roteador do Motor de Reservas (Etapa 4.2)
 pmsRouter.use('/reservations', reservationRouter);
 
-// Helper de extração de Tenant Context das requisições
+// Helper de extração de Tenant Context das requisições (validado pelo tenantMiddleware)
 function getTenantContext(req: Request): { organizationId: string; propertyId: string } {
-  const organizationId = 
-    (req.headers['x-organization-id'] as string) || 
-    (req.query.organizationId as string) || 
-    req.body?.organizationId || 
-    'org_dev_default';
+  const organizationId = req.organizationId;
+  const propertyId = req.propertyId;
 
-  const propertyId = 
-    (req.headers['x-property-id'] as string) || 
-    (req.query.propertyId as string) || 
-    req.body?.propertyId || 
-    'prop_dev_default';
+  if (!organizationId || !propertyId) {
+    throw new Error('Contexto de Tenant não resolvido. Requisição não autorizada.');
+  }
 
   return { organizationId, propertyId };
 }

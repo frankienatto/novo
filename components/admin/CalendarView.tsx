@@ -11,6 +11,7 @@ import { syncICalForRoom } from '../../services/apiService';
 
 
 import { PropertyUnitId } from '../../types';
+import { SynapseContextBar } from '../../src/shared/ui';
 
 interface CalendarViewProps {
     db: DBState;
@@ -183,6 +184,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
 
     return (
         <Section title="Calendário de Reservas" icon={Calendar}>
+            <SynapseContextBar module="pms" className="mb-4" />
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div className="flex flex-wrap gap-3">
                     <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase border border-blue-200">

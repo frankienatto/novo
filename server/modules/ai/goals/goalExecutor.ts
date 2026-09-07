@@ -31,6 +31,24 @@ export class GoalExecutor {
           goal.completedAt = new Date().toISOString();
           goalProgressTracker.recordTimelineEntry(goal, 'COMPLETED', `Missão concluída com sucesso! ${valResult.validationReason}`, actor);
           goalProgressTracker.recordAuditTrail(goal, 'GOAL_COMPLETED', actor, { validationReason: valResult.validationReason });
+
+          // Publicar evento de conclusão no AgentEventBus para acionamento do Closed-Loop Feedback
+          const { agentEventBus } = await import('../orchestrator/agentEventBus.ts');
+          agentEventBus.publishEvent({
+            eventName: 'goal:completed',
+            publisherAgentId: 'goal_executor',
+            organizationId: goal.organizationId,
+            propertyId: goal.propertyId,
+            sessionId: goal.sessionId,
+            payload: {
+              goalId: goal.goalId,
+              title: goal.definition.title,
+              goal,
+              metrics: goal.metrics,
+              completedAt: goal.completedAt,
+              validationReason: valResult.validationReason
+            }
+          });
         }
       } else if (valResult.isFailure) {
         if (goalStateMachine.canTransition(goal.status, 'FAILED')) {
@@ -46,7 +64,17 @@ export class GoalExecutor {
     }
 
     // 2. Verificar ADR-005: Exigência de aprovação humana
-    if (nextTask.approvalRequired && nextTask.status !== 'WAITING_APPROVAL' && actor !== 'HumanApprover') {
+    if (nextTask.status === 'WAITING_APPROVAL') {
+      if (actor !== 'HumanApprover') {
+        // Bloqueio rigoroso contra bypass ADR-005: tarefa em espera só avança sob aprovação humana explícita
+        if (goal.status !== 'WAITING_APPROVAL' && goalStateMachine.canTransition(goal.status, 'WAITING_APPROVAL')) {
+          goalStateMachine.validateTransition(goal.status, 'WAITING_APPROVAL');
+          goal.status = 'WAITING_APPROVAL';
+        }
+        goal.metrics = goalProgressTracker.recalculateMetrics(goal);
+        return goal;
+      }
+    } else if (nextTask.approvalRequired && actor !== 'HumanApprover') {
       nextTask.status = 'WAITING_APPROVAL';
 
       if (goal.status !== 'WAITING_APPROVAL' && goalStateMachine.canTransition(goal.status, 'WAITING_APPROVAL')) {

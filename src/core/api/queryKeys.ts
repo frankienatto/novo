@@ -24,6 +24,8 @@ export const queryKeys = {
   decision: {
     dashboard: (orgId: string, propId: string) => ['decision', 'dashboard', orgId, propId] as const,
     recommendations: (orgId: string, propId: string) => ['decision', 'recommendations', orgId, propId] as const,
+    distributedContext: (orgId: string, propId: string) => ['decision', 'distributed-context', orgId, propId] as const,
+    moduleContext: (orgId: string, propId: string, module: string) => ['decision', 'context', orgId, propId, module] as const,
   },
   approval: {
     dashboard: (orgId: string, propId: string) => ['approval', 'dashboard', orgId, propId] as const,

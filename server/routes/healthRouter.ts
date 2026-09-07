@@ -9,6 +9,19 @@ export const healthRouter = Router();
 healthRouter.use(rateLimiters.health);
 
 /**
+ * GET /health
+ * Raiz de Health Check
+ */
+healthRouter.get('/', (_req: Request, res: Response) => {
+  return res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    environment: env.NODE_ENV,
+  });
+});
+
+/**
  * GET /health/liveness
  * Probe de Liveness para Kubernetes / Cloud Run
  * Confirma se o processo do servidor está ativo e respondendo

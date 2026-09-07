@@ -9,8 +9,8 @@ export const approvalRouter = Router();
  */
 approvalRouter.get('/dashboard', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const dashboard = await approvalService.getDashboard(organizationId, propertyId);
     return res.status(200).json(dashboard);
@@ -26,8 +26,8 @@ approvalRouter.get('/dashboard', async (req: Request, res: Response) => {
  */
 approvalRouter.get('/pending', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const pending = await approvalService.getPending(organizationId, propertyId);
     return res.status(200).json(pending);
@@ -43,8 +43,8 @@ approvalRouter.get('/pending', async (req: Request, res: Response) => {
  */
 approvalRouter.get('/history', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const history = await approvalService.getHistory(organizationId, propertyId);
     return res.status(200).json(history);
@@ -60,8 +60,8 @@ approvalRouter.get('/history', async (req: Request, res: Response) => {
  */
 approvalRouter.get('/summary', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const summary = await approvalService.getApprovalSummaryForAI(organizationId, propertyId);
     return res.status(200).json(summary);
@@ -79,8 +79,8 @@ approvalRouter.get('/summary', async (req: Request, res: Response) => {
  */
 approvalRouter.post('/approve', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.body.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.body.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     if (!req.body.recommendationId) {
       return res.status(400).json({ error: 'Parâmetro recommendationId é obrigatório.' });
@@ -106,8 +106,8 @@ approvalRouter.post('/approve', async (req: Request, res: Response) => {
  */
 approvalRouter.post('/reject', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.body.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.body.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     if (!req.body.recommendationId) {
       return res.status(400).json({ error: 'Parâmetro recommendationId é obrigatório.' });

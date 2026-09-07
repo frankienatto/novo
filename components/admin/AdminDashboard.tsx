@@ -454,12 +454,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     }, [activeSection]);
 
 
+    const adminPanelSettings = db.themeSettings?.adminPanel || {
+        primaryColor: '#2D5A27',
+        sidebarColor: '#1F2937',
+        backgroundColor: '#F9FAFB',
+        textColor: '#1F2937',
+        menuTextColor: '#E5E7EB',
+        logoUrl: 'https://i.imgur.com/jiDNGTh.png',
+        cardBorderRadius: '16px',
+        buttonBorderRadius: '8px',
+        headerTitles: {}
+    };
+
     const headerTitle = useMemo(() => {
         if (isNewStaff) return "Seja Bem-vindo(a)!";
-        const customTitle = db.themeSettings.adminPanel.headerTitles?.[activeSection];
+        const customTitle = adminPanelSettings.headerTitles?.[activeSection];
         if (customTitle) return customTitle;
         return navItems.find(item => item.id === activeSection)?.label || 'Dashboard';
-    }, [activeSection, db.themeSettings.adminPanel.headerTitles, isNewStaff]);
+    }, [activeSection, adminPanelSettings.headerTitles, isNewStaff]);
 
     const navCategories = useMemo(() => {
         const categories = [...new Set(navItems.map(item => item.category))];
@@ -933,13 +945,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     
     return (
         <div className="flex h-screen bg-[#F0F2F5] text-[var(--admin-text-color)] font-sans" style={{
-            '--admin-primary-color': db.themeSettings.adminPanel.primaryColor,
-            '--admin-sidebar-color': db.themeSettings.adminPanel.sidebarColor,
-            '--admin-bg-color': db.themeSettings.adminPanel.backgroundColor,
-            '--admin-text-color': db.themeSettings.adminPanel.textColor,
-            '--admin-menu-text-color': db.themeSettings.adminPanel.menuTextColor,
-            '--admin-card-radius': db.themeSettings.adminPanel.cardBorderRadius,
-            '--admin-button-radius': db.themeSettings.adminPanel.buttonBorderRadius,
+            '--admin-primary-color': adminPanelSettings.primaryColor,
+            '--admin-sidebar-color': adminPanelSettings.sidebarColor,
+            '--admin-bg-color': adminPanelSettings.backgroundColor,
+            '--admin-text-color': adminPanelSettings.textColor,
+            '--admin-menu-text-color': adminPanelSettings.menuTextColor,
+            '--admin-card-radius': adminPanelSettings.cardBorderRadius,
+            '--admin-button-radius': adminPanelSettings.buttonBorderRadius,
         } as React.CSSProperties}>
             {isNewAdmin && (
                 <OnboardingWizard 
@@ -957,7 +969,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 <div className="flex items-center justify-center h-24 border-b border-white/5 flex-shrink-0 px-6">
                     <div className="relative group">
                         <img 
-                            src={db.themeSettings.adminPanel.logoUrl} 
+                            src={adminPanelSettings.logoUrl} 
                             alt="Logo" 
                             className={`object-contain transition-all duration-500 drop-shadow-lg ${(isSidebarOpen || isMobileMenuOpen) ? 'h-32' : 'h-16'}`}
                         />

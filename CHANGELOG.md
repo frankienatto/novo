@@ -2,6 +2,230 @@
 
 Todos os desvios notáveis e implementações deste projeto serão documentados neste arquivo.
 
+## [FASE 4.4 - End-to-End Operational Validation & Closed-Loop Human Deliberation] - 2026-09-06
+
+### Adicionado / Corrigido / Validado
+- **Correção de Recursão Crítica no ApprovalRepository**:
+  - Implementada barreira de reentrância (`activeResolutions: Set<string>`) em `ApprovalRepository.getApprovalRecords` com bloco `finally` determinístico para neutralizar o estouro de pilha (`RangeError: Maximum call stack size exceeded`) decorrente de dependência cruzada entre `DecisionService` e `ApprovalRepository`.
+- **Robustez e Tolerância a Falhas no GoalPlanner**:
+  - Implementadas salvaguardas no `GoalPlanner.decomposeGoal` para tratar arrays nulos ou indefinidos de `involvedAgents` e `relatedKPIs`.
+  - Suporte formal a planos de ação explícitos pré-definidos (`actionPlan`) em `GoalDefinition`, garantindo previsibilidade e evitando decomposições arbitrárias durante execuções assistidas.
+- **Suíte de Validação E2E e Governança ADR-005 (`closedLoopAndGovernance.test.ts`)**:
+  - Criada suíte completa de testes de ponta a ponta validando o ciclo fechado: **Dados Operacionais (PMS) -> Context Distribution -> Orquestrador de Agentes -> Recomendações no Decision Center -> Human Approval Center (ADR-005) -> GoalEngine -> Execução -> KPIs Executivos**.
+  - Validação estrita contra tentativas de bypass: agentes autônomos ou scripts que tentem forçar a execução de tarefas sensíveis sem aprovação humana são imediatamente bloqueados e retidos no estado `WAITING_APPROVAL`.
+  - Registro de auditoria compulsório com identificação do deliberador humano, data/hora ISO e justificativa em todas as aprovações e rejeições.
+- **Validação de Isolamento Multi-Tenant e Multi-Property (`multiTenancyIsolation.test.ts`)**:
+  - 8/8 testes cobrindo isolamento estrito de queries, bloqueio contra vazamento de dados entre inquilinos e rejeição categórica de mutações que tentem transferir UHs, categorias ou reservas entre diferentes organizações.
+- **Validação E2E de Rotas REST da Plataforma (`apiRoutesE2E.test.ts`)**:
+  - 35/35 testes validando rotas de autenticação, SaaS, PMS, governança, decisões, planejamento, orquestrador e catálogo completo dos 23 agentes.
+- **Validação Final de Compilação e Linter**:
+  - TypeScript Linter (`tsc --noEmit`) executado com 100% de sucesso (0 erros).
+  - Compilação de produção (`vite build && esbuild server.ts`) executada com sucesso total.
+
+
+### Adicionado / Refatorado
+- **Endpoints REST de Contexto Distribuído (`decisionController.ts`)**:
+  - Implementadas rotas `GET /api/decision/distributed-context`, `GET /api/decision/context/:module` e `POST /api/decision/context/:insightId/status` integrando o `ContextDistributionService` com a camada de transporte HTTP da plataforma.
+  - Extração resiliente de tenancy a partir de headers de governança (`x-organization-id`, `x-property-id`) com validação estrita, filtros opcionais de severidade mínima (`minPriority`) e confiança estatística (`minConfidence`).
+- **Contratos e Camada de Acesso de Dados no Frontend**:
+  - Definidas novas chaves de query e cache determinísticas em `QUERY_KEYS.decision.moduleContext` e `QUERY_KEYS.decision.distributedContext` (`src/core/api/queryKeys.ts`).
+  - Implementados métodos `decisionApi.getDistributedContext` e `decisionApi.getModuleContext` em `src/core/api/moduleApis.ts`, com verificação defensiva pré-requisição para evitar requisições com IDs vazios.
+  - Refatorado `httpClient.ts` para eliminar fallbacks estáticos de desenvolvimento inseguros (`org_dev_default` e `prop_dev_default`) e adicionar guardas defensivas para ambientes Node.js/SSR sem objeto `localStorage`.
+- **Componente de Interface Operacional Contextual (`ContextualIntelligenceBanner.tsx`)**:
+  - Criado componente `ContextualIntelligenceBanner` (`src/components/common/ContextualIntelligenceBanner.tsx`) desenhado segundo o princípio de UI calma (*Calm UI*), evitando sobrecarga cognitiva e mantendo foco na tarefa do operador.
+  - Apresentação de metas ativas, alertas de alta relevância e recomendações prescritivas com métricas de impacto esperado vs. mensurado.
+  - Ação operacional deliberativa que redireciona o operador diretamente para o **Approval Center** oficial (ADR-005), sem disparar execuções autônomas no módulo local.
+- **Suíte de Testes Automatizados da Fase 4.3 (`contextDistributionUI.test.ts`)**:
+  - 20/20 testes unitários e de integração aprovados no Vitest cobrindo: renderização completa, estado calmo sem dados, múltiplos insights simultâneos, ordenação por prioridade, filtros por score de confiança, ciclo de vida e status (`ACTIVE`, `PENDING_APPROVAL`, `DISMISSED`), expiração por TTL, segmentação por módulo, isolamento de `organizationId` e `propertyId`, formato de recomendações com impacto financeiro, obrigatoriedade de `PENDING_APPROVAL` e `requiresApproval`, encaminhamento ao Approval Center, ausência de execução autônoma, resiliência a dados nulos, isolamento de cache/queries, compatibilidade com os 10 módulos oficiais e integração com o contexto oficial de autenticação.
+- **Validação de Integridade**:
+  - `lint_applet` (`tsc --noEmit`) executado com 100% de sucesso (0 erros).
+  - `compile_applet` (`vite build`) executado com 100% de sucesso.
+
+## [FASE 4.2 - Contextual Intelligence Distribution Engine] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Motor de Distribuição de Inteligência Contextual (`ContextDistributionService`)**:
+  - Criado o serviço `ContextDistributionService` (`server/modules/ai/context/contextDistributionService.ts`) e contratos em `contextDistributionTypes.ts` para distribuição de inteligência estratégica top-down aos 10 módulos operacionais (`pms`, `reservations`, `reception`, `housekeeping`, `maintenance`, `revenue`, `sales`, `direct_booking`, `marketing`, `executive`).
+  - Roteamento contextual reativo com subscrições no `AgentEventBus` para eventos do `StrategicPlanningEngine` (`planning:plan_created`), `GoalEngine` (`goal:created`, `goal:completed`, `goal:failed`), `StrategicImpactEvaluator` (`planning:impact_evaluated`) e `Approval Center` (`approval:action_decision`).
+  - Governança estrita ADR-005: Insights consultivos nascem como `PENDING_APPROVAL` e `requiresApproval: true`, sem qualquer mutação autônoma operacional.
+  - Sincronização em tempo real de estado por namespace departamental no `AgentSharedMemory`.
+  - Integração no `ContextService` (`distributedContext`), `ExecutiveCopilotService` (`getDistributedContextSummary`) e `DecisionService` (`getDistributedContextForDepartment`).
+  - Otimização de dependências de desenvolvimento no `package.json` removendo binários pesados de browser desnecessários (`puppeteer`) que causavam timeout de instalação no contêiner.
+- **Suíte de Testes Automatizados (`contextDistribution.test.ts`)**:
+  - 20/20 testes unitários e de integração aprovados no Vitest cobrindo todos os cenários de relevância, isolamento multi-tenant, ordenação determinística, expiração e integridade com o ecossistema Synapse.
+
+## [FASE 4.1 - Strategic Closed-Loop Feedback & Impact Measurement Engine] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Motor de Avaliação de Impacto e Calibração Closed-Loop (`StrategicImpactEvaluator`)**:
+  - Criado o serviço `StrategicImpactEvaluator` (`server/modules/ai/planning/strategicImpactEvaluator.ts`) responsável por calcular e comparar o impacto projetado (*Expected Impact*) com as métricas reais mensuradas (*Actual Measured Impact*) após a conclusão de missões estratégicas do `GoalEngine`.
+  - Classificação formal de desfechos: `EXCEEDED`, `ACHIEVED`, `PARTIALLY_ACHIEVED`, `FAILED`, `NEGATIVE_IMPACT`, `NEUTRAL` e `INSUFFICIENT_DATA`.
+  - Cálculo de variance percentual e taxa de atingimento (*achievement rate*) composta para múltiplos KPIs operacionais (Taxa de Ocupação, RevPAR, ADR, SLAs, Direct Booking Share, Pipeline Comercial, NPS).
+  - Algoritmo determinístico de calibração de nível de confiança (*Confidence Score Calibration*) com clamping de segurança (`MIN_CONFIDENCE = 0.50`, `MAX_CONFIDENCE = 0.98`).
+  - Histórico de calibração e avaliações com isolamento estrito multi-tenant e multi-property (`organizationId` e `propertyId`).
+  - Retroalimentação automática do motor de projeções quantitativas (`StrategicForecastEngine`) e gerador de planos (`StrategicPlanner`).
+  - Emissão de explicações transparentes de IA Explicável (XAI), lições aprendidas e resumo executivo integrado com `ExecutiveCopilotService` e `DecisionService`.
+  - Inscrição automática no `AgentEventBus` para o evento `goal:completed` e publicação de eventos `planning:impact_evaluated`.
+- **Suíte de Testes Automatizados (`strategicImpact.test.ts`)**:
+  - 19/19 testes aprovados no Vitest cobrindo todos os cenários de calibração, janelas de medição, limites e retroalimentação.
+- **Verificação de Compilação & Integridade**:
+  - `lint_applet` e `compile_applet` concluídos com 100% de sucesso.
+  - Servidor em execução e respondendo na porta 3000.
+
+## [FASE P1 - Direct Booking Repository Firestore Persistence] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Migração do `DirectBookingRepository` para Persistência Durável no Firestore**:
+  - Removida completamente a persistência em memória (`Map<string, CommercialProposal>`) do `DirectBookingRepository` (`server/modules/directBooking/directBookingRepository.ts`).
+  - Implementados métodos assíncronos que realizam leitura e escrita durável no Firestore usando o Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+  - Preservada a coleção oficial existente `'commercialProposals'`, conforme arquitetura do projeto e regras de negócio.
+  - Métodos implementados e preservados com 100% de compatibilidade: `listProposals`, `getProposalById`, `createProposal`, `updateProposal`, `saveProposal`, `deleteProposal`.
+  - Tratamento rigoroso de tipos para `CommercialProposal`, `CreateProposalDTO`, `UpdateProposalDTO`, `DirectBookingMetrics`, `DirectBookingSummaryForAI`, status do ciclo comercial (`draft`, `sent`, `viewed`, `negotiating`, `accepted`, `declined`, `expired`), cálculo de diárias e tarifas, datas de check-in/check-out e conversões.
+  - Proteção estrita de isolamento e imutabilidade multi-tenant (`organizationId` e `propertyId` não podem ser alterados em propostas existentes).
+  - Sanitização automática de campos opcionais `undefined` com helper `cleanUndefined`.
+- **Suíte de Testes de Persistência Automatizados (`directBookingRepository.test.ts`)**:
+  - Criada suíte com 17 testes unitários e de integração no Vitest cobrindo criação, leitura, atualização, exclusão, listagem, filtros por status, ciclo de conversão (`accepted` + `convertedAt` + `convertedReservationId`), cálculo de diárias/descontos/totalAmount, preservação de campos opcionais, isolamento multi-tenant, bloqueio de adulteração de tenant/propriedade, e a verificação obrigatória de persistência durável após destruição e recriação da instância do repositório, além de teste de regressão com `DirectBookingService` (Dashboard, Métricas e Resumo para IA).
+- **Verificação de Compilação & Build**:
+  - `npx tsc --noEmit` executado com 0 erros.
+  - `npm run build` gerando bundle de produção com sucesso.
+  - 150/150 testes automatizados aprovados no Vitest (`directBookingRepository.test.ts`, `salesRepository.test.ts`, `maintenanceRepository.test.ts`, `housekeepingRepository.test.ts`, `guestRepository.test.ts`, `reservationRepository.test.ts`, `roomRepository.test.ts`, `organizationRepository.test.ts`, `tenantMiddleware.test.ts`, `authMiddleware.test.ts`).
+
+## [FASE P1 - Sales Repository Firestore Persistence] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Migração do `SalesRepository` para Persistência Durável no Firestore**:
+  - Removida completamente a persistência em memória (`Map<string, SalesOpportunity>`) do `SalesRepository` (`server/modules/sales/salesRepository.ts`).
+  - Implementados métodos assíncronos que realizam leitura e escrita durável no Firestore usando o Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+  - Preservada a coleção oficial existente `'salesOpportunities'`, conforme arquitetura do projeto e regras de negócio.
+  - Métodos implementados e preservados com 100% de compatibilidade: `listOpportunities`, `getOpportunityById`, `createOpportunity`, `updateOpportunity`, `addInteraction`, `scheduleFollowUp`, `saveOpportunity`, `deleteOpportunity`.
+  - Tratamento rigoroso de tipos para `SalesOpportunity`, `CreateOpportunityDTO`, `UpdateOpportunityDTO`, `AddInteractionDTO`, `ScheduleFollowUpDTO`, `PipelineStage`, `LeadTemperature`, `LeadSource`, `CommercialInteraction`, `NextFollowUp`, SLAs e pontuação de lead score.
+  - Proteção estrita de isolamento e imutabilidade multi-tenant (`organizationId` e `propertyId` não podem ser alterados em atualizações de oportunidades existentes).
+  - Sanitização automática de campos opcionais `undefined` com helper `cleanUndefined`.
+- **Suíte de Testes de Persistência Automatizados (`salesRepository.test.ts`)**:
+  - Criada suíte com 17 testes unitários e de integração no Vitest cobrindo criação, leitura, atualização, exclusão, listagem, filtros por estágio/temperatura/responsável, cálculo de Lead Score, ciclo de vida do funil (lead -> negotiation -> won), follow-ups, interações comerciais, isolamento multi-tenant, bloqueio de adulteração de tenant/propriedade, e a verificação obrigatória de persistência durável após destruição e recriação da instância do repositório, além de teste de regressão com `SalesService`.
+- **Verificação de Compilação & Build**:
+  - `npx tsc --noEmit` executado com 0 erros.
+  - `npm run build` gerando bundle de produção com sucesso.
+  - 133/133 testes automatizados aprovados no Vitest (`salesRepository.test.ts`, `maintenanceRepository.test.ts`, `housekeepingRepository.test.ts`, `guestRepository.test.ts`, `reservationRepository.test.ts`, `roomRepository.test.ts`, `organizationRepository.test.ts`, `tenantMiddleware.test.ts`, `authMiddleware.test.ts`).
+
+## [FASE P1 - Maintenance Repository Firestore Persistence] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Migração do `MaintenanceRepository` para Persistência Durável no Firestore**:
+  - Removida completamente a persistência em memória (`Map<string, MaintenanceTask>` e `history: MaintenanceHistory[]`) do `MaintenanceRepository` (`server/modules/maintenance/maintenanceRepository.ts`).
+  - Implementados métodos assíncronos que realizam leitura e escrita durável no Firestore usando o Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+  - Preservada a coleção oficial existente `'tasks'` e a subcoleção `'history'` associada a cada tarefa (`tasks/{taskId}/history/{historyId}`), conforme arquitetura do projeto e regras de segurança Firestore.
+  - Métodos implementados e preservados com 100% de compatibilidade: `saveTask`, `findTaskById`, `findTasks`, `findActiveTaskByUnitId`, `saveHistory`, `getHistoryByTaskId`, `deleteTask`.
+  - Tratamento rigoroso de tipos para `MaintenanceTask`, `MaintenanceHistory`, `MaintenanceStatus`, `MaintenanceCategory`, `MaintenancePriority`, `MaintenanceTaskFilters`, `MaintenanceDashboardSummary`, SLAs e dados de técnicos/técnicas.
+  - Proteção estrita de isolamento e imutabilidade multi-tenant (`organizationId` e `propertyId` não podem ser alterados em atualizações de tarefas existentes).
+- **Suíte de Testes de Persistência Automatizados (`maintenanceRepository.test.ts`)**:
+  - Criada suíte com 17 testes unitários e de integração no Vitest cobrindo criação, leitura, atualização, exclusão, listagem, filtros por UH/status/prioridade/categoria/técnico, ordenação por data de criação, isolamento multi-tenant, bloqueio de adulteração de tenant/propriedade, histórico de eventos de manutenção, e a verificação obrigatória de persistência durável após destruição e recriação da instância do repositório, além de teste de regressão com `MaintenanceService`.
+- **Verificação de Compilação & Build**:
+  - `npx tsc --noEmit` executado com 0 erros.
+  - `npm run build` gerando bundle de produção com sucesso.
+  - 116/116 testes automatizados aprovados no Vitest (`maintenanceRepository.test.ts`, `housekeepingRepository.test.ts`, `guestRepository.test.ts`, `reservationRepository.test.ts`, `roomRepository.test.ts`, `organizationRepository.test.ts`, `tenantMiddleware.test.ts`, `authMiddleware.test.ts`).
+
+## [FASE P1 - Housekeeping Repository Firestore Persistence] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Migração do `HousekeepingRepository` para Persistência Durável no Firestore**:
+  - Removida completamente a persistência em memória (`Map<string, HousekeepingTask>`) do `HousekeepingRepository` (`server/modules/housekeeping/housekeepingRepository.ts`).
+  - Implementados métodos assíncronos que realizam leitura e escrita durável no Firestore usando o Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+  - Preservada a coleção oficial existente `'tasks'`, conforme arquitetura do projeto e regras de segurança Firestore, evitando criação de coleções paralelas.
+  - Métodos implementados e preservados com 100% de compatibilidade: `save`, `findById`, `findByUnitId`, `findActiveByUnitId`, `findTasks`, `delete`, `seedDevData`.
+  - Tratamento rigoroso de tipos para `HousekeepingTask`, `CleaningStatus`, `InspectionStatus`, `TaskPriority`, `HousekeepingTaskFilters`, SLAs e observações operacionais.
+  - Proteção estrita de isolamento e imutabilidade multi-tenant (`organizationId` e `propertyId` não podem ser alterados em atualizações de tarefas existentes).
+- **Suíte de Testes de Persistência Automatizados (`housekeepingRepository.test.ts`)**:
+  - Criada suíte com 16 testes unitários e de integração no Vitest cobrindo criação, leitura, atualização, exclusão, listagem, filtros por UH/status/prioridade/funcionário, ordenação por prioridade (`urgent > high > normal > low`), isolamento multi-tenant, bloqueio de adulteração de tenant/propriedade, e a verificação obrigatória de persistência durável após destruição e recriação da instância do repositório, além de teste de regressão com `HousekeepingService`.
+- **Verificação de Compilação & Build**:
+  - `npx tsc --noEmit` executado com 0 erros.
+  - `npm run build` gerando bundle de produção com sucesso.
+  - 99/99 testes automatizados aprovados no Vitest (`housekeepingRepository.test.ts`, `guestRepository.test.ts`, `reservationRepository.test.ts`, `roomRepository.test.ts`, `organizationRepository.test.ts`, `tenantMiddleware.test.ts`, `authMiddleware.test.ts`).
+
+## [FASE P1 - Guest Repository Firestore Persistence] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Migração do `GuestRepository` para Persistência Durável no Firestore**:
+  - Removida completamente a persistência em memória (`Map<string, GuestProfile>`) do `GuestRepository` (`server/modules/crm/guestRepository.ts`).
+  - Implementados métodos assíncronos que realizam leitura e escrita durável no Firestore usando o Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+  - Suporte completo à coleção `guests` com chave baseada em `guestId` único e busca estruturada por tenant.
+  - Métodos implementados e preservados com 100% de compatibilidade: `save`, `createGuest`, `findById`, `findGuestById`, `findByEmailOrDocument`, `listByOrganization`, `addStay`, `delete`, `deleteGuest`, `updateGuest`, `seedDevData`.
+  - Tratamento rigoroso de tipos para `GuestProfile`, `GuestPreferences`, `GuestDocument`, `GuestStayRecord`, dados cadastrais, histórico de estadias e cálculo de métricas acumuladas (`totalStaysCount`, `totalSpentAmount`, `lastStayDate`).
+  - Proteção estrita de isolamento e imutabilidade multi-tenant (`organizationId` e `guestId` não podem ser alterados em atualizações).
+- **Suíte de Testes de Persistência Automatizados (`guestRepository.test.ts`)**:
+  - Criada suíte com 15 testes unitários e de integração no Vitest cobrindo criação, busca por ID, atualização, exclusão, busca por documento (CPF limpo ou formatado), busca por e-mail (case-insensitive), filtros por classificação, tag e texto de busca, preservação de preferências e histórico de estadias, isolamento multi-tenant, imutabilidade, e a verificação obrigatória de persistência durável após destruição e recriação da instância do repositório, além de regressão com `CrmService`.
+- **Verificação de Compilação & Build**:
+  - `npx tsc --noEmit` executado com 0 erros.
+  - `npm run build` gerando bundle de produção com sucesso.
+  - 83/83 testes automatizados aprovados no Vitest (`guestRepository.test.ts`, `reservationRepository.test.ts`, `roomRepository.test.ts`, `organizationRepository.test.ts`, `tenantMiddleware.test.ts`, `authMiddleware.test.ts`).
+
+## [FASE P1 - Reservation Repository Firestore Persistence] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Migração do `ReservationRepository` para Persistência Durável no Firestore**:
+  - Removida completamente a persistência em memória (`Map<string, Reservation>`) do `ReservationRepository` (`server/modules/pms/reservationRepository.ts`).
+  - Implementados métodos assíncronos que realizam leitura e escrita durável no Firestore usando o Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+  - Suporte completo à coleção `bookings` com chaves estruturadas e IDs estáveis.
+  - Métodos implementados e preservados com 100% de compatibilidade: `findReservations`, `findReservationById`, `findConflictingReservations`, `saveReservation`, `createReservation`, `updateReservation`, `deleteReservation`, `runInTransaction`, `seedDevData`.
+  - Tratamento rigoroso de tipos para `StayPeriod` (`checkInDate`, `checkOutDate`, `numberOfNights`), `PaymentSummary`/valores monetários (`totalAmount`, `paymentStatus`), informações de hóspedes e prevenção de overbooking.
+  - Proteção estrita de imutabilidade multi-tenant (`organizationId`, `propertyId` e `reservationId` não podem ser alterados em atualizações).
+- **Suíte de Testes de Persistência Automatizados (`reservationRepository.test.ts`)**:
+  - Criada suíte com 17 testes unitários e de integração no Vitest cobrindo criação, leitura, atualização, exclusão, listagem, busca por hóspede (nome/e-mail), filtros por UH/categoria/status/período, detecção de conflitos de datas (overbooking), isolamento multi-tenant, imutabilidade, e a verificação obrigatória de persistência durável após destruição e recriação da instância do repositório, além de regressão com `ReservationService`.
+- **Verificação de Compilação & Build**:
+  - `npx tsc --noEmit` executado com 0 erros.
+  - `npm run build` gerando bundle de produção com sucesso.
+  - 68/68 testes automatizados aprovados no Vitest (`reservationRepository.test.ts`, `roomRepository.test.ts`, `organizationRepository.test.ts`, `tenantMiddleware.test.ts`, `authMiddleware.test.ts`).
+
+## [FASE P1 - Room Repository Firestore Persistence] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Migração do `RoomRepository` para Persistência Durável no Firestore**:
+  - Removida completamente a persistência em memória (`Map<string, RoomCategory>`, `Map<string, RoomUnit>`) do `RoomRepository` (`server/modules/pms/roomRepository.ts`).
+  - Implementados métodos assíncronos que realizam leitura e escrita durável no Firestore usando o Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+  - Suporte completo às coleções `roomCategories` e `rooms` com chaves estruturadas e IDs estáveis.
+  - Métodos implementados e preservados com 100% de compatibilidade: `findCategories`, `findCategoryById`, `findCategoryByCode`, `saveCategory`, `createCategory`, `updateCategory`, `deleteCategory`, `findUnits`, `findUnitById`, `findUnitByNumber`, `saveUnit`, `createUnit`, `updateUnit`, `updateUnitStatus`, `deleteUnit`, `seedDevData`.
+  - Proteção estrita de imutabilidade multi-tenant (`organizationId` e `propertyId` não podem ser alterados em atualizações).
+- **Suíte de Testes de Persistência Automatizados (`roomRepository.test.ts`)**:
+  - Criada suíte com 16 testes unitários no Vitest cobrindo criação, leitura, atualização, exclusão, listagem, filtros por categoria/status, isolamento multi-tenant entre propriedades/organizações, integridade de imutabilidade e a verificação obrigatória de persistência durável após destruição e recriação da instância do repositório.
+- **Verificação de Compilação & Build**:
+  - `npx tsc --noEmit` executado com 0 erros.
+  - `npm run build` gerando bundle de produção com sucesso.
+  - 51/51 testes automatizados aprovados no Vitest (`roomRepository.test.ts`, `organizationRepository.test.ts`, `tenantMiddleware.test.ts`, `authMiddleware.test.ts`).
+
+## [FASE P1 - Organization Repository Firestore Persistence] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Migração do `OrganizationRepository` para Persistência Durável no Firestore**:
+  - Removida completamente a persistência em memória (`Map<string, Entity>`) do `OrganizationRepository`.
+  - Implementados métodos assíncronos que realizam leitura e escrita durável no Firestore usando o Firebase Admin SDK (`server/config/firebaseAdmin.ts`).
+  - Suporte completo às coleções `organizations`, `properties`, `users` e `integrations` com chaves estruturadas (`organizations/{id}`, `properties/{id}`, `users/{id}`, `integrations/{id}`).
+  - Métodos implementados e preservados: `saveOrganization`, `createOrganization`, `updateOrganization`, `getOrganizationById`, `deleteOrganization`, `listOrganizations`, `saveProperty`, `createProperty`, `updateProperty`, `getPropertyById`, `getPropertiesByOrganizationId`, `deleteProperty`, `listProperties`, `saveUser`, `createUser`, `updateUser`, `getUserById`, `getUserByEmail`, `getUsersByOrganizationId`, `deleteUser`, `saveIntegration`, `getIntegrationsByOrganizationId`, `deleteIntegration`, `seedDevData`.
+  - Tratamento resiliente no `authMiddleware` protegendo a pipeline em casos de falha temporária de rede ou indisponibilidade de banco sem interromper a verificação do Firebase ID Token.
+- **Suíte de Testes de Persistência Automatizados (`organizationRepository.test.ts`)**:
+  - Criada suíte com 16 testes unitários no Vitest cobrindo criação, leitura, atualização, exclusão, busca por UID/email, isolamento multi-tenant entre organizações e a verificação obrigatória de persistência durável após destruição e recriação do objeto de instância do repositório.
+- **Verificação de Compilação & Build**:
+  - Execução de `npx tsc --noEmit` com 0 erros e `npm run build` gerando bundle de produção limpo.
+  - Testes do módulo SaaS (`OrganizationRepository`, `TenantMiddleware`, `AuthMiddleware`) com 100% de aprovação (35/35 testes passados).
+
+## [FASE 2.0 - Security & Multi-Tenant Hardening] - 2026-08-13
+
+### Adicionado / Refatorado
+- **Hardening de Autorização de Tenant & Propriedade Server-Side (`tenantMiddleware.ts`)**:
+  - Removido fallback inseguro em desenvolvimento (`org_dev_default` / `prop_dev_default`) no `tenantMiddleware`.
+  - Implementada validação estrita baseada na identidade autenticada (`req.saasUser`).
+  - Verificação e bloqueio com HTTP 403 para qualquer tentativa de falsificação de Tenant através de headers (`X-Organization-ID`, `X-Tenant-ID`), Query String ou Body payload.
+  - Resolução e validação de propriedade (`X-Property-ID`) autorizada na lista `propertyIds` do usuário.
+  - Verificação de status ativo da organização via `organizationRepository.getOrganizationById()`.
+- **Refatoração dos Roteadores Operacionais e Estratégicos**:
+  - Atualizados 12+ roteadores de módulo (`pms`, `crm`, `housekeeping`, `reception`, `maintenance`, `revenue`, `directBooking`, `sales`, `marketing`, `executive`, `executiveCopilot`, `decision`, `strategy`, `approval`, `planning`, `execution`) para consumir estritamente `req.organizationId!` e `req.propertyId!` garantidos pelo middleware.
+  - Removidos fallbacks codificados em string hardcoded nos roteadores.
+- **Proteção Global na Pipeline HTTP Express (`server.ts`)**:
+  - Aplicada a cadeia de middlewares `[authMiddleware, tenantMiddleware]` em todas as rotas operacionais sob `/api/`.
+- **Suíte de Testes Automatizados (`tenantMiddleware.test.ts`)**:
+  - Criados 9 testes de unidade no Vitest validando falta de autenticação, tenancy próprio, tentativas de override via header/query/body, permissões de propriedades, lista vazia e bloqueio de organizações suspensas/inativas.
+- **Garantia de Preservação de UI/APIs Legadas**:
+  - Zero alterações quebradeiras em componentes de frontend ou contratos de API públicos.
+
 ## [FASE 4.0 - Strategic Planning Engine (Executive Brain)] - 2026-08-04
 
 ### Adicionado / Refatorado

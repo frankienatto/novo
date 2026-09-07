@@ -1,4 +1,25 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { createMockFirestore } from '../../test/mockFirestore.ts';
+
+const mockDb = createMockFirestore();
+vi.mock('../../config/firebaseAdmin', () => ({
+  getAdminFirestore: () => mockDb,
+  getAdminAuth: () => ({
+    verifyIdToken: vi.fn().mockResolvedValue({ uid: 'mock_uid' }),
+  }),
+  getFirebaseAdminApp: () => ({}),
+}));
+
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: class MockGoogleGenAI {
+    models = {
+      generateContent: vi.fn().mockResolvedValue({
+        text: '{"status":"success","recommendations":[],"reasoning":"Mocked AI Response for unit tests"}',
+      }),
+    };
+  },
+}));
+
 import { goalEngine } from './goals/goalEngine.ts';
 import { goalRegistry } from './goals/goalRegistry.ts';
 import { goalStateMachine } from './goals/goalStateMachine.ts';

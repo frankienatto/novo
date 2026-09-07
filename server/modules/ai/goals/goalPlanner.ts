@@ -6,8 +6,27 @@ export class GoalPlanner {
    * Decompõe automaticamente um objetivo estratégico em tarefas sequenciadas por agentes responsáveis.
    */
   public decomposeGoal(definition: GoalDefinition): { decomposedTasks: GoalTask[]; rationale: string } {
+    // Se a definição já inclui um plano de ação explícito estruturado, decompõe respeitando as etapas
+    if (definition.actionPlan && definition.actionPlan.length > 0) {
+      const tasks: GoalTask[] = definition.actionPlan.map(step => ({
+        taskId: `task_${definition.goalId}_0${step.stepNumber}`,
+        title: step.title,
+        description: step.description,
+        assignedAgentId: step.assignedAgentId,
+        requiredContext: ['operationalContext'],
+        expectedEvents: [`${step.assignedAgentId}:response_generated`],
+        expectedOutcome: step.expectedOutcome,
+        status: 'PENDING',
+        approvalRequired: Boolean(step.requiresHumanApproval)
+      }));
+      return {
+        decomposedTasks: tasks,
+        rationale: `Plano de ação explícito configurado com ${tasks.length} etapas estruturadas.`
+      };
+    }
+
     const tasks: GoalTask[] = [];
-    const agents = definition.involvedAgents.length > 0 
+    const agents = (definition.involvedAgents && definition.involvedAgents.length > 0)
       ? definition.involvedAgents 
       : ['executive_agent', 'decision_agent', 'planning_agent'];
 
@@ -20,7 +39,7 @@ export class GoalPlanner {
     tasks.push({
       taskId: `task_${definition.goalId}_01`,
       title: `Análise Diagnóstica de Base: ${definition.title}`,
-      description: `Diagnóstico dos KPIs atuais (${definition.relatedKPIs.join(', ')}) e mapeamento da situação pela perspectiva do domínio '${primaryDecl.domain}'.`,
+      description: `Diagnóstico dos KPIs atuais (${(definition.relatedKPIs || []).join(', ')}) e mapeamento da situação pela perspectiva do domínio '${primaryDecl.domain}'.`,
       assignedAgentId: primaryAgentId,
       requiredContext: ['propertyContext', 'operationalContext', 'executiveContext'],
       expectedEvents: [`${primaryAgentId}:response_generated`],

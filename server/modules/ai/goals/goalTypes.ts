@@ -55,15 +55,25 @@ export interface GoalDefinition {
   title: string;
   objective: string;
   metrics: GoalKPI[];
-  deadlineDays: number;
+  deadlineDays?: number;
   priority: GoalPriority;
-  relatedKPIs: string[];
-  involvedAgents: string[];
-  dependencies: string[];
-  successCriteria: string[];
-  failureCriteria: string[];
-  risks: GoalRisk[];
-  rollbackPlan: GoalRollbackPlan;
+  category?: string;
+  scope?: { organizationId?: string; propertyId?: string };
+  actionPlan?: Array<{
+    stepNumber: number;
+    title: string;
+    description: string;
+    expectedOutcome: string;
+    assignedAgentId: string;
+    requiresHumanApproval?: boolean;
+  }>;
+  relatedKPIs?: string[];
+  involvedAgents?: string[];
+  dependencies?: string[];
+  successCriteria?: string[];
+  failureCriteria?: string[];
+  risks?: GoalRisk[];
+  rollbackPlan?: GoalRollbackPlan;
 }
 
 export interface GoalTimelineEntry {

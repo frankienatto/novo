@@ -18,15 +18,22 @@ class HttpClient {
     const dynamicHeaders = this.getHeaders ? this.getHeaders() : {};
     const correlationId = `corr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     
-    return {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       'X-Correlation-ID': correlationId,
-      'X-Organization-ID': dynamicHeaders['org-id'] || 'org_dev_default',
-      'X-Property-ID': dynamicHeaders['property-id'] || 'prop_dev_default',
       ...dynamicHeaders,
       ...customHeaders,
     };
+
+    if (dynamicHeaders['org-id'] && !headers['X-Organization-ID']) {
+      headers['X-Organization-ID'] = dynamicHeaders['org-id'];
+    }
+    if (dynamicHeaders['property-id'] && !headers['X-Property-ID']) {
+      headers['X-Property-ID'] = dynamicHeaders['property-id'];
+    }
+
+    return headers;
   }
 
   async get<T>(url: string, headers?: Record<string, string>): Promise<T> {
@@ -99,11 +106,31 @@ class HttpClient {
 
 export const httpClient = new HttpClient({
   getHeaders: () => {
-    const orgId = localStorage.getItem('synapse_org_id') || 'org_dev_default';
-    const propertyId = localStorage.getItem('synapse_prop_id') || 'prop_dev_default';
-    return {
-      'org-id': orgId,
-      'property-id': propertyId,
-    };
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return {};
+    }
+    const orgId = localStorage.getItem('synapse_org_id') || '';
+    const propertyId = localStorage.getItem('synapse_prop_id') || '';
+    const headers: Record<string, string> = {};
+    if (orgId) {
+      headers['org-id'] = orgId;
+      headers['X-Organization-ID'] = orgId;
+    }
+    if (propertyId) {
+      headers['property-id'] = propertyId;
+      headers['X-Property-ID'] = propertyId;
+    }
+    try {
+      const sessionRaw = localStorage.getItem('synapse_hospitality_session');
+      if (sessionRaw) {
+        const session = JSON.parse(sessionRaw);
+        if (session && typeof session.token === 'string' && session.token.startsWith('ey')) {
+          headers['Authorization'] = `Bearer ${session.token}`;
+        }
+      }
+    } catch {
+      // Ignora erro de parse da sessão
+    }
+    return headers;
   }
 });

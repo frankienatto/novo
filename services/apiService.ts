@@ -398,6 +398,12 @@ let isInitialLoadComplete = false;
 let resolveInitialLoad: () => void;
 export const dbReady = new Promise<void>((resolve) => {
     resolveInitialLoad = resolve;
+    setTimeout(() => {
+        if (!isInitialLoadComplete) {
+            isInitialLoadComplete = true;
+            resolve();
+        }
+    }, 2000);
 });
 
 const syncCollection = (collectionName: keyof DBState, path: string) => {
@@ -582,12 +588,20 @@ const startSync = () => {
                         }
                     }
 
-                    if (data && data.length > 0 || isInitialLoadComplete) {
+                    if (c.isSingleton) {
+                        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+                            const defaultData = (localDefaultDb as any)[c.key];
+                            (state as any)[c.key] = defaultData ? { ...JSON.parse(JSON.stringify(defaultData)), ...data } : data;
+                        } else {
+                            const fallbackData = (localDefaultDb as any)[c.key];
+                            (state as any)[c.key] = fallbackData ? JSON.parse(JSON.stringify(fallbackData)) : {};
+                        }
+                    } else if (Array.isArray(data) && data.length > 0) {
                         (state as any)[c.key] = data;
                         
                         // Garante que o Aloha Pro sempre apareça nas configurações de integração se estiver ausente
-                        if (c.key === 'integrationSettings' && Array.isArray(data)) {
-                            const hasAloha = data.some(s => s.platform === 'Aloha Pro');
+                        if (c.key === 'integrationSettings') {
+                            const hasAloha = data.some((s: any) => s.platform === 'Aloha Pro');
                             if (!hasAloha && user) {
                                 console.log("🔌 Semeando opção integrada do Aloha Pro nas configurações...");
                                 const alohaItem = { 
@@ -605,11 +619,11 @@ const startSync = () => {
                                 });
                             }
                         }
-                    } else if (isEmpty && !user) {
-                        // Se não tem dados e não está logado (visitante), usa os dados locais padrão como fallback
+                    } else if (isEmpty) {
                         const fallbackData = (localDefaultDb as any)[c.key];
                         (state as any)[c.key] = Array.isArray(fallbackData) ? JSON.parse(JSON.stringify(fallbackData)) : (fallbackData || (c.isSingleton ? {} : []));
-                        console.log(`🔥 Firebase Sync: Usando dados locais para ${c.path} (vazio no servidor)`);
+                    } else if (data) {
+                        (state as any)[c.key] = data;
                     }
                     
                     eventBus.emit('db-update');
@@ -799,7 +813,8 @@ export const login = async (email: string, pass: string): Promise<{ user: User, 
         }
 
         if (user) {
-            return { user: JSON.parse(JSON.stringify(user)), token: 'firebase-auth' };
+            const idToken = await result.user.getIdToken().catch(() => 'firebase-auth');
+            return { user: JSON.parse(JSON.stringify(user)), token: idToken };
         }
         
         console.warn("Auth successful but document not found for UID:", fbUid);
@@ -826,7 +841,8 @@ export const login = async (email: string, pass: string): Promise<{ user: User, 
                     await deleteFromFirestore(collection, oldId);
                 }
                 
-                return { user: JSON.parse(JSON.stringify(user)), token: 'firebase-auth' };
+                const idToken = await credential.user.getIdToken().catch(() => 'firebase-auth');
+                return { user: JSON.parse(JSON.stringify(user)), token: idToken };
             } catch (regError: any) {
                 console.warn("Auto-register failed, returning local credentials session:", regError);
                 return { user: JSON.parse(JSON.stringify(user)), token: `fake-token-${user.id}` };
@@ -911,7 +927,8 @@ export const loginWithGoogle = async (): Promise<{ user: User, token: string } |
              }
         }
 
-        return { user: JSON.parse(JSON.stringify(user)), token: 'firebase-auth' };
+        const idToken = await fbUser.getIdToken().catch(() => 'firebase-auth');
+        return { user: JSON.parse(JSON.stringify(user)), token: idToken };
     } catch (error) {
         console.error("Google Login Error:", error);
         return null;

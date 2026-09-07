@@ -128,3 +128,89 @@ export interface StrategicAnalysisResult {
   };
   priorityFocusAreas: string[];
 }
+
+// --- CLOSED-LOOP FEEDBACK & IMPACT MEASUREMENT TYPES (FASE 4.1) ---
+
+export type ImpactEvaluationOutcome = 
+  | 'EXCEEDED' 
+  | 'ACHIEVED' 
+  | 'PARTIALLY_ACHIEVED' 
+  | 'FAILED' 
+  | 'NEGATIVE_IMPACT' 
+  | 'NEUTRAL' 
+  | 'INSUFFICIENT_DATA';
+
+export interface MeasurementWindowsConfig {
+  baselineWindowDays: number;     // Ex: 7 dias antes do início da missão
+  executionWindowDays: number;    // Duração da execução da missão
+  measurementWindowDays: number;  // Janela pós-execução para apuração de impacto estável
+}
+
+export interface SingleMetricImpactAssessment {
+  metricName: string;
+  baselineValue: number;
+  expectedTargetValue: number;
+  expectedDelta: number;
+  actualMeasuredValue: number;
+  actualDelta: number;
+  variancePercent: number;        // (actualDelta - expectedDelta) / abs(expectedDelta) * 100
+  achievementRatePercent: number; // (actualDelta / expectedDelta) * 100
+  unit: string;
+  status: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | 'INSUFFICIENT_DATA';
+}
+
+export interface GoalImpactEvaluation {
+  evaluationId: string;
+  goalId: string;
+  planId?: string;
+  recommendationId?: string;
+  organizationId: string;
+  propertyId: string;
+  goalTitle: string;
+  outcome: ImpactEvaluationOutcome;
+  overallAchievementRatePercent: number;
+  confidenceBefore: number;
+  confidenceAfter: number;
+  confidenceDelta: number;
+  calibrationReason: string;
+  metricAssessments: SingleMetricImpactAssessment[];
+  windows: MeasurementWindowsConfig;
+  baselineSnapshot?: OperationalKPIsSnapshot;
+  measuredSnapshot?: OperationalKPIsSnapshot;
+  evaluatedAt: string;
+  xaiExplanation: {
+    summary: string;
+    whatWorked: string[];
+    whatFailed: string[];
+    learningsAndRecommendations: string[];
+    confidenceImpactDescription: string;
+  };
+}
+
+export interface ConfidenceCalibrationRecord {
+  recordId: string;
+  organizationId: string;
+  propertyId: string;
+  goalId: string;
+  previousConfidence: number;
+  newConfidence: number;
+  delta: number;
+  reason: string;
+  outcome: ImpactEvaluationOutcome;
+  timestamp: string;
+}
+
+export interface StrategicClosedLoopSummaryForAI {
+  totalEvaluationsCount: number;
+  successfulEvaluationsCount: number;
+  failedEvaluationsCount: number;
+  currentConfidenceLevel: number;
+  averageAchievementRatePercent: number;
+  recentEvaluations: Array<{
+    goalTitle: string;
+    outcome: ImpactEvaluationOutcome;
+    achievementRate: number;
+    evaluatedAt: string;
+  }>;
+  primaryLearnings: string[];
+}

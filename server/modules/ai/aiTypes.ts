@@ -105,6 +105,7 @@ export interface OperationalContext {
   approvalSummary?: ApprovalSummaryForAI | null;
   planningSummary?: PlanningSummaryForAI | null;
   executionSummary?: ExecutionSummaryForAI | null;
+  distributedContext?: Record<string, any> | null;
   metadata: Record<string, any>;
 }
 

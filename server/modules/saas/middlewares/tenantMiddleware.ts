@@ -11,47 +11,88 @@ declare global {
 }
 
 /**
- * Middleware com responsabilidade única: Tenant & Property Resolution.
- * Identifica e isola os dados da organização (Tenant) e propriedade ativa.
+ * Middleware de Autorização de Tenant & Propriedade Server-Side.
+ * Garante o isolamento estrito de Tenant e Propriedade ativa com base na identidade autenticada (req.saasUser).
+ * Rejeita qualquer tentativa do cliente de acessar organizações ou propriedades não autorizadas.
  */
 export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
-    const headerOrgId = (req.headers['x-organization-id'] || req.headers['x-tenant-id']) as string;
-    const headerPropId = req.headers['x-property-id'] as string;
-
-    // 1. Prioriza o organizationId resolvido do usuário autenticado se presente
-    let activeOrgId = req.saasUser?.organizationId || headerOrgId;
-    let activePropId = headerPropId || (req.saasUser?.propertyIds?.[0]);
-
-    // 2. Em produção, obriga a presença explícita de um tenantId
-    if (!activeOrgId) {
-      if (process.env.NODE_ENV === 'production') {
-        return res.status(400).json({
-          error: 'Tenant Não Identificado',
-          message: 'O cabeçalho x-organization-id ou x-tenant-id é obrigatório em ambiente de produção.'
-        });
-      } else {
-        // Fallback exclusivo para ambiente de desenvolvimento
-        activeOrgId = 'org_dev_default';
-        activePropId = activePropId || 'prop_dev_default';
-      }
-    }
-
-    // 3. Verifica se a organização existe no repositório
-    const org = await organizationRepository.getOrganizationById(activeOrgId);
-    if (!org || org.status !== 'active') {
-      return res.status(403).json({
-        error: 'Organização Inválida ou Suspensa',
-        message: `A organização ${activeOrgId} não está ativa no sistema.`
+    if (!req.saasUser) {
+      return res.status(401).json({
+        error: 'Não autenticado',
+        message: 'Identidade de usuário não encontrada para validação de tenant.'
       });
     }
 
-    req.organizationId = activeOrgId;
+    const canonicalOrgId = req.saasUser.organizationId;
+    if (!canonicalOrgId) {
+      return res.status(403).json({
+        error: 'Acesso Negado',
+        message: 'Usuário não possui uma organização vinculada.'
+      });
+    }
+
+    // 1. Validar se o cliente tentou enviar um organizationId conflitante no header, query ou body
+    const headerOrgId = (req.headers['x-organization-id'] || req.headers['x-tenant-id']) as string | undefined;
+    const queryOrgId = req.query?.organizationId as string | undefined;
+    const bodyOrgId = req.body?.organizationId as string | undefined;
+
+    const attemptedOrgId = headerOrgId || queryOrgId || bodyOrgId;
+    if (attemptedOrgId && typeof attemptedOrgId === 'string' && attemptedOrgId !== canonicalOrgId) {
+      return res.status(403).json({
+        error: 'Acesso Negado',
+        message: `Tentativa não autorizada de acessar a organização ${attemptedOrgId}.`
+      });
+    }
+
+    // 2. Resolver e validar a propriedade solicitada
+    const headerPropId = req.headers['x-property-id'] as string | undefined;
+    const queryPropId = req.query?.propertyId as string | undefined;
+    const bodyPropId = req.body?.propertyId as string | undefined;
+
+    const requestedPropId = headerPropId || queryPropId || bodyPropId;
+    const userPropertyIds = req.saasUser.propertyIds || [];
+
+    let activePropId: string | undefined;
+
+    if (requestedPropId && typeof requestedPropId === 'string') {
+      const isWildcard = userPropertyIds.includes('*');
+      const isAuthorized = isWildcard || userPropertyIds.includes(requestedPropId);
+
+      if (!isAuthorized) {
+        return res.status(403).json({
+          error: 'Acesso Negado',
+          message: `Propriedade ${requestedPropId} não autorizada para este usuário.`
+        });
+      }
+      activePropId = requestedPropId;
+    } else {
+      activePropId = userPropertyIds[0];
+    }
+
+    if (!activePropId) {
+      return res.status(403).json({
+        error: 'Acesso Negado',
+        message: 'Nenhuma propriedade autorizada atribuída a este usuário.'
+      });
+    }
+
+    // 3. Verifica se a organização existe e está ativa
+    const org = await organizationRepository.getOrganizationById(canonicalOrgId);
+    if (!org || org.status !== 'active') {
+      return res.status(403).json({
+        error: 'Organização Inativa',
+        message: `A organização ${canonicalOrgId} não está ativa no sistema.`
+      });
+    }
+
+    req.organizationId = canonicalOrgId;
     req.propertyId = activePropId;
 
     return next();
   } catch (err: any) {
-    console.error('❌ [TenantMiddleware] Erro:', err.message);
-    return res.status(500).json({ error: 'Erro na resolução do Tenant.' });
+    console.error('❌ [TenantMiddleware] Erro:', err?.message || err);
+    return res.status(500).json({ error: 'Erro interno na validação de Tenant.' });
   }
 }
+

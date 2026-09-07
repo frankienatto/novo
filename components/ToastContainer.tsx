@@ -7,9 +7,11 @@ const ToastContainer: React.FC = () => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   useEffect(() => {
+    let toastCounter = 0;
     const handleNewToast = (notification: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => {
+        toastCounter++;
         const newNotification: AppNotification = {
-            id: `toast-${Date.now()}`,
+            id: (notification as any).id || `toast-${Date.now()}-${toastCounter}-${Math.random().toString(36).substring(2, 7)}`,
             timestamp: new Date().toISOString(),
             read: true, // Toasts are considered "read" upon display
             ...notification,

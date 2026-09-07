@@ -45,14 +45,22 @@ export function correlationMiddleware(req: Request, res: Response, next: NextFun
       metricsCollector.recordHttpRequest(durationMs);
 
       if (env.ENABLE_REQUEST_LOGGING) {
-        logger.info(`${req.method} ${req.originalUrl || req.url} ${res.statusCode} - ${durationMs}ms`, {
-          method: req.method,
-          url: req.originalUrl || req.url,
-          statusCode: res.statusCode,
-          durationMs,
-          ip: req.ip || req.socket.remoteAddress,
-          userAgent: req.headers['user-agent'],
-        });
+        const url = req.originalUrl || req.url;
+        // Evita poluir o log de requisições com arquivos estáticos do Vite em modo dev
+        const isStaticAsset = url.startsWith('/@') || 
+                              url.startsWith('/node_modules/') || 
+                              /\.(tsx?|jsx?|css|svg|png|jpg|jpeg|gif|ico|woff2?|map)(\?.*)?$/i.test(url);
+
+        if (!isStaticAsset) {
+          logger.info(`${req.method} ${url} ${res.statusCode} - ${durationMs}ms`, {
+            method: req.method,
+            url,
+            statusCode: res.statusCode,
+            durationMs,
+            ip: req.ip || req.socket.remoteAddress,
+            userAgent: req.headers['user-agent'],
+          });
+        }
       }
     });
 

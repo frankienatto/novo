@@ -5,6 +5,7 @@ import {
   PlanAuditEntry 
 } from './planningTypes.ts';
 import { strategicForecastEngine } from './strategicForecastEngine.ts';
+import { strategicImpactEvaluator } from './strategicImpactEvaluator.ts';
 import { goalRegistry } from '../goals/goalRegistry.ts';
 import { logger } from '../../../utils/logger.ts';
 
@@ -21,6 +22,12 @@ export class StrategicPlanner {
   ): StrategicPlan {
     const { snapshot, detectedRisks, detectedOpportunities, priorityFocusAreas } = analysis;
     const now = new Date().toISOString();
+
+    // Obter confiança calibrada para o tenant
+    const calibratedConfidence = strategicImpactEvaluator.getCurrentConfidence(
+      snapshot.organizationId,
+      snapshot.propertyId
+    );
 
     let version = 1;
     let planId = `plan_${snapshot.organizationId}_${snapshot.propertyId}_${Date.now()}`;
@@ -82,7 +89,7 @@ export class StrategicPlanner {
               `Missão ID: ${activeGoal.goalId} está em andamento`,
               `Alocação de esforço em prioridade secundária enquanto há risco crítico registrado.`
             ],
-            confidenceScore: 0.88,
+            confidenceScore: Math.min(0.98, Math.max(0.50, calibratedConfidence + 0.03)),
             expectedImpact: {
               metric: 'Capacidade do Orquestrador de Agentes',
               expectedChange: '+100% de foco nos gargalos críticos',
@@ -145,7 +152,7 @@ export class StrategicPlanner {
           `Taxa de Ocupação apurada em ${snapshot.occupancyRatePercent}% está abaixo do limite mínimo recomendado de 60%.`,
           `Sinalização de potencial de aumento no RevPAR em até +14% via campanhas diretas.`
         ],
-        confidenceScore: 0.92,
+        confidenceScore: Math.min(0.98, Math.max(0.50, calibratedConfidence + 0.05)),
         expectedImpact: {
           metric: 'Taxa de Ocupação',
           expectedChange: '+10.5%',
@@ -197,7 +204,7 @@ export class StrategicPlanner {
         evidence: [
           `Total de ${snapshot.cancelledProposalsCount} solicitações registradas sem fechamento definitivo.`
         ],
-        confidenceScore: 0.89,
+        confidenceScore: Math.min(0.98, Math.max(0.50, calibratedConfidence + 0.04)),
         expectedImpact: {
           metric: 'Conversão Comercial CRM',
           expectedChange: '+35% de propostas recuperadas',
@@ -272,3 +279,4 @@ export class StrategicPlanner {
 }
 
 export const strategicPlanner = new StrategicPlanner();
+

@@ -1,4 +1,5 @@
 import { OperationalKPIsSnapshot, StrategicSimulationResult } from './planningTypes.ts';
+import { strategicImpactEvaluator } from './strategicImpactEvaluator.ts';
 
 export class StrategicForecastEngine {
   /**
@@ -26,6 +27,7 @@ export class StrategicForecastEngine {
 
   /**
    * Realiza a simulação quantitativa de impacto do plano estratégico (Strategic Simulation).
+   * Utiliza o nível de confiança calibrado pelo histórico do Closed-Loop Feedback (Fase 4.1).
    */
   public simulatePlan(
     planId: string,
@@ -51,8 +53,17 @@ export class StrategicForecastEngine {
       projectedRevPARChangePercent += 3.5;
     }
 
+    // Obter baseline calibrado via Closed-Loop Feedback Engine
+    const calibratedBaseConfidence = strategicImpactEvaluator.getCurrentConfidence(
+      snapshot.organizationId, 
+      snapshot.propertyId
+    );
+
     const confidenceScore = Number(
-      (0.82 + (snapshot.occupancyRatePercent > 0 ? 0.08 : 0) + (snapshot.revPar > 0 ? 0.05 : 0)).toFixed(2)
+      Math.max(
+        0.50, 
+        Math.min(0.98, calibratedBaseConfidence + (snapshot.occupancyRatePercent > 0 ? 0.03 : 0) + (snapshot.revPar > 0 ? 0.02 : 0))
+      ).toFixed(2)
     );
 
     const recommendedDecision: 'PROCEED_TO_APPROVAL' | 'REJECT_PLAN' | 'REVISE_PARAMETERS' = 
@@ -67,9 +78,10 @@ export class StrategicForecastEngine {
       projectedADRChangePercent,
       confidenceScore,
       recommendedDecision,
-      simulationSummary: `Simulação quantitativa projeta incremento de +${projectedRevPARChangePercent}% no RevPAR e +${projectedOccupancyChangePercent}% na taxa de ocupação com nível de confiança de ${(confidenceScore * 100).toFixed(0)}%.`
+      simulationSummary: `Simulação quantitativa projeta incremento de +${projectedRevPARChangePercent}% no RevPAR e +${projectedOccupancyChangePercent}% na taxa de ocupação com nível de confiança calibrado de ${(confidenceScore * 100).toFixed(0)}%.`
     };
   }
 }
 
 export const strategicForecastEngine = new StrategicForecastEngine();
+

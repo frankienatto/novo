@@ -172,15 +172,28 @@ const TabButton: React.FC<{ label: string; icon: React.ElementType; active: bool
     );
 };
 
-const ThemeStyle = ({ themeSettings }: { themeSettings: ThemeSettings['guestPortal'] }) => {
+const defaultGuestPortalSettings = {
+    backgroundColor: '#F9FAFB',
+    textColor: '#1F2937',
+    cardColor: '#FFFFFF',
+    primaryColor: '#2D5A27',
+    cardBorderRadius: '16px',
+    buttonBorderRadius: '8px',
+    welcomeTitle: "Minha Estadia",
+    welcomeSubtitle: "Olá, {guestName}! Bem-vindo(a) ao seu painel.",
+    cardTitles: {}
+};
+
+const ThemeStyle = ({ themeSettings }: { themeSettings?: ThemeSettings['guestPortal'] | null }) => {
+    const s = themeSettings || defaultGuestPortalSettings;
     const css = `
         :root {
-            --portal-bg: ${themeSettings.backgroundColor};
-            --portal-text: ${themeSettings.textColor};
-            --portal-card-bg: ${themeSettings.cardColor};
-            --portal-primary: ${themeSettings.primaryColor};
-            --guest-card-radius: ${themeSettings.cardBorderRadius};
-            --guest-button-radius: ${themeSettings.buttonBorderRadius};
+            --portal-bg: ${s.backgroundColor || '#F9FAFB'};
+            --portal-text: ${s.textColor || '#1F2937'};
+            --portal-card-bg: ${s.cardColor || '#FFFFFF'};
+            --portal-primary: ${s.primaryColor || '#2D5A27'};
+            --guest-card-radius: ${s.cardBorderRadius || '16px'};
+            --guest-button-radius: ${s.buttonBorderRadius || '8px'};
         }
         [data-theme='dark'] {
             --portal-bg: #111827;
@@ -364,7 +377,7 @@ export const GuestPortalView: FC<GuestPortalViewProps> = (props) => {
     const activeRoom = useMemo(() => activeBooking ? db.rooms.find(r => r.id === activeBooking.roomId) : null, [activeBooking, db.rooms]);
     const activeProperty = useMemo(() => db.properties.find(p => p.id === db.currentPropertyId) || db.properties[0], [db.properties, db.currentPropertyId]);
     const theme = currentUser.theme || 'light';
-    const guestPortalSettings = db.themeSettings.guestPortal;
+    const guestPortalSettings = db.themeSettings?.guestPortal || defaultGuestPortalSettings;
 
     const getLoyaltyLevelForPoints = (points: number) => {
         if (!db.loyaltyLevels || db.loyaltyLevels.length === 0) {

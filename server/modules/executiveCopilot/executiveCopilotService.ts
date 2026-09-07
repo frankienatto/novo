@@ -79,6 +79,23 @@ export class ExecutiveCopilotService {
       executiveBrief: dash.dailyBrief.summary
     };
   }
+
+  /**
+   * Obtém o resumo de impacto e aprendizado Closed-Loop para apoiar decisões executivas
+   */
+  async getClosedLoopImpactSummary(organizationId: string, propertyId: string) {
+    const { strategicImpactEvaluator } = await import('../ai/planning/strategicImpactEvaluator.ts');
+    return strategicImpactEvaluator.getClosedLoopSummaryForAI(organizationId, propertyId);
+  }
+
+  /**
+   * Obtém os resumos de inteligência contextual distribuída para todos os departamentos
+   */
+  async getDistributedContextSummary(organizationId: string, propertyId: string) {
+    const { contextDistributionService } = await import('../ai/context/contextDistributionService.ts');
+    return contextDistributionService.getAllDistributedSummaries(organizationId, propertyId);
+  }
 }
 
 export const executiveCopilotService = new ExecutiveCopilotService();
+

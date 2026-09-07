@@ -11,8 +11,8 @@ export const maintenanceRouter = Router();
  */
 maintenanceRouter.get('/tasks', async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const filters = {
       status: req.query.status as any,
@@ -43,8 +43,8 @@ maintenanceRouter.get('/tasks', async (req: Request, res: Response) => {
  */
 maintenanceRouter.post('/tasks', validateRequest({ body: maintenanceSchemas.createTask }), async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.body.organizationId || 'org_dev_default');
-    const propertyId = String(req.body.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const task = await maintenanceService.createTask(organizationId, propertyId, req.body);
 
@@ -67,8 +67,8 @@ maintenanceRouter.post('/tasks', validateRequest({ body: maintenanceSchemas.crea
  */
 maintenanceRouter.patch('/tasks/:id', validateRequest({ body: maintenanceSchemas.updateTaskStatus }), async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.body.organizationId || req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.body.propertyId || req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
     const taskId = String(req.params.id);
 
     const updatedTask = await maintenanceService.updateTaskStatus(organizationId, propertyId, taskId, req.body);
@@ -92,8 +92,8 @@ maintenanceRouter.patch('/tasks/:id', validateRequest({ body: maintenanceSchemas
  */
 maintenanceRouter.get('/dashboard', async (req: Request, res: Response) => {
   try {
-    const organizationId = String(req.query.organizationId || 'org_dev_default');
-    const propertyId = String(req.query.propertyId || 'prop_dev_default');
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const summary = await maintenanceService.getDashboardSummary(organizationId, propertyId);
 

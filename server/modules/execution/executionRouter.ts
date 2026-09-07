@@ -9,8 +9,8 @@ export const executionRouter = Router();
  */
 executionRouter.get('/dashboard', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const dashboard = await executionService.getDashboard(organizationId, propertyId);
     return res.status(200).json(dashboard);
@@ -26,8 +26,8 @@ executionRouter.get('/dashboard', async (req: Request, res: Response) => {
  */
 executionRouter.get('/list', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const list = await executionService.getExecutions(organizationId, propertyId);
     return res.status(200).json(list);
@@ -43,8 +43,8 @@ executionRouter.get('/list', async (req: Request, res: Response) => {
  */
 executionRouter.get('/summary', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const summary = await executionService.getExecutionSummaryForAI(organizationId, propertyId);
     return res.status(200).json(summary);

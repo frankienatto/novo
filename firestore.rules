@@ -1,44 +1,386 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Coleções operacionais do sistema PMS e PDV (Mesas, Reservas, Quartos, Produtos, etc)
-    match /tables/{tableId} {
-      allow read, write: if true;
-    }
-    match /products/{productId} {
-      allow read, write: if true;
-    }
-    match /bookings/{bookingId} {
-      allow read, write: if true;
-    }
-    match /guests/{guestId} {
-      allow read, write: if true;
-    }
-    match /rooms/{roomId} {
-      allow read, write: if true;
-    }
-    match /transactions/{transactionId} {
-      allow read, write: if true;
-    }
-    match /expenses/{expenseId} {
-      allow read, write: if true;
-    }
-    match /tasks/{taskId} {
-      allow read, write: if true;
-    }
-    match /deliveryOrders/{orderId} {
-      allow read, write: if true;
-    }
-    match /coworkingDesks/{deskId} {
-      allow read, write: if true;
-    }
-    match /integrationSyncLogs/{logId} {
-      allow read, write: if true;
+
+    // --- Global Default Deny Catch-All ---
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // Acesso geral para todas as coleções operacionais e sincronizações da aplicação
-    match /{document=**} {
-      allow read, write: if true;
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function staffDoc() {
+      return get(/databases/$(database)/documents/staff/$(request.auth.uid)).data;
+    }
+
+    function isStaff() {
+      return isSignedIn() && exists(/databases/$(database)/documents/staff/$(request.auth.uid));
+    }
+
+    // Checks if staff member belongs to the tenant of the document being read/updated/deleted
+    function isStaffOfTenant(resData) {
+      return isStaff() && (
+        !('organizationId' in resData) ||
+        !('organizationId' in staffDoc()) ||
+        staffDoc().organizationId == resData.organizationId
+      );
+    }
+
+    // Validates tenant field existence and matching on creation
+    function isAllowedTenantCreate() {
+      return isStaff()
+          && ('organizationId' in request.resource.data)
+          && (!('organizationId' in staffDoc()) || staffDoc().organizationId == request.resource.data.organizationId)
+          && (!('propertyId' in staffDoc()) || !('propertyId' in request.resource.data) || staffDoc().propertyId == request.resource.data.propertyId);
+    }
+
+    // Ensures tenant and property scope immutability on updates
+    function isTenantMatch() {
+      return (!('organizationId' in request.resource.data) || !('organizationId' in resource.data) || request.resource.data.organizationId == resource.data.organizationId)
+          && (!('propertyId' in request.resource.data) || !('propertyId' in resource.data) || request.resource.data.propertyId == resource.data.propertyId);
+    }
+
+    // --- Connectivity Test Collection ---
+    match /test/{testId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // --- Core User & Identity Collections ---
+    match /staff/{staffId} {
+      allow read: if isSignedIn() && (request.auth.uid == staffId || isStaffOfTenant(resource.data));
+      allow create: if isSignedIn() && (request.auth.uid == staffId || isAllowedTenantCreate());
+      allow update: if isSignedIn() && (request.auth.uid == staffId || isStaffOfTenant(resource.data)) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /guests/{guestId} {
+      allow read: if isSignedIn() && (request.auth.uid == guestId || isStaffOfTenant(resource.data));
+      allow create: if isSignedIn() && (request.auth.uid == guestId || isAllowedTenantCreate());
+      allow update: if isSignedIn() && (request.auth.uid == guestId || isStaffOfTenant(resource.data)) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    // --- Booking & User Transactional Data ---
+    match /bookings/{bookingId} {
+      allow read: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.email == request.auth.token.email));
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data) && (isAllowedTenantCreate() || request.resource.data.guestId == request.auth.uid || request.resource.data.email == request.auth.token.email);
+      allow update: if (isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.email == request.auth.token.email))) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isStaffOfTenant(resource.data) || (isSignedIn() && resource.data.guestId == request.auth.uid);
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data) && (isAllowedTenantCreate() || request.resource.data.guestId == request.auth.uid);
+      allow update: if (isStaffOfTenant(resource.data) || (isSignedIn() && resource.data.guestId == request.auth.uid)) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data) || (isSignedIn() && resource.data.guestId == request.auth.uid);
+    }
+
+    match /guestStories/{storyId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data) && (isAllowedTenantCreate() || request.resource.data.guestId == request.auth.uid);
+      allow update: if (isStaffOfTenant(resource.data) || (isSignedIn() && resource.data.guestId == request.auth.uid)) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data) || (isSignedIn() && resource.data.guestId == request.auth.uid);
+    }
+
+    // --- Staff-Only Operational Collections ---
+    match /tasks/{taskId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /transactions/{transactionId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /expenses/{expenseId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /projects/{projectId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /shoppingLists/{listId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /tables/{tableId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /adCampaigns/{campaignId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /emailTemplates/{templateId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /integrationSettings/{settingId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /integrationSyncLogs/{logId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /integrationBillingMappings/{mappingId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /externalApiKeys/{keyId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /scheduledPosts/{postId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /blocks/{blockId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /customAudiences/{audienceId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /socialConnections/{connId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /platformConnections/{connId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /serviceBookings/{bookingId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /deliveryOrders/{orderId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    match /coworkingDesks/{deskId} {
+      allow read, delete: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+    }
+
+    // --- Public / Portal Data (Read: Public/Guest; Write: Staff of Tenant) ---
+    match /properties/{propertyId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /siteContent/{contentId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /themeSettings/{settingId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /propertyEvents/{eventId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /localGuideTips/{tipId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /addOns/{addOnId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /loyaltyLevels/{levelId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /achievements/{achId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /promoCodes/{codeId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /packageDeals/{dealId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /partnerServices/{serviceId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /amenities/{amenityId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /digitalMenu/{menuId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /sharedSpaces/{spaceId} {
+      allow read: if true;
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    // --- Interactive Guest / Community Collections ---
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data);
+      allow update, delete: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.authorId == request.auth.uid || resource.data.guestId == request.auth.uid));
+    }
+
+    match /guestPosts/{postId} {
+      allow read: if true;
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data);
+      allow update, delete: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.authorId == request.auth.uid || resource.data.guestId == request.auth.uid));
+    }
+
+    match /guestActivities/{activityId} {
+      allow read: if true;
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data);
+      allow update, delete: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.authorId == request.auth.uid || resource.data.guestId == request.auth.uid));
+    }
+
+    match /activityParticipants/{partId} {
+      allow read: if true;
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data);
+      allow update, delete: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.userId == request.auth.uid));
+    }
+
+    match /activityComments/{commentId} {
+      allow read: if true;
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data);
+      allow update, delete: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.authorId == request.auth.uid || resource.data.guestId == request.auth.uid));
+    }
+
+    match /activityContributions/{contribId} {
+      allow read: if true;
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data);
+      allow update, delete: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.authorId == request.auth.uid || resource.data.guestId == request.auth.uid));
+    }
+
+    match /chatConversations/{chatId} {
+      allow read: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.userId == request.auth.uid));
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data);
+      allow update: if (isStaffOfTenant(resource.data) || isSignedIn()) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /chatMessages/{msgId} {
+      allow read: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.userId == request.auth.uid || resource.data.senderId == request.auth.uid));
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data);
+      allow update: if (isStaffOfTenant(resource.data) || isSignedIn()) && isTenantMatch();
+      allow delete: if isStaffOfTenant(resource.data);
+    }
+
+    match /synapse_hospitality/{datasetId} {
+      allow read, write: if isStaffOfTenant(resource.data);
     }
   }
 }
+
+

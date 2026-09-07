@@ -23,6 +23,7 @@ import { strategyService } from '../strategy/strategyService.ts';
 import { approvalService } from '../approval/approvalService.ts';
 import { planningService } from '../planning/planningService.ts';
 import { executionService } from '../execution/executionService.ts';
+import { contextDistributionService } from './context/contextDistributionService.ts';
 import { cacheConfig } from '../../config/cacheConfig.ts';
 import { metricsCollector } from '../../utils/metricsCollector.ts';
 import { env } from '../../config/environment.ts';
@@ -252,6 +253,13 @@ export class ContextService {
       console.warn("⚠️ [ContextService] Erro ao carregar contexto PMS via Services:", err?.message || err);
     }
 
+    let distributedContext = null;
+    try {
+      distributedContext = contextDistributionService.getAllDistributedSummaries(resolvedOrgId, resolvedPropId);
+    } catch (err: any) {
+      console.warn("⚠️ [ContextService] Erro ao carregar inteligência contextual distribuída:", err?.message || err);
+    }
+
     const operationalContext: OperationalContext = {
       organization,
       property,
@@ -270,6 +278,7 @@ export class ContextService {
       approvalSummary,
       planningSummary,
       executionSummary,
+      distributedContext,
       metadata: {
         timestamp: new Date().toISOString(),
         resolvedFrom: 'pmsService_reservationService_and_n8nService'

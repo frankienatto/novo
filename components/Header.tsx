@@ -8,14 +8,21 @@ interface HeaderProps {
     setPage: (page: Page) => void;
     currentUser: UserType | null;
     logout: () => void;
-    themeSettings: ThemeSettings;
+    themeSettings?: ThemeSettings | null;
 }
+
+const defaultPublicSite = {
+    headerLayout: 'default',
+    logoHeight: '80px',
+    logoUrl: 'https://i.imgur.com/uEFOBeo.png'
+};
 
 const Header: React.FC<HeaderProps> = ({ page, setPage, currentUser, logout, themeSettings }) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [isScrolled, setIsScrolled] = React.useState(false);
-    const layout = themeSettings.publicSite.headerLayout;
-    const logoHeight = themeSettings.publicSite.logoHeight;
+    const publicSite = themeSettings?.publicSite || defaultPublicSite;
+    const layout = publicSite.headerLayout || 'default';
+    const logoHeight = publicSite.logoHeight || '80px';
 
     React.useEffect(() => {
         const handleScroll = () => {
@@ -83,7 +90,7 @@ const Header: React.FC<HeaderProps> = ({ page, setPage, currentUser, logout, the
             style={{ height: isScrolled ? '32px' : logoHeight }}
           >
              <img 
-                src={themeSettings.publicSite.logoUrl} 
+                src={publicSite.logoUrl} 
                 alt="Logo" 
                 className="hidden h-full w-auto object-contain"
             />

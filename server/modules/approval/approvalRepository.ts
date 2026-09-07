@@ -14,84 +14,97 @@ import {
 
 export class ApprovalRepository {
   private approvalRecordsStore: Map<string, ApprovalRecord> = new Map();
+  private activeResolutions: Set<string> = new Set();
 
   /**
    * Constrói ou recupera os registros de aprovação auditáveis consolidados.
    */
   async getApprovalRecords(organizationId: string, propertyId: string): Promise<ApprovalRecord[]> {
-    // 1. Coletar recomendações ativas do Decision Engine
-    const decisionDash = await decisionService.getDashboard(organizationId, propertyId).catch(() => null);
-    const decisionRecs = decisionDash?.executiveActionQueue || [];
+    const resolutionKey = `${organizationId}_${propertyId}`;
 
-    // 2. Coletar riscos/oportunidades do Executive Copilot
-    const copilotDash = await executiveCopilotService.getDashboard(organizationId, propertyId).catch(() => null);
-    const copilotRisks = copilotDash?.topRisks || [];
+    // Proteção contra recursão circular com decisionService/executiveService
+    if (this.activeResolutions.has(resolutionKey)) {
+      return Array.from(this.approvalRecordsStore.values()).filter(
+        r => r.organizationId === organizationId && r.propertyId === propertyId
+      );
+    }
 
-    // 3. Coletar cenários estratégicos do Strategy Service
-    const strategyScenarios = await strategyService.getScenarios(organizationId, propertyId).catch(() => null) || [];
+    this.activeResolutions.add(resolutionKey);
 
-    // 4. Coletar tarefas do Goal Engine que exigem aprovação humana (ADR-005)
-    const activeGoals = goalEngine.listGoals({ organizationId, propertyId });
+    try {
+      // 1. Coletar recomendações ativas do Decision Engine
+      const decisionDash = await decisionService.getDashboard(organizationId, propertyId).catch(() => null);
+      const decisionRecs = decisionDash?.executiveActionQueue || [];
 
-    const now = new Date().toISOString();
+      // 2. Coletar riscos/oportunidades do Executive Copilot
+      const copilotDash = await executiveCopilotService.getDashboard(organizationId, propertyId).catch(() => null);
+      const copilotRisks = copilotDash?.topRisks || [];
 
-    for (const g of activeGoals) {
-      for (const task of g.tasks) {
-        if (task.status === 'WAITING_APPROVAL') {
-          const recId = task.taskId;
-          if (!this.approvalRecordsStore.has(recId)) {
-            const record: ApprovalRecord = {
-              approvalId: `appr_goal_${recId}`,
-              recommendationId: recId,
-              title: `[Missão Estratégica: ${g.definition.title}] ${task.title}`,
-              description: task.description,
-              decisionBy: 'Pendente de Operador Humano (ADR-005)',
-              decisionDate: '',
-              reason: `Resultado Esperado: ${task.expectedOutcome}`,
-              comments: `Goal ID: ${g.goalId}`,
-              status: 'pending_approval',
-              priority: g.definition.priority === 'CRITICAL' ? 'critical' : g.definition.priority === 'HIGH' ? 'high' : 'medium',
-              originalRecommendation: { goalId: g.goalId, taskId: task.taskId },
-              moduleOrigin: 'goal_engine',
-              correlationId: `corr_goal_${g.goalId}`,
-              requestId: `req_goal_${task.taskId}`,
-              organizationId,
-              propertyId,
-              createdAt: g.updatedAt || now,
-              updatedAt: now
-            };
-            this.approvalRecordsStore.set(recId, record);
+      // 3. Coletar cenários estratégicos do Strategy Service
+      const strategyScenarios = await strategyService.getScenarios(organizationId, propertyId).catch(() => null) || [];
+
+      // 4. Coletar tarefas do Goal Engine que exigem aprovação humana (ADR-005)
+      const activeGoals = goalEngine.listGoals({ organizationId, propertyId });
+
+      const now = new Date().toISOString();
+
+      for (const g of activeGoals) {
+        for (const task of g.tasks) {
+          if (task.status === 'WAITING_APPROVAL') {
+            const recId = task.taskId;
+            if (!this.approvalRecordsStore.has(recId)) {
+              const record: ApprovalRecord = {
+                approvalId: `appr_goal_${recId}`,
+                recommendationId: recId,
+                title: `[Missão Estratégica: ${g.definition.title}] ${task.title}`,
+                description: task.description,
+                decisionBy: 'Pendente de Operador Humano (ADR-005)',
+                decisionDate: '',
+                reason: `Resultado Esperado: ${task.expectedOutcome}`,
+                comments: `Goal ID: ${g.goalId}`,
+                status: 'pending_approval',
+                priority: g.definition.priority === 'CRITICAL' ? 'critical' : g.definition.priority === 'HIGH' ? 'high' : 'medium',
+                originalRecommendation: { goalId: g.goalId, taskId: task.taskId },
+                moduleOrigin: 'goal_engine',
+                correlationId: `corr_goal_${g.goalId}`,
+                requestId: `req_goal_${task.taskId}`,
+                organizationId,
+                propertyId,
+                createdAt: g.updatedAt || now,
+                updatedAt: now
+              };
+              this.approvalRecordsStore.set(recId, record);
+            }
           }
         }
       }
-    }
 
-    // Mapear recomendações do Decision Engine para o store se não existirem
-    for (const rec of decisionRecs) {
-      if (!this.approvalRecordsStore.has(rec.recommendationId)) {
-        const record: ApprovalRecord = {
-          approvalId: `appr_${rec.recommendationId}`,
-          recommendationId: rec.recommendationId,
-          title: rec.title,
-          description: rec.description,
-          decisionBy: 'Pendente de Operador Humano',
-          decisionDate: '',
-          reason: rec.reason || '',
-          comments: '',
-          status: 'pending_approval',
-          priority: rec.priority || 'medium',
-          originalRecommendation: rec,
-          moduleOrigin: rec.sourceModule || 'decision_engine',
-          correlationId: `corr_dec_${rec.recommendationId}`,
-          requestId: `req_dec_${rec.recommendationId}`,
-          organizationId,
-          propertyId,
-          createdAt: rec.createdAt || now,
-          updatedAt: now
-        };
-        this.approvalRecordsStore.set(rec.recommendationId, record);
+      // Mapear recomendações do Decision Engine para o store se não existirem
+      for (const rec of decisionRecs) {
+        if (!this.approvalRecordsStore.has(rec.recommendationId)) {
+          const record: ApprovalRecord = {
+            approvalId: `appr_${rec.recommendationId}`,
+            recommendationId: rec.recommendationId,
+            title: rec.title,
+            description: rec.description,
+            decisionBy: 'Pendente de Operador Humano',
+            decisionDate: '',
+            reason: rec.reason || '',
+            comments: '',
+            status: 'pending_approval',
+            priority: rec.priority || 'medium',
+            originalRecommendation: rec,
+            moduleOrigin: rec.sourceModule || 'decision_engine',
+            correlationId: `corr_dec_${rec.recommendationId}`,
+            requestId: `req_dec_${rec.recommendationId}`,
+            organizationId,
+            propertyId,
+            createdAt: rec.createdAt || now,
+            updatedAt: now
+          };
+          this.approvalRecordsStore.set(rec.recommendationId, record);
+        }
       }
-    }
 
     // Mapear riscos críticos do Copilot para aprovação se relevante
     for (const risk of copilotRisks) {
@@ -153,6 +166,9 @@ export class ApprovalRepository {
     return Array.from(this.approvalRecordsStore.values()).filter(
       r => r.organizationId === organizationId && r.propertyId === propertyId
     );
+    } finally {
+      this.activeResolutions.delete(resolutionKey);
+    }
   }
 
   /**

@@ -3,6 +3,7 @@ import { DBState, Equipment, WorkOrder, Staff, WorkOrderStatus, WorkOrderPriorit
 import { Section } from './shared';
 import Modal from './Modal';
 import { Wrench, PlusCircle, Edit, Trash2, Loader2, Save, AlertTriangle, Sparkles, BrainCircuit, Lightbulb, CheckCircle } from 'lucide-react';
+import { SynapseContextBar } from '../../src/shared/ui';
 
 interface MaintenanceManagerViewProps {
     db: DBState;
@@ -118,6 +119,7 @@ const MaintenanceManagerView: React.FC<MaintenanceManagerViewProps> = ({ db, onS
 
     return (
         <Section title="Gestor de Manutenção Inteligente" icon={Wrench}>
+            <SynapseContextBar module="maintenance" className="mb-4" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-white p-4 rounded-lg shadow-sm border text-center"><p className="text-sm text-gray-500">Ordens de Serviço Abertas</p><p className="text-3xl font-bold">{openOrders}</p></div>
                 <div className="bg-white p-4 rounded-lg shadow-sm border text-center"><p className="text-sm text-gray-500">Equipamentos Monitorados</p><p className="text-3xl font-bold">{db.equipment.length}</p></div>

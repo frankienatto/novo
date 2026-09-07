@@ -11,8 +11,8 @@ export const strategyRouter = Router();
  */
 strategyRouter.get('/dashboard', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const dashboard = await strategyService.getDashboard(organizationId, propertyId);
     return res.status(200).json(dashboard);
@@ -28,8 +28,8 @@ strategyRouter.get('/dashboard', async (req: Request, res: Response) => {
  */
 strategyRouter.get('/plan/active', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const activePlan = strategicPlanningEngine.getActivePlan(organizationId, propertyId);
     return res.status(200).json({
@@ -48,8 +48,8 @@ strategyRouter.get('/plan/active', async (req: Request, res: Response) => {
  */
 strategyRouter.post('/plan/generate', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.body?.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.body?.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
     const actor = req.body?.actor || 'ExecutiveUI';
 
     const plan = await strategicPlanningEngine.runStrategicPlanningCycle({
@@ -75,8 +75,8 @@ strategyRouter.post('/plan/generate', async (req: Request, res: Response) => {
  */
 strategyRouter.post('/plan/approve', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.body?.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.body?.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
     const { recommendationId, decisionBy, reason } = req.body || {};
 
     if (!recommendationId) {
@@ -106,8 +106,8 @@ strategyRouter.post('/plan/approve', async (req: Request, res: Response) => {
  */
 strategyRouter.get('/scenarios', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const scenarios = await strategyService.getScenarios(organizationId, propertyId);
     return res.status(200).json(scenarios);
@@ -123,8 +123,8 @@ strategyRouter.get('/scenarios', async (req: Request, res: Response) => {
  */
 strategyRouter.post('/simulate', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.body.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.body.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const result = await strategyService.simulate(req.body, organizationId, propertyId);
     return res.status(200).json(result);
@@ -140,8 +140,8 @@ strategyRouter.post('/simulate', async (req: Request, res: Response) => {
  */
 strategyRouter.get('/summary', async (req: Request, res: Response) => {
   try {
-    const organizationId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-    const propertyId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
+    const organizationId = req.organizationId!;
+    const propertyId = req.propertyId!;
 
     const summary = await strategyService.getStrategySummaryForAI(organizationId, propertyId);
     return res.status(200).json(summary);
