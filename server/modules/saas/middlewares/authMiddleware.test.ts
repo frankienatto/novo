@@ -105,7 +105,9 @@ describe('authMiddleware - Fundação de Autenticação Server-Side', () => {
       verifyIdToken: vi.fn().mockResolvedValue({
         uid: 'uid_real_do_token_123',
         email: 'usuario_real@synapse.com',
-        role: 'staff'
+        role: 'staff',
+        organizationId: 'org_token',
+        propertyIds: ['prop_token']
       }),
     } as any);
 
@@ -124,7 +126,9 @@ describe('authMiddleware - Fundação de Autenticação Server-Side', () => {
       verifyIdToken: vi.fn().mockResolvedValue({
         uid: 'uid_firebase_autenticado',
         email: 'admin@foresthouse.com',
-        name: 'Admin Valido'
+        name: 'Admin Valido',
+        organizationId: 'org_token',
+        propertyIds: ['prop_token']
       }),
     } as any);
 
@@ -171,7 +175,9 @@ describe('authMiddleware - Fundação de Autenticação Server-Side', () => {
       verifyIdToken: vi.fn().mockResolvedValue({
         uid: 'uid_staff_normal',
         email: 'staff@synapse.com',
-        role: 'staff'
+        role: 'staff',
+        organizationId: 'org_token',
+        propertyIds: ['prop_token']
       }),
     } as any);
 
@@ -180,5 +186,18 @@ describe('authMiddleware - Fundação de Autenticação Server-Side', () => {
     expect(mockNext).toHaveBeenCalled();
     expect(mockReq.saasUser?.role).toBe('staff');
     expect(mockReq.saasUser?.role).not.toBe('owner');
+  });
+
+  it('11. Token válido sem vínculo provisionado nunca recebe tenant de desenvolvimento', async () => {
+    mockReq.headers = { authorization: 'Bearer token_sem_tenant' };
+    vi.spyOn(firebaseAdminModule, 'getAdminAuth').mockReturnValue({
+      verifyIdToken: vi.fn().mockResolvedValue({ uid: 'uid_without_membership', email: 'new@synapse.com' }),
+    } as any);
+
+    await authMiddleware(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(statusSpy).toHaveBeenCalledWith(403);
+    expect(mockNext).not.toHaveBeenCalled();
+    expect(mockReq.saasUser).toBeUndefined();
   });
 });

@@ -13,8 +13,6 @@ export const appConfig = {
     enableRequestLogging: env.ENABLE_REQUEST_LOGGING,
   },
   defaults: {
-    organizationId: 'org_dev_default',
-    propertyId: 'prop_dev_default',
     timeZone: 'America/Sao_Paulo',
     locale: 'pt-BR'
   }

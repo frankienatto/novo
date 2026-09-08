@@ -977,7 +977,15 @@ export const addGuest = async (guestData: Omit<Guest, 'id'>) => {
     }
 };
 
+const assertLegacyBookingIsDevelopmentOnly = () => {
+    const buildEnvironment = (import.meta as ImportMeta & { env?: { PROD?: boolean } }).env;
+    if (buildEnvironment?.PROD) {
+        throw new Error('Legacy booking creation is unavailable in production until the canonical public catalog is provisioned.');
+    }
+};
+
 export const createBookingWithNewGuest = async (data: { booking: any, guest: any, paymentDetails?: any }) => {
+    assertLegacyBookingIsDevelopmentOnly();
     // 1. Create Guest via Auth
     const newGuest = await addGuest(data.guest);
 
@@ -988,13 +996,19 @@ export const createBookingWithNewGuest = async (data: { booking: any, guest: any
         guestId: newGuest.id,
         status: 'Confirmed',
         balance: 0,
-        paymentStatus: 'Paid',
+        // A browser-created legacy record is never evidence of payment.
+        // The canonical PMS Reservation/payment webhook will become the
+        // financial authority during the protected checkout migration.
+        paymentStatus: 'Pending',
         totalPrice: data.booking.totalPrice || 0,
         createdAt: new Date().toISOString(),
         source: 'Website',
     };
     state.bookings.push(newBooking);
-    await saveToFirestore('bookings', newBooking.id, newBooking);
+    // Legacy browser writes are non-financial drafts only. Financial facts
+    // belong to the canonical Reservation/payment backend.
+    const { paymentStatus, balance, totalPrice, amountPaid, paid, currency, paymentIntentId, stripePaymentIntentId, ...bookingDraft } = newBooking as any;
+    await saveToFirestore('bookings', newBooking.id, bookingDraft);
 
     await createNotification({ type: 'booking', title: 'Nova Reserva!', message: `${newGuest.fullName} fez uma nova reserva para o quarto ${state.rooms.find(r => r.id === newBooking.roomId)?.name}.` });
 
@@ -1002,6 +1016,7 @@ export const createBookingWithNewGuest = async (data: { booking: any, guest: any
 };
 
 export const createBookingForExistingGuest = async (data: { booking: any, guestId: string, paymentDetails?: any }) => {
+    assertLegacyBookingIsDevelopmentOnly();
     await delay(LATENCY);
     const newBooking: Booking = {
         ...data.booking,
@@ -1009,11 +1024,12 @@ export const createBookingForExistingGuest = async (data: { booking: any, guestI
         guestId: data.guestId,
         status: 'Confirmed',
         balance: 0,
-        paymentStatus: 'Paid',
+        paymentStatus: 'Pending',
         source: 'Website',
     };
     state.bookings.push(newBooking);
-    await saveToFirestore('bookings', newBooking.id, newBooking);
+    const { paymentStatus, balance, totalPrice, amountPaid, paid, currency, paymentIntentId, stripePaymentIntentId, ...bookingDraft } = newBooking as any;
+    await saveToFirestore('bookings', newBooking.id, bookingDraft);
 
     const guest = state.guests.find(g => g.id === data.guestId);
     await createNotification({ type: 'booking', title: 'Nova Reserva!', message: `${guest?.fullName} fez uma nova reserva para o quarto ${state.rooms.find(r => r.id === newBooking.roomId)?.name}.` });
@@ -1093,14 +1109,9 @@ export const addReview = async (bookingId: string, guest: Guest, rating: number,
 };
 
 export const payBalance = async (bookingId: string, paymentDetails?: PaymentDetails | { method: 'PIX' }) => {
-    const booking = state.bookings.find(b => b.id === bookingId);
-    if (booking) {
-        booking.balance = 0;
-        booking.paymentStatus = 'Paid';
-        await saveToFirestore('bookings', booking.id, booking);
-        return booking;
-    }
-    throw new Error("Booking not found");
+    void bookingId;
+    void paymentDetails;
+    throw new Error('Payment confirmation must be processed by the server-side payment flow.');
 };
 
 import ICAL from 'ical.js';
@@ -2025,6 +2036,7 @@ export const updateRoom = async (updatedRoom: Room) => {
 };
 
 export const addBooking = async (bookingData: Omit<Booking, 'id' | 'totalPrice' | 'balance' | 'paymentStatus' | 'status'>) => {
+    assertLegacyBookingIsDevelopmentOnly();
     const room = state.rooms.find(r => r.id === bookingData.roomId);
     if(!room) throw new Error("Room not found");
     const nights = (new Date(bookingData.checkOut).getTime() - new Date(bookingData.checkIn).getTime()) / 86400000;
@@ -3134,12 +3146,8 @@ export const deletePostComment = async (postId: string, commentTimestamp: string
 };
 
 export const finalizeAccount = async (bookingId: string) => {
-    const booking = state.bookings.find(b => b.id === bookingId);
-    if (booking) {
-        booking.balance = 0;
-        booking.paymentStatus = 'Paid';
-        saveState(state);
-    }
+    void bookingId;
+    throw new Error('Account finalization requires server-side payment confirmation.');
 };
 
 export const saveBrandIdentity = async (identity: BrandIdentity) => {

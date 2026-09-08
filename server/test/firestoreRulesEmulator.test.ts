@@ -5,7 +5,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -106,5 +106,47 @@ describe('Firestore Rules Emulator: staff privilege escalation', () => {
       phone: '+55 11 99999-0000',
       updatedAt: '2026-09-07T00:00:00.000Z'
     }));
+  });
+});
+
+describe('Firestore Rules Emulator: legacy booking financial fields', () => {
+  const guestBooking = {
+    organizationId: 'org_a', propertyId: 'prop_a', guestId: 'guest_a',
+    paymentStatus: 'Pending', balance: 125, totalPrice: 125, amountPaid: 0,
+    currency: 'brl', notes: 'Initial note'
+  };
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'bookings', 'booking_a'), guestBooking);
+    });
+  });
+
+  it('rejects a guest creating a legacy booking as paid', async () => {
+    const db = testEnv.authenticatedContext('guest_a', { email: 'guest@example.test' }).firestore();
+    await assertFails(setDoc(doc(db, 'bookings', 'booking_paid'), {
+      ...guestBooking, paymentStatus: 'Paid', paid: true
+    }));
+  });
+
+  it('rejects a guest creating a booking with client-controlled financial fields', async () => {
+    const db = testEnv.authenticatedContext('guest_a', { email: 'guest@example.test' }).firestore();
+    await assertFails(setDoc(doc(db, 'bookings', 'booking-client-financial-create'), {
+      organizationId: 'org_a', propertyId: 'prop_a', guestId: 'guest_a',
+      totalPrice: 1, balance: 0, paymentStatus: 'Pending', amountPaid: 0, currency: 'BRL',
+    }));
+  });
+
+  it.each([
+    ['paymentStatus', 'Paid'], ['balance', 0], ['totalPrice', 1],
+    ['amountPaid', 125], ['paid', true], ['currency', 'usd']
+  ])('rejects guest mutation of financial field %s', async (field, value) => {
+    const db = testEnv.authenticatedContext('guest_a', { email: 'guest@example.test' }).firestore();
+    await assertFails(updateDoc(doc(db, 'bookings', 'booking_a'), { [field]: value }));
+  });
+
+  it('allows the guest to update a non-financial booking field', async () => {
+    const db = testEnv.authenticatedContext('guest_a', { email: 'guest@example.test' }).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'bookings', 'booking_a'), { notes: 'Updated note' }));
   });
 });

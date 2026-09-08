@@ -30,6 +30,7 @@ import { strategyRouter } from "./server/modules/strategy/strategyRouter.ts";
 import { approvalRouter } from "./server/modules/approval/approvalRouter.ts";
 import { planningRouter } from "./server/modules/planning/planningRouter.ts";
 import { executionRouter } from "./server/modules/execution/executionRouter.ts";
+import { publicBookingAdminRouter } from "./server/modules/publicBooking/publicBookingAdminRouter.ts";
 import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware.ts";
 import { tenantMiddleware } from "./server/modules/saas/middlewares/tenantMiddleware.ts";
 import { aiOrchestrator } from "./server/modules/ai/aiOrchestrator.ts";
@@ -884,6 +885,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   app.use("/api/approval", saasProtected, approvalRouter);
   app.use("/api/planning", saasProtected, planningRouter);
   app.use("/api/execution", saasProtected, executionRouter);
+  app.use("/api/public-booking/catalog", saasProtected, publicBookingAdminRouter);
 
   // Legacy Endpoint - Redirecionado internamente para o Pipeline Unificado de IA (Milestone 1)
   app.post("/api/gemini/generateText", async (req, res) => {
@@ -1219,8 +1221,9 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
                 status: bookingData.status === 'Cancelled' ? 'Cancelled' : 'Confirmed',
                 source: bookingData.otaSource || 'Aloha Pro',
                 propertyId: targetUnit,
-                balance: 0,
-                paymentStatus: 'Paid',
+                // Aloha reservation sync is not a payment confirmation.
+                // Do not let a reservation webhook establish a financial fact.
+                paymentStatus: 'Pending',
                 rulesAcknowledged: false,
                 addOns: [],
                 updatedAt: new Date().toISOString()

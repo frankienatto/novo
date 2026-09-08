@@ -49,6 +49,23 @@ service cloud.firestore {
           && (!('propertyId' in request.resource.data) || !('propertyId' in resource.data) || request.resource.data.propertyId == resource.data.propertyId);
     }
 
+    // Financial facts are written only by trusted server-side integrations.
+    // A guest may retain access to their booking's non-financial profile data,
+    // but may never turn a booking into payment evidence from the browser.
+    function financialFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'paymentStatus', 'balance', 'totalPrice', 'amountPaid', 'paid',
+        'currency', 'paymentIntentId', 'stripePaymentIntentId'
+      ]);
+    }
+
+    function isNonFinancialLegacyBookingCreate() {
+      return !request.resource.data.keys().hasAny([
+        'paymentStatus', 'balance', 'totalPrice', 'amountPaid', 'paid',
+        'currency', 'paymentIntentId', 'stripePaymentIntentId'
+      ]);
+    }
+
     // Roles, permissions and tenant scope are admin-owned. A staff member may
     // maintain only their own non-authorisation profile fields.
     function isSafeSelfStaffProfileUpdate() {
@@ -82,8 +99,8 @@ service cloud.firestore {
     // --- Booking & User Transactional Data ---
     match /bookings/{bookingId} {
       allow read: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.email == request.auth.token.email));
-      allow create: if isSignedIn() && ('organizationId' in request.resource.data) && (isAllowedTenantCreate() || request.resource.data.guestId == request.auth.uid || request.resource.data.email == request.auth.token.email);
-      allow update: if (isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.email == request.auth.token.email))) && isTenantMatch();
+      allow create: if isSignedIn() && ('organizationId' in request.resource.data) && isNonFinancialLegacyBookingCreate() && (isAllowedTenantCreate() || request.resource.data.guestId == request.auth.uid || request.resource.data.email == request.auth.token.email);
+      allow update: if (isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.email == request.auth.token.email))) && isTenantMatch() && financialFieldsUnchanged();
       allow delete: if isStaffOfTenant(resource.data);
     }
 

@@ -6,21 +6,13 @@ import { reservationSchemas } from '../../schemas/routeSchemas.ts';
 
 export const reservationRouter = Router();
 
-// Helper de extração do Tenant Context
-function getTenantContext(req: Request): { organizationId: string; propertyId: string } {
-  const organizationId = 
-    (req.headers['x-organization-id'] as string) || 
-    (req.query.organizationId as string) || 
-    req.body?.organizationId || 
-    'org_dev_default';
-
-  const propertyId = 
-    (req.headers['x-property-id'] as string) || 
-    (req.query.propertyId as string) || 
-    req.body?.propertyId || 
-    'prop_dev_default';
-
-  return { organizationId, propertyId };
+// The parent /api/pms router has already authenticated and validated the tenant.
+// A nested router must never replace that server-side context from request data.
+export function getTenantContext(req: Request): { organizationId: string; propertyId: string } {
+  if (!req.organizationId || !req.propertyId) {
+    throw new Error('Validated tenant context is required.');
+  }
+  return { organizationId: req.organizationId, propertyId: req.propertyId };
 }
 
 // GET /api/pms/reservations

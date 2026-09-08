@@ -77,11 +77,26 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       }
       req.saasUser = user;
     } else {
-      // Perfil básico derivado estritamente do token verificado
+      // A verified identity must never inherit a development tenant merely
+      // because a persistent SaaS profile has not been provisioned yet.
+      const claimedOrganizationId = decodedToken.organizationId as string | undefined;
+      const claimedPropertyIds = Array.isArray(decodedToken.propertyIds)
+        ? decodedToken.propertyIds.filter((propertyId): propertyId is string => typeof propertyId === 'string' && propertyId.length > 0)
+        : [];
+
+      if (!claimedOrganizationId || claimedPropertyIds.length === 0) {
+        return res.status(403).json({
+          error: 'Acesso negado',
+          message: 'Usuário autenticado não possui um vínculo de organização e propriedade provisionado.'
+        });
+      }
+
+      // A transient profile may use only Firebase custom claims from the
+      // verified token. Persistent provisioning remains the production path.
       const newUser: SaaSUser = {
         userId: uid,
-        organizationId: (decodedToken.organizationId as string) || 'org_dev_default',
-        propertyIds: Array.isArray(decodedToken.propertyIds) ? decodedToken.propertyIds : ['prop_dev_default'],
+        organizationId: claimedOrganizationId,
+        propertyIds: claimedPropertyIds,
         name: decodedToken.name || email.split('@')[0] || 'Usuário Autenticado',
         email: email,
         role: (decodedToken.role as any) || 'staff',
