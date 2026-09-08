@@ -253,4 +253,37 @@ describe('tenantMiddleware - Autorização Estrita de Tenant e Propriedade', () 
     );
     expect(mockNext).not.toHaveBeenCalled();
   });
+  it.each([
+    ['header', (req: Partial<Request>) => { req.headers = { 'x-property-id': 'prop_B' }; }],
+    ['query', (req: Partial<Request>) => { req.query = { propertyId: 'prop_B' }; }],
+    ['body', (req: Partial<Request>) => { req.body = { propertyId: 'prop_B' }; }],
+  ])('bloqueia propertyId cross-tenant via %s', async (_source, mutate) => {
+    mockReq.saasUser = {
+      userId: 'user_123', organizationId: 'org_A', propertyIds: ['prop_A'],
+      name: 'User A', email: 'a@example.com', role: 'manager', permissions: [],
+      status: 'active', createdAt: '', updatedAt: ''
+    };
+    mutate(mockReq);
+
+    await tenantMiddleware(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(statusSpy).toHaveBeenCalledWith(403);
+    expect(mockNext).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['query', (req: Partial<Request>) => { req.query = { tenantId: 'org_B' }; }],
+    ['body', (req: Partial<Request>) => { req.body = { tenantId: 'org_B' }; }],
+  ])('bloqueia tenantId cross-tenant via %s', async (_source, mutate) => {
+    mockReq.saasUser = {
+      userId: 'user_123', organizationId: 'org_A', propertyIds: ['prop_A'],
+      name: 'User A', email: 'a@example.com', role: 'manager', permissions: [],
+      status: 'active', createdAt: '', updatedAt: ''
+    };
+    mutate(mockReq);
+
+    await tenantMiddleware(mockReq as Request, mockRes as Response, mockNext);
+
+    expect(statusSpy).toHaveBeenCalledWith(403);
+    expect(mockNext).not.toHaveBeenCalled();
+  });
 });

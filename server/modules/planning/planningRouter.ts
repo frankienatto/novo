@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { planningService } from './planningService.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 
 export const planningRouter = Router();
 
@@ -7,7 +8,7 @@ export const planningRouter = Router();
  * GET /api/planning/dashboard
  * Retorna o dashboard consolidado de planejamento e playbooks operacionais
  */
-planningRouter.get('/dashboard', async (req: Request, res: Response) => {
+planningRouter.get('/dashboard', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -24,7 +25,7 @@ planningRouter.get('/dashboard', async (req: Request, res: Response) => {
  * GET /api/planning/playbooks
  * Retorna a lista completa de playbooks operacionais em modo manual
  */
-planningRouter.get('/playbooks', async (req: Request, res: Response) => {
+planningRouter.get('/playbooks', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -41,7 +42,7 @@ planningRouter.get('/playbooks', async (req: Request, res: Response) => {
  * GET /api/planning/summary
  * Retorna o resumo de planejamento para a IA (planningSummary)
  */
-planningRouter.get('/summary', async (req: Request, res: Response) => {
+planningRouter.get('/summary', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -59,7 +60,7 @@ planningRouter.get('/summary', async (req: Request, res: Response) => {
  * Gerar playbooks operacionais a partir das recomendações aprovadas.
  * Não realiza nenhuma ação operacional externa.
  */
-planningRouter.post('/generate', async (req: Request, res: Response) => {
+planningRouter.post('/generate', requirePermission('manage_planning'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -82,7 +83,7 @@ planningRouter.post('/generate', async (req: Request, res: Response) => {
  * Reconstruir sequências e dependências dos playbooks operacionais.
  * Não realiza nenhuma ação operacional externa.
  */
-planningRouter.post('/rebuild', async (req: Request, res: Response) => {
+planningRouter.post('/rebuild', requirePermission('manage_planning'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;

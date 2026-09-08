@@ -27,6 +27,8 @@ export interface ChecklistItem {
 }
 
 export interface OperationalPlaybook {
+  organizationId: string;
+  propertyId: string;
   playbookId: string;
   title: string;
   description: string;

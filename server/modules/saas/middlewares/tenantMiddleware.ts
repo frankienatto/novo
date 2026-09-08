@@ -34,8 +34,8 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
 
     // 1. Validar se o cliente tentou enviar um organizationId conflitante no header, query ou body
     const headerOrgId = (req.headers['x-organization-id'] || req.headers['x-tenant-id']) as string | undefined;
-    const queryOrgId = req.query?.organizationId as string | undefined;
-    const bodyOrgId = req.body?.organizationId as string | undefined;
+    const queryOrgId = (req.query?.organizationId || req.query?.tenantId) as string | undefined;
+    const bodyOrgId = (req.body?.organizationId || req.body?.tenantId) as string | undefined;
 
     const attemptedOrgId = headerOrgId || queryOrgId || bodyOrgId;
     if (attemptedOrgId && typeof attemptedOrgId === 'string' && attemptedOrgId !== canonicalOrgId) {

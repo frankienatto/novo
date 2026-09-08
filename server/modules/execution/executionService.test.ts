@@ -45,7 +45,7 @@ describe('ExecutionService & Execution Tracking (Unit / Domain)', () => {
     const executions = await executionService.getExecutions(orgId, propId);
     const targetExecution = executions[0].executionId;
     const startedRecord = await executionService.startExecution(
-      targetExecution,
+      targetExecution, orgId, propId,
       'Operador de Governança - Teste',
       'Iniciando execução manual conforme instruído'
     );
@@ -60,7 +60,7 @@ describe('ExecutionService & Execution Tracking (Unit / Domain)', () => {
     const executions = await executionService.getExecutions(orgId, propId);
     const targetExecution = executions[0].executionId;
     const updatedRecord = await executionService.updateProgress(
-      targetExecution,
+      targetExecution, orgId, propId,
       50,
       ['step_1', 'step_2'],
       'Primeira metade do checklist concluída manualmente',
@@ -77,7 +77,7 @@ describe('ExecutionService & Execution Tracking (Unit / Domain)', () => {
     const executions = await executionService.getExecutions(orgId, propId);
     const targetExecution = executions[0].executionId;
     const completedRecord = await executionService.completeExecution(
-      targetExecution,
+      targetExecution, orgId, propId,
       'Operador de Governança - Teste',
       'Todos os passos finalizados e verificados manualmente'
     );

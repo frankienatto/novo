@@ -24,8 +24,8 @@ export class ExecutionService {
    * Inicia o acompanhamento da execução manual de um playbook.
    * Não executa nenhuma ação externa.
    */
-  async startExecution(executionId: string, owner?: string, notes?: string): Promise<ExecutionRecord> {
-    return executionRepository.startExecution(executionId, owner, notes);
+  async startExecution(executionId: string, organizationId: string, propertyId: string, owner?: string, notes?: string): Promise<ExecutionRecord> {
+    return executionRepository.startExecution(executionId, organizationId, propertyId, owner, notes);
   }
 
   /**
@@ -33,22 +33,24 @@ export class ExecutionService {
    * Não executa nenhuma ação externa.
    */
   async updateProgress(
-    executionId: string, 
+    executionId: string,
+    organizationId: string,
+    propertyId: string,
     progressPercent: number, 
     completedStepIds?: string[], 
     notes?: string,
     blocked?: boolean,
     blockReason?: string
   ): Promise<ExecutionRecord> {
-    return executionRepository.updateProgress(executionId, progressPercent, completedStepIds, notes, blocked, blockReason);
+    return executionRepository.updateProgress(executionId, organizationId, propertyId, progressPercent, completedStepIds, notes, blocked, blockReason);
   }
 
   /**
    * Conclui o acompanhamento da execução manual de um playbook.
    * Não executa nenhuma ação externa.
    */
-  async completeExecution(executionId: string, owner?: string, notes?: string): Promise<ExecutionRecord> {
-    return executionRepository.completeExecution(executionId, owner, notes);
+  async completeExecution(executionId: string, organizationId: string, propertyId: string, owner?: string, notes?: string): Promise<ExecutionRecord> {
+    return executionRepository.completeExecution(executionId, organizationId, propertyId, owner, notes);
   }
 
   /**

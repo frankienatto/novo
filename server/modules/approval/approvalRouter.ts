@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { approvalService } from './approvalService.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 
 export const approvalRouter = Router();
 
@@ -7,7 +8,7 @@ export const approvalRouter = Router();
  * GET /api/approval/dashboard
  * Retorna o dashboard consolidado de governança e métricas do Human Approval Workflow
  */
-approvalRouter.get('/dashboard', async (req: Request, res: Response) => {
+approvalRouter.get('/dashboard', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -24,7 +25,7 @@ approvalRouter.get('/dashboard', async (req: Request, res: Response) => {
  * GET /api/approval/pending
  * Retorna a lista de recomendações pendentes de aprovação humana
  */
-approvalRouter.get('/pending', async (req: Request, res: Response) => {
+approvalRouter.get('/pending', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -41,7 +42,7 @@ approvalRouter.get('/pending', async (req: Request, res: Response) => {
  * GET /api/approval/history
  * Retorna o histórico de decisões e auditoria de aprovações/rejeições
  */
-approvalRouter.get('/history', async (req: Request, res: Response) => {
+approvalRouter.get('/history', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -58,7 +59,7 @@ approvalRouter.get('/history', async (req: Request, res: Response) => {
  * GET /api/approval/summary
  * Retorna o resumo para IA (approvalSummary)
  */
-approvalRouter.get('/summary', async (req: Request, res: Response) => {
+approvalRouter.get('/summary', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -77,7 +78,7 @@ approvalRouter.get('/summary', async (req: Request, res: Response) => {
  * Altera exclusivamente o estado interno de governança dentro do Synapse.
  * JAMAIS executa ações operacionais externas.
  */
-approvalRouter.post('/approve', async (req: Request, res: Response) => {
+approvalRouter.post('/approve', requirePermission('approve_decisions'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -86,7 +87,10 @@ approvalRouter.post('/approve', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Parâmetro recommendationId é obrigatório.' });
     }
 
-    const record = await approvalService.approve(req.body, organizationId, propertyId);
+    const record = await approvalService.approve({
+      ...req.body,
+      decisionBy: req.saasUser!.name || req.saasUser!.email || req.saasUser!.userId,
+    }, organizationId, propertyId);
     return res.status(200).json({
       message: 'Aprovação humana registrada com sucesso no Synapse Hospitality.',
       executionNote: 'Nenhuma ação operacional externa foi executada. A implementação requer intervenção manual do operador.',
@@ -104,7 +108,7 @@ approvalRouter.post('/approve', async (req: Request, res: Response) => {
  * Altera exclusivamente o estado interno de governança dentro do Synapse.
  * JAMAIS executa ações operacionais externas.
  */
-approvalRouter.post('/reject', async (req: Request, res: Response) => {
+approvalRouter.post('/reject', requirePermission('approve_decisions'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -113,7 +117,10 @@ approvalRouter.post('/reject', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Parâmetro recommendationId é obrigatório.' });
     }
 
-    const record = await approvalService.reject(req.body, organizationId, propertyId);
+    const record = await approvalService.reject({
+      ...req.body,
+      decisionBy: req.saasUser!.name || req.saasUser!.email || req.saasUser!.userId,
+    }, organizationId, propertyId);
     return res.status(200).json({
       message: 'Rejeição humana registrada com sucesso no Synapse Hospitality.',
       executionNote: 'Estado atualizado para rejeitado. Nenhuma alteração realizada em sistemas externos.',

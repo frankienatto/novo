@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { decisionService } from './decisionService.ts';
 import { rateLimiters } from '../../middlewares/rateLimitMiddleware.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 
 export const decisionRouter = Router();
 
@@ -23,7 +24,7 @@ function getTenantHeaders(req: Request) {
  * GET /api/decision/dashboard
  * Retorna o painel consolidado do Decision Engine e Fila de Ações
  */
-decisionRouter.get('/dashboard', async (req: Request, res: Response) => {
+decisionRouter.get('/dashboard', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const dashboard = await decisionService.getDashboard(organizationId, propertyId);
@@ -44,7 +45,7 @@ decisionRouter.get('/dashboard', async (req: Request, res: Response) => {
  * GET /api/decision/recommendations
  * Retorna as recomendações pendentes de aprovação humana
  */
-decisionRouter.get('/recommendations', async (req: Request, res: Response) => {
+decisionRouter.get('/recommendations', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const recommendations = await decisionService.getRecommendations(organizationId, propertyId);
@@ -66,7 +67,7 @@ decisionRouter.get('/recommendations', async (req: Request, res: Response) => {
  * GET /api/decision/priorities
  * Retorna as prioridades diárias e gargalos críticos
  */
-decisionRouter.get('/priorities', async (req: Request, res: Response) => {
+decisionRouter.get('/priorities', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const priorities = await decisionService.getPriorities(organizationId, propertyId);
@@ -87,7 +88,7 @@ decisionRouter.get('/priorities', async (req: Request, res: Response) => {
  * GET /api/decision/summary
  * Retorna o resumo das recomendações
  */
-decisionRouter.get('/summary', async (req: Request, res: Response) => {
+decisionRouter.get('/summary', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const summary = await decisionService.getSummary(organizationId, propertyId);
@@ -108,7 +109,7 @@ decisionRouter.get('/summary', async (req: Request, res: Response) => {
  * GET /api/decision/distributed-context
  * Retorna os resumos consolidados de inteligência contextual para todos os módulos
  */
-decisionRouter.get('/distributed-context', async (req: Request, res: Response) => {
+decisionRouter.get('/distributed-context', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const { contextDistributionService } = await import('../ai/context/contextDistributionService.ts');
@@ -130,7 +131,7 @@ decisionRouter.get('/distributed-context', async (req: Request, res: Response) =
  * GET /api/decision/context/:module
  * Retorna insights contextuais e resumo direcionados a um módulo específico
  */
-decisionRouter.get('/context/:module', async (req: Request, res: Response) => {
+decisionRouter.get('/context/:module', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const moduleName = req.params.module as any;

@@ -15,6 +15,10 @@ import {
 export class PlanningRepository {
   private playbooksStore: Map<string, OperationalPlaybook> = new Map();
 
+  private recordKey(organizationId: string, propertyId: string, playbookId: string): string {
+    return JSON.stringify([organizationId, propertyId, playbookId]);
+  }
+
   /**
    * Constrói ou recupera os playbooks operacionais em memória.
    * Consome exclusivamente APIs públicas dos módulos Approval, Decision, Copilot e Strategy.
@@ -30,8 +34,11 @@ export class PlanningRepository {
     for (const app of approvals) {
       if (app.status === 'approved') {
         const playbookId = `pb_appr_${app.recommendationId}`;
-        if (!this.playbooksStore.has(playbookId)) {
+        const recordKey = this.recordKey(organizationId, propertyId, playbookId);
+        if (!this.playbooksStore.has(recordKey)) {
           const playbook: OperationalPlaybook = {
+            organizationId,
+            propertyId,
             playbookId,
             title: `[Execução Recomendada] ${app.title}`,
             description: `Plano operacional estruturado para executar manualmente a recomendação aprovada: ${app.description}`,
@@ -89,7 +96,7 @@ export class PlanningRepository {
             createdAt: app.updatedAt || now,
             updatedAt: now
           };
-          this.playbooksStore.set(playbookId, playbook);
+          this.playbooksStore.set(recordKey, playbook);
         }
       }
     }
@@ -97,8 +104,11 @@ export class PlanningRepository {
     // 3. Mapear pendências críticas para pré-playbooks planejados
     for (const pending of pendingApprovals) {
       const playbookId = `pb_plan_${pending.recommendationId}`;
-      if (!this.playbooksStore.has(playbookId)) {
+      const recordKey = this.recordKey(organizationId, propertyId, playbookId);
+      if (!this.playbooksStore.has(recordKey)) {
         const playbook: OperationalPlaybook = {
+          organizationId,
+          propertyId,
           playbookId,
           title: `[Aguardando Aprovação Humana] ${pending.title}`,
           description: `Plano operacional pré-estruturado aguardando decisão humana no workflow de governança: ${pending.description}`,
@@ -136,13 +146,18 @@ export class PlanningRepository {
           createdAt: pending.createdAt || now,
           updatedAt: now
         };
-        this.playbooksStore.set(playbookId, playbook);
+        this.playbooksStore.set(recordKey, playbook);
       }
     }
 
     // Se a loja não tiver nenhum item, gerar um playbook padrão de governança
-    if (this.playbooksStore.size === 0) {
+    const tenantPlaybooks = Array.from(this.playbooksStore.values()).filter(
+      playbook => playbook.organizationId === organizationId && playbook.propertyId === propertyId
+    );
+    if (tenantPlaybooks.length === 0) {
       const defaultPb: OperationalPlaybook = {
+        organizationId,
+        propertyId,
         playbookId: 'pb_default_routine',
         title: '[Rotina Diária] Auditoria Operacional de Reservas e Ocupação',
         description: 'Plano padrão diário para conferência de alinhamento entre Synapse, Aloha PMS e canais n8n.',
@@ -184,17 +199,23 @@ export class PlanningRepository {
         createdAt: now,
         updatedAt: now
       };
-      this.playbooksStore.set(defaultPb.playbookId, defaultPb);
+      this.playbooksStore.set(this.recordKey(organizationId, propertyId, defaultPb.playbookId), defaultPb);
     }
 
-    return Array.from(this.playbooksStore.values());
+    return Array.from(this.playbooksStore.values()).filter(
+      playbook => playbook.organizationId === organizationId && playbook.propertyId === propertyId
+    );
   }
 
   /**
    * Regenera/Atualiza os playbooks no repositório em memória.
    */
   async generatePlaybooks(organizationId: string, propertyId: string): Promise<OperationalPlaybook[]> {
-    this.playbooksStore.clear();
+    for (const [key, playbook] of this.playbooksStore.entries()) {
+      if (playbook.organizationId === organizationId && playbook.propertyId === propertyId) {
+        this.playbooksStore.delete(key);
+      }
+    }
     return this.getPlaybooks(organizationId, propertyId);
   }
 

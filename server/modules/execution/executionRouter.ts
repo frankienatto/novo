@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { executionService } from './executionService.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 
 export const executionRouter = Router();
 
@@ -7,7 +8,7 @@ export const executionRouter = Router();
  * GET /api/execution/dashboard
  * Retorna o dashboard consolidado de acompanhamento da execução operacional
  */
-executionRouter.get('/dashboard', async (req: Request, res: Response) => {
+executionRouter.get('/dashboard', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -24,7 +25,7 @@ executionRouter.get('/dashboard', async (req: Request, res: Response) => {
  * GET /api/execution/list
  * Retorna a lista completa de acompanhamento de execuções
  */
-executionRouter.get('/list', async (req: Request, res: Response) => {
+executionRouter.get('/list', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -41,7 +42,7 @@ executionRouter.get('/list', async (req: Request, res: Response) => {
  * GET /api/execution/summary
  * Retorna o resumo para o ContextService da IA (executionSummary)
  */
-executionRouter.get('/summary', async (req: Request, res: Response) => {
+executionRouter.get('/summary', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -59,14 +60,15 @@ executionRouter.get('/summary', async (req: Request, res: Response) => {
  * Marca o início da execução manual de um playbook.
  * Não realiza nenhuma chamada ou alteração externa.
  */
-executionRouter.post('/start', async (req: Request, res: Response) => {
+executionRouter.post('/start', requirePermission('manage_execution'), async (req: Request, res: Response) => {
   try {
-    const { executionId, owner, notes } = req.body;
+    const { executionId, notes } = req.body;
     if (!executionId) {
       return res.status(400).json({ error: 'Parâmetro executionId é obrigatório.' });
     }
 
-    const record = await executionService.startExecution(executionId, owner, notes);
+    const owner = req.saasUser!.name || req.saasUser!.email || req.saasUser!.userId;
+    const record = await executionService.startExecution(executionId, req.organizationId!, req.propertyId!, owner, notes);
     return res.status(200).json({
       message: 'Acompanhamento de execução iniciado com sucesso.',
       executionNote: 'Nenhuma ação externa foi disparada. O estado foi atualizado para acompanhamento humano.',
@@ -83,7 +85,7 @@ executionRouter.post('/start', async (req: Request, res: Response) => {
  * Atualiza o progresso e o checklist manual de uma execução.
  * Não realiza nenhuma chamada ou alteração externa.
  */
-executionRouter.post('/update', async (req: Request, res: Response) => {
+executionRouter.post('/update', requirePermission('manage_execution'), async (req: Request, res: Response) => {
   try {
     const { executionId, progressPercent, completedStepIds, notes, blocked, blockReason } = req.body;
     if (!executionId) {
@@ -91,7 +93,7 @@ executionRouter.post('/update', async (req: Request, res: Response) => {
     }
 
     const record = await executionService.updateProgress(
-      executionId,
+      executionId, req.organizationId!, req.propertyId!,
       typeof progressPercent === 'number' ? progressPercent : 50,
       completedStepIds,
       notes,
@@ -115,14 +117,15 @@ executionRouter.post('/update', async (req: Request, res: Response) => {
  * Conclui o acompanhamento de uma execução manual.
  * Não realiza nenhuma chamada ou alteração externa.
  */
-executionRouter.post('/complete', async (req: Request, res: Response) => {
+executionRouter.post('/complete', requirePermission('manage_execution'), async (req: Request, res: Response) => {
   try {
-    const { executionId, owner, notes } = req.body;
+    const { executionId, notes } = req.body;
     if (!executionId) {
       return res.status(400).json({ error: 'Parâmetro executionId é obrigatório.' });
     }
 
-    const record = await executionService.completeExecution(executionId, owner, notes);
+    const owner = req.saasUser!.name || req.saasUser!.email || req.saasUser!.userId;
+    const record = await executionService.completeExecution(executionId, req.organizationId!, req.propertyId!, owner, notes);
     return res.status(200).json({
       message: 'Execução manual concluída e registrada no histórico de produtividade.',
       executionNote: 'Nenhuma modificação foi realizada no PMS/OTAs ou sistemas externos.',

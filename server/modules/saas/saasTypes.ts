@@ -13,11 +13,14 @@ export type Permission =
   | 'manage_integrations' 
   | 'view_dashboard' 
   | 'manage_bookings' 
-  | 'view_financials';
+  | 'view_financials'
+  | 'approve_decisions'
+  | 'manage_planning'
+  | 'manage_execution';
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  owner: ['manage_org', 'manage_properties', 'manage_users', 'manage_integrations', 'view_dashboard', 'manage_bookings', 'view_financials'],
-  admin: ['manage_properties', 'manage_users', 'manage_integrations', 'view_dashboard', 'manage_bookings', 'view_financials'],
+  owner: ['manage_org', 'manage_properties', 'manage_users', 'manage_integrations', 'view_dashboard', 'manage_bookings', 'view_financials', 'approve_decisions', 'manage_planning', 'manage_execution'],
+  admin: ['manage_properties', 'manage_users', 'manage_integrations', 'view_dashboard', 'manage_bookings', 'view_financials', 'approve_decisions', 'manage_planning', 'manage_execution'],
   manager: ['manage_users', 'view_dashboard', 'manage_bookings', 'view_financials'],
   receptionist: ['view_dashboard', 'manage_bookings'],
   housekeeping: ['view_dashboard'],

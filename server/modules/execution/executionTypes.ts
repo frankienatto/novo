@@ -6,6 +6,8 @@ export type ExecutionStatus =
   | 'cancelled';
 
 export interface ExecutionRecord {
+  organizationId: string;
+  propertyId: string;
   executionId: string;
   playbookId: string;
   title: string;

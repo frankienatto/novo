@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { executiveService } from './executiveService.ts';
 import { rateLimiters } from '../../middlewares/rateLimitMiddleware.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 
 export const executiveRouter = Router();
 
@@ -23,7 +24,7 @@ function getTenantHeaders(req: Request) {
  * GET /api/executive/dashboard
  * Retorna o painel consolidado do Executive Intelligence
  */
-executiveRouter.get('/dashboard', async (req: Request, res: Response) => {
+executiveRouter.get('/dashboard', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const dashboard = await executiveService.getDashboard(organizationId, propertyId);
@@ -44,7 +45,7 @@ executiveRouter.get('/dashboard', async (req: Request, res: Response) => {
  * GET /api/executive/kpis
  * Retorna os KPIs executivos consolidados
  */
-executiveRouter.get('/kpis', async (req: Request, res: Response) => {
+executiveRouter.get('/kpis', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const kpis = await executiveService.getKpis(organizationId, propertyId);
@@ -65,7 +66,7 @@ executiveRouter.get('/kpis', async (req: Request, res: Response) => {
  * GET /api/executive/alerts
  * Retorna os alertas operacionais e estratégicos executivos
  */
-executiveRouter.get('/alerts', async (req: Request, res: Response) => {
+executiveRouter.get('/alerts', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const alerts = await executiveService.getAlerts(organizationId, propertyId);
@@ -87,7 +88,7 @@ executiveRouter.get('/alerts', async (req: Request, res: Response) => {
  * GET /api/executive/priorities
  * Retorna as prioridades e riscos operacionais do dia
  */
-executiveRouter.get('/priorities', async (req: Request, res: Response) => {
+executiveRouter.get('/priorities', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const priorities = await executiveService.getPriorities(organizationId, propertyId);
@@ -108,7 +109,7 @@ executiveRouter.get('/priorities', async (req: Request, res: Response) => {
  * GET /api/executive/summary
  * Retorna o resumo consolidados por módulos
  */
-executiveRouter.get('/summary', async (req: Request, res: Response) => {
+executiveRouter.get('/summary', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantHeaders(req);
     const summary = await executiveService.getSummaryModule(organizationId, propertyId);

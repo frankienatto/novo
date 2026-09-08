@@ -9,6 +9,10 @@ import {
 export class ExecutionRepository {
   private executionsStore: Map<string, ExecutionRecord> = new Map();
 
+  private recordKey(organizationId: string, propertyId: string, executionId: string): string {
+    return JSON.stringify([organizationId, propertyId, executionId]);
+  }
+
   /**
    * Obtém a lista de acompanhamento de execução operacional para playbooks ativos.
    * Consome exclusivamente a API pública do planningService.
@@ -19,9 +23,12 @@ export class ExecutionRepository {
 
     for (const pb of playbooks) {
       const executionId = `exec_${pb.playbookId}`;
-      if (!this.executionsStore.has(executionId)) {
+      const recordKey = this.recordKey(organizationId, propertyId, executionId);
+      if (!this.executionsStore.has(recordKey)) {
         const remaining = pb.checklist.map(c => c.title);
         const record: ExecutionRecord = {
+          organizationId,
+          propertyId,
           executionId,
           playbookId: pb.playbookId,
           title: pb.title,
@@ -39,24 +46,29 @@ export class ExecutionRepository {
           executionMode: 'manual',
           createdAt: pb.createdAt || now
         };
-        this.executionsStore.set(executionId, record);
+        this.executionsStore.set(recordKey, record);
       }
     }
 
-    return Array.from(this.executionsStore.values());
+    return Array.from(this.executionsStore.values()).filter(
+      record => record.organizationId === organizationId && record.propertyId === propertyId
+    );
   }
 
   /**
    * Inicia a execução manual de um playbook.
    * Altera apenas o estado interno de acompanhamento no Synapse sem nenhuma execução externa.
    */
-  async startExecution(executionId: string, owner?: string, notes?: string): Promise<ExecutionRecord> {
+  async startExecution(executionId: string, organizationId: string, propertyId: string, owner?: string, notes?: string): Promise<ExecutionRecord> {
     const now = new Date().toISOString();
-    let record = this.executionsStore.get(executionId);
+    const recordKey = this.recordKey(organizationId, propertyId, executionId);
+    let record = this.executionsStore.get(recordKey);
 
     if (!record) {
       // Tentar inicializar do contexto geral
       record = {
+        organizationId,
+        propertyId,
         executionId,
         playbookId: executionId.replace('exec_', ''),
         title: 'Execução Operacional Manual',
@@ -84,7 +96,7 @@ export class ExecutionRepository {
       if (notes) record.manualNotes = notes;
     }
 
-    this.executionsStore.set(executionId, record);
+    this.executionsStore.set(recordKey, record);
     return record;
   }
 
@@ -92,7 +104,9 @@ export class ExecutionRepository {
    * Atualiza o progresso da execução manual.
    */
   async updateProgress(
-    executionId: string, 
+    executionId: string,
+    organizationId: string,
+    propertyId: string,
     progressPercent: number, 
     completedStepIds?: string[], 
     notes?: string,
@@ -100,7 +114,8 @@ export class ExecutionRepository {
     blockReason?: string
   ): Promise<ExecutionRecord> {
     const now = new Date().toISOString();
-    let record = this.executionsStore.get(executionId);
+    const recordKey = this.recordKey(organizationId, propertyId, executionId);
+    let record = this.executionsStore.get(recordKey);
 
     if (!record) {
       throw new Error(`Execução com ID ${executionId} não encontrada.`);
@@ -129,16 +144,17 @@ export class ExecutionRepository {
       record.manualNotes = notes;
     }
 
-    this.executionsStore.set(executionId, record);
+    this.executionsStore.set(recordKey, record);
     return record;
   }
 
   /**
    * Conclui manualmente a execução de um playbook.
    */
-  async completeExecution(executionId: string, owner?: string, notes?: string): Promise<ExecutionRecord> {
+  async completeExecution(executionId: string, organizationId: string, propertyId: string, owner?: string, notes?: string): Promise<ExecutionRecord> {
     const now = new Date().toISOString();
-    let record = this.executionsStore.get(executionId);
+    const recordKey = this.recordKey(organizationId, propertyId, executionId);
+    let record = this.executionsStore.get(recordKey);
 
     if (!record) {
       throw new Error(`Execução com ID ${executionId} não encontrada.`);
@@ -155,7 +171,7 @@ export class ExecutionRepository {
     if (owner) record.owner = owner;
     if (notes) record.manualNotes = notes || 'Concluído manualmente pelo operador.';
 
-    this.executionsStore.set(executionId, record);
+    this.executionsStore.set(recordKey, record);
     return record;
   }
 

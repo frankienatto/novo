@@ -16,6 +16,10 @@ export class ApprovalRepository {
   private approvalRecordsStore: Map<string, ApprovalRecord> = new Map();
   private activeResolutions: Set<string> = new Set();
 
+  private recordKey(organizationId: string, propertyId: string, recommendationId: string): string {
+    return JSON.stringify([organizationId, propertyId, recommendationId]);
+  }
+
   /**
    * Constrói ou recupera os registros de aprovação auditáveis consolidados.
    */
@@ -52,7 +56,7 @@ export class ApprovalRepository {
         for (const task of g.tasks) {
           if (task.status === 'WAITING_APPROVAL') {
             const recId = task.taskId;
-            if (!this.approvalRecordsStore.has(recId)) {
+            if (!this.approvalRecordsStore.has(this.recordKey(organizationId, propertyId, recId))) {
               const record: ApprovalRecord = {
                 approvalId: `appr_goal_${recId}`,
                 recommendationId: recId,
@@ -73,7 +77,7 @@ export class ApprovalRepository {
                 createdAt: g.updatedAt || now,
                 updatedAt: now
               };
-              this.approvalRecordsStore.set(recId, record);
+              this.approvalRecordsStore.set(this.recordKey(organizationId, propertyId, recId), record);
             }
           }
         }
@@ -81,7 +85,7 @@ export class ApprovalRepository {
 
       // Mapear recomendações do Decision Engine para o store se não existirem
       for (const rec of decisionRecs) {
-        if (!this.approvalRecordsStore.has(rec.recommendationId)) {
+        if (!this.approvalRecordsStore.has(this.recordKey(organizationId, propertyId, rec.recommendationId))) {
           const record: ApprovalRecord = {
             approvalId: `appr_${rec.recommendationId}`,
             recommendationId: rec.recommendationId,
@@ -102,14 +106,14 @@ export class ApprovalRepository {
             createdAt: rec.createdAt || now,
             updatedAt: now
           };
-          this.approvalRecordsStore.set(rec.recommendationId, record);
+          this.approvalRecordsStore.set(this.recordKey(organizationId, propertyId, rec.recommendationId), record);
         }
       }
 
     // Mapear riscos críticos do Copilot para aprovação se relevante
     for (const risk of copilotRisks) {
       const recId = `rec_copilot_risk_${risk.riskId}`;
-      if (!this.approvalRecordsStore.has(recId)) {
+      if (!this.approvalRecordsStore.has(this.recordKey(organizationId, propertyId, recId))) {
         const record: ApprovalRecord = {
           approvalId: `appr_${recId}`,
           recommendationId: recId,
@@ -130,14 +134,14 @@ export class ApprovalRepository {
           createdAt: now,
           updatedAt: now
         };
-        this.approvalRecordsStore.set(recId, record);
+        this.approvalRecordsStore.set(this.recordKey(organizationId, propertyId, recId), record);
       }
     }
 
     // Mapear cenários do Strategy Module para aprovação
     for (const scen of strategyScenarios) {
       const recId = `rec_strategy_${scen.scenarioId}`;
-      if (!this.approvalRecordsStore.has(recId)) {
+      if (!this.approvalRecordsStore.has(this.recordKey(organizationId, propertyId, recId))) {
         const record: ApprovalRecord = {
           approvalId: `appr_${recId}`,
           recommendationId: recId,
@@ -158,7 +162,7 @@ export class ApprovalRepository {
           createdAt: scen.createdAt || now,
           updatedAt: now
         };
-        this.approvalRecordsStore.set(recId, record);
+        this.approvalRecordsStore.set(this.recordKey(organizationId, propertyId, recId), record);
       }
     }
 
@@ -216,7 +220,7 @@ export class ApprovalRepository {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      this.approvalRecordsStore.set(params.recommendationId, record);
+      this.approvalRecordsStore.set(this.recordKey(orgId, propId, params.recommendationId), record);
     } else {
       record.status = 'approved';
       record.decisionBy = params.decisionBy || 'Gerente Geral / Operador';
@@ -224,7 +228,7 @@ export class ApprovalRepository {
       record.reason = params.reason || record.reason || 'Aprovado após avaliação humana de trade-offs';
       record.comments = params.comments || record.comments || 'Aprovado via Human Approval Workflow';
       record.updatedAt = new Date().toISOString();
-      this.approvalRecordsStore.set(record.recommendationId, record);
+      this.approvalRecordsStore.set(this.recordKey(orgId, propId, record.recommendationId), record);
     }
 
     if (record.moduleOrigin === 'goal_engine' && record.originalRecommendation) {
@@ -295,7 +299,7 @@ export class ApprovalRepository {
       updatedAt: now
     };
 
-    this.approvalRecordsStore.set(params.recommendationId, record);
+    this.approvalRecordsStore.set(this.recordKey(params.organizationId, params.propertyId, params.recommendationId), record);
     return record;
   }
 
@@ -327,7 +331,7 @@ export class ApprovalRepository {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      this.approvalRecordsStore.set(params.recommendationId, record);
+      this.approvalRecordsStore.set(this.recordKey(orgId, propId, params.recommendationId), record);
     } else {
       record.status = 'rejected';
       record.decisionBy = params.decisionBy || 'Gerente Geral / Operador';
@@ -335,7 +339,7 @@ export class ApprovalRepository {
       record.reason = params.reason || record.reason || 'Rejeitado após avaliação humana';
       record.comments = params.comments || record.comments || 'Rejeitado no fluxo de aprovação';
       record.updatedAt = new Date().toISOString();
-      this.approvalRecordsStore.set(record.recommendationId, record);
+      this.approvalRecordsStore.set(this.recordKey(orgId, propId, record.recommendationId), record);
     }
 
     return record;
