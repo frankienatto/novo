@@ -150,3 +150,10 @@ describe('Firestore Rules Emulator: legacy booking financial fields', () => {
     await assertSucceeds(updateDoc(doc(db, 'bookings', 'booking_a'), { notes: 'Updated note' }));
   });
 });
+
+describe('Firestore Rules Emulator: public checkout internal records', () => {
+  it.each(['checkoutCapabilities', 'publicReservationIdempotency', 'paymentRecords', 'stripeEvents'])('rejects direct client writes to %s', async (collectionName) => {
+    const db = testEnv.authenticatedContext('guest_a', { email: 'guest@example.test' }).firestore();
+    await assertFails(setDoc(doc(db, collectionName, 'internal-record'), { reservationId: 'reservation_a', organizationId: 'org_a', propertyId: 'prop_a' }));
+  });
+});

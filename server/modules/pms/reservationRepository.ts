@@ -105,7 +105,7 @@ export class ReservationRepository implements IReservationRepository {
   ): Promise<Reservation[]> {
     if (!organizationId || !propertyId || !unitId) return [];
 
-    const activeStatuses = ['confirmed', 'checked_in'];
+    const activeStatuses = ['pending', 'confirmed', 'checked_in'];
 
     const snapshot = await this.db.collection('bookings')
       .where('organizationId', '==', organizationId)

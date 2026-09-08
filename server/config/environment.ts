@@ -9,6 +9,8 @@ const envSchema = z.object({
   N8N_ORGANIZATION_ID: z.string().min(1).optional(),
   N8N_PROPERTY_ID: z.string().min(1).optional(),
   ALOHA_API_KEY: z.string().min(1).optional(),
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   // Feature Flags
   ENABLE_SWAGGER: z.string().default('true').transform(val => val === 'true'),
   ENABLE_CACHE: z.string().default('true').transform(val => val === 'true'),
@@ -24,8 +26,8 @@ let parsedEnv: EnvConfig;
 try {
   parsedEnv = envSchema.parse(process.env);
   if (parsedEnv.NODE_ENV === 'production') {
-    const missing = ['JWT_SECRET', 'N8N_SECRET']
-      .filter((key) => !parsedEnv[key as 'JWT_SECRET' | 'N8N_SECRET']);
+    const missing = ['JWT_SECRET', 'N8N_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET']
+      .filter((key) => !parsedEnv[key as keyof Pick<EnvConfig, 'JWT_SECRET' | 'N8N_SECRET' | 'STRIPE_SECRET_KEY' | 'STRIPE_WEBHOOK_SECRET'>]);
     if (missing.length > 0) {
       throw new Error(`Missing required production environment variables: ${missing.join(', ')}`);
     }

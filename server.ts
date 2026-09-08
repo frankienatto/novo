@@ -31,6 +31,7 @@ import { approvalRouter } from "./server/modules/approval/approvalRouter.ts";
 import { planningRouter } from "./server/modules/planning/planningRouter.ts";
 import { executionRouter } from "./server/modules/execution/executionRouter.ts";
 import { publicBookingAdminRouter } from "./server/modules/publicBooking/publicBookingAdminRouter.ts";
+import { publicCheckoutRouter, stripeWebhookHandler } from "./server/modules/publicBooking/publicCheckoutRouter.ts";
 import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware.ts";
 import { tenantMiddleware } from "./server/modules/saas/middlewares/tenantMiddleware.ts";
 import { aiOrchestrator } from "./server/modules/ai/aiOrchestrator.ts";
@@ -470,6 +471,9 @@ async function startServer() {
   const PORT = 3000;
   
   app.use(cors());
+  // Stripe requires the untouched body for signature verification. This route
+  // must stay before the JSON parser and before generic API middleware.
+  app.post('/api/public-booking/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
   app.use(express.json());
 
   // Request ID & Correlation ID Middleware (Milestone 8)
@@ -886,6 +890,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   app.use("/api/planning", saasProtected, planningRouter);
   app.use("/api/execution", saasProtected, executionRouter);
   app.use("/api/public-booking/catalog", saasProtected, publicBookingAdminRouter);
+  app.use("/api/public-booking", publicCheckoutRouter);
 
   // Legacy Endpoint - Redirecionado internamente para o Pipeline Unificado de IA (Milestone 1)
   app.post("/api/gemini/generateText", async (req, res) => {
@@ -1290,50 +1295,15 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
     }
   });
 
-  // Stripe Payment Intent
+  // Legacy payment endpoints are deliberately retired. Public checkout uses
+  // the canonical Reservation + capability flow above.
   app.post("/api/create-payment-intent", async (req, res) => {
-    try {
-      const { amount, currency = 'brl', bookingId } = req.body;
-      const stripe = getStripe();
-      
-      if (!stripe) {
-        return res.status(500).json({ error: "Stripe não configurado no servidor." });
-      }
-
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // convert to cents
-        currency,
-        metadata: { bookingId },
-      });
-
-      res.status(200).json({
-        clientSecret: paymentIntent.client_secret,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    return res.status(410).json({ error: 'Legacy payment endpoint retired. Use canonical public checkout.' });
   });
 
   // Mock PIX Generation (Integrável com gateways brasileiros)
   app.post("/api/create-pix-payment", async (req, res) => {
-    try {
-      const { amount, bookingId, guestName } = req.body;
-      
-      // Simulação de geração de payload PIX (Copia e Cola)
-      // Em produção, isso chamaria a API de um banco ou gateway (Mercado Pago, Stark Bank, Efí, etc)
-      const pixKey = "financeiro@foresthouse.com.br";
-      const txid = `FH${bookingId}${Date.now().toString().slice(-4)}`;
-      const payload = `00020126580014BR.GOV.BCB.PIX0114${pixKey}520400005303986540${amount.toFixed(2)}5802BR5920Forest House Hostel6009Sao Paulo62070503${txid}6304`;
-      
-      res.status(200).json({
-        qrCode: payload,
-        copyPaste: payload,
-        amount,
-        expiration: new Date(Date.now() + 30 * 60000).toISOString(), // 30 min
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
+    return res.status(503).json({ error: 'PIX mock is unavailable for financial confirmation.' });
   });
 
   // Central Error Handler Middleware (Milestone 8)
