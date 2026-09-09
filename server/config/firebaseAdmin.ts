@@ -12,7 +12,8 @@ export function getFirebaseAdminApp(): App {
     return existingApps[0]!;
   }
 
-  let projectId = process.env.FIREBASE_PROJECT_ID || process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT;
+  // Cloud Run expõe GOOGLE_CLOUD_PROJECT para a identidade de runtime.
+  let projectId = process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT;
 
   if (!projectId && process.env.NODE_ENV !== 'production') {
     try {
