@@ -1,16 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { googleCalendarService } from './googleCalendarService.ts';
 import { GCalSyncRequest, GCalEventType } from './googleCalendarTypes.ts';
+import { requirePermission } from '../../saas/middlewares/rbacMiddleware.ts';
 
 export const googleCalendarRouter = Router();
 
-// Middleware de Extração de Tenant
+// O contexto é preenchido exclusivamente pelo authMiddleware + tenantMiddleware
+// montados em server.ts. Nunca aceite tenant dos headers, query ou body aqui.
 const extractTenantContext = (req: Request, res: Response, next: any) => {
-  const orgId = (req.headers['x-organization-id'] as string) || (req.query.organizationId as string) || 'org_dev_default';
-  const propId = (req.headers['x-property-id'] as string) || (req.query.propertyId as string) || 'prop_dev_default';
-
-  (req as any).organizationId = orgId;
-  (req as any).propertyId = propId;
+  if (!req.organizationId || !req.propertyId) {
+    return res.status(403).json({ error: 'Contexto de tenant não resolvido.' });
+  }
   next();
 };
 
@@ -20,7 +20,7 @@ googleCalendarRouter.use(extractTenantContext);
  * POST /api/integration/google-calendar/sync
  * Endpoint para receber eventos operacionais sincronizados pelo n8n
  */
-googleCalendarRouter.post('/sync', async (req: Request, res: Response) => {
+googleCalendarRouter.post('/sync', requirePermission('manage_integrations'), async (req: Request, res: Response) => {
   try {
     const orgId = (req as any).organizationId;
     const propId = (req as any).propertyId;
@@ -54,8 +54,8 @@ googleCalendarRouter.post('/sync', async (req: Request, res: Response) => {
     const syncRequest: GCalSyncRequest = {
       eventId,
       eventType,
-      organizationId: req.body.organizationId || orgId,
-      propertyId: req.body.propertyId || propId,
+      organizationId: orgId,
+      propertyId: propId,
       sourceSystem: sourceSystem || 'n8n_gcal',
       payload: {
         eventId: payload.eventId || eventId,
@@ -90,7 +90,7 @@ googleCalendarRouter.post('/sync', async (req: Request, res: Response) => {
  * GET /api/integration/google-calendar/status
  * Retorna as métricas e estado da sincronização do Google Calendar por tenant
  */
-googleCalendarRouter.get('/status', (req: Request, res: Response) => {
+googleCalendarRouter.get('/status', requirePermission('view_dashboard'), (req: Request, res: Response) => {
   try {
     const orgId = (req as any).organizationId;
     const propId = (req as any).propertyId;
@@ -113,7 +113,7 @@ googleCalendarRouter.get('/status', (req: Request, res: Response) => {
  * GET /api/integration/google-calendar/logs
  * Retorna o histórico de auditoria dos eventos sincronizados via n8n
  */
-googleCalendarRouter.get('/logs', (req: Request, res: Response) => {
+googleCalendarRouter.get('/logs', requirePermission('view_dashboard'), (req: Request, res: Response) => {
   try {
     const orgId = (req as any).organizationId;
     const propId = (req as any).propertyId;

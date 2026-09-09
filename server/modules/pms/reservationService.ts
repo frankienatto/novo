@@ -161,7 +161,9 @@ export class ReservationService {
         updatedAt: new Date().toISOString()
       };
 
-      const created = await this.reservationRepo.saveReservation(newReservation);
+      const created = this.reservationRepo.saveReservationAtomically
+        ? await this.reservationRepo.saveReservationAtomically(newReservation)
+        : await this.reservationRepo.saveReservation(newReservation);
       contextService.invalidateCache(organizationId, propertyId);
       return created;
     });
@@ -293,6 +295,8 @@ export class ReservationService {
       if (!updated) {
         throw new Error("Erro ao cancelar a reserva.");
       }
+
+      await this.reservationRepo.releaseOccupancyLocks?.(organizationId, propertyId, reservationId);
 
       contextService.invalidateCache(organizationId, propertyId);
       return updated;

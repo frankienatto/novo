@@ -982,7 +982,7 @@ export const db = {
         { id: 'T04', number: 4, capacity: 6, status: 'Livre' as any, currentItems: [] },
     ],
     integrationSettings: [
-        { id: 'INT01', platform: 'Cloudbeds', connected: true, apiKey: 'cb_sk_live_9f8d7e6c5b4a3...', propertyId: 'CB_PRO_123', lastSync: new Date().toISOString(), status: 'Ativo', config: { syncRooms: true, syncGuests: true, syncPOS: false }, updatedAt: new Date().toISOString() },
+        { id: 'INT01', platform: 'Cloudbeds', connected: false, apiKey: 'DEMO_KEY_NOT_CONFIGURED', propertyId: 'DEMO_PROPERTY', lastSync: new Date().toISOString(), status: 'Demo', config: { syncRooms: false, syncGuests: false, syncPOS: false }, updatedAt: new Date().toISOString() },
         { id: 'INT02', platform: 'Aloha Pro', connected: false, status: 'Pausado', config: { syncRooms: true, syncGuests: true, syncPOS: true }, updatedAt: new Date().toISOString() }
     ] as IntegrationSettings[],
     integrationSyncLogs: [
@@ -992,7 +992,7 @@ export const db = {
         { id: 'MAP01', appItemName: 'Consumo Restaurante', pmsItemName: 'Restaurante POS', integrationId: 'INT02', updatedAt: new Date().toISOString() }
     ] as IntegrationBillingMapping[],
     externalApiKeys: [
-        { id: 'AK01', name: 'Integração Web Webhook', key: 'sk_live_abc123', createdAt: new Date().toISOString(), scope: 'Leitura/Escrita', updatedAt: new Date().toISOString() }
+        { id: 'AK01', name: 'Integração Web Webhook', key: 'DEMO_KEY_NOT_CONFIGURED', createdAt: new Date().toISOString(), scope: 'Leitura/Escrita', updatedAt: new Date().toISOString() }
     ] as ExternalAPIKey[],
     coworkingPlans: [
         { id: 'cw-plan-hour', name: 'Hora Avulsa', type: 'hour', price: 15.00 },

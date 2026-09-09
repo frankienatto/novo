@@ -74,9 +74,9 @@ export class ICalParser {
         }
 
         if (line.toUpperCase() === 'END:VEVENT') {
-          if (inEvent && currentEvent.dtstart && currentEvent.dtend) {
+          if (inEvent && currentEvent.uid && currentEvent.dtstart && currentEvent.dtend) {
             events.push({
-              uid: currentEvent.uid || `ical_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              uid: currentEvent.uid,
               dtstart: ICalParser.parseICalDate(currentEvent.dtstart),
               dtend: ICalParser.parseICalDate(currentEvent.dtend),
               summary: currentEvent.summary || 'Reserva iCal Externa',

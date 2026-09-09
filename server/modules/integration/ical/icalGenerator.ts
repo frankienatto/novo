@@ -59,9 +59,9 @@ export class ICalGenerator {
       lines.push(`DTSTAMP:${nowFormatted}`);
       lines.push(`DTSTART;VALUE=DATE:${dtStart}`);
       lines.push(`DTEND;VALUE=DATE:${dtEnd}`);
-      lines.push(`SUMMARY:${ICalGenerator.escapeText(`${res.guest.fullName} (${unitLabel})`)}`);
-      lines.push(`DESCRIPTION:${ICalGenerator.escapeText(`Reserva PMS: ${res.reservationId} | Canal: ${res.source} | Pessoas: ${res.adultsCount || 1}A / ${res.childrenCount || 0}C`)}`);
-      lines.push(`LOCATION:${ICalGenerator.escapeText(`${options.propertyName} - ${unitLabel}`)}`);
+      lines.push('SUMMARY:Unavailable');
+      lines.push('DESCRIPTION:Unavailable');
+      lines.push(`LOCATION:${ICalGenerator.escapeText(unitLabel)}`);
       lines.push(`STATUS:${res.status === 'confirmed' || res.status === 'checked_in' ? 'CONFIRMED' : 'TENTATIVE'}`);
       lines.push(`LAST-MODIFIED:${nowFormatted}`);
       lines.push('END:VEVENT');

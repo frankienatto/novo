@@ -67,7 +67,9 @@ export class PublicCheckoutService {
       if (!raced || raced.requestHash !== requestHash) throw new Error('Unable to establish reservation idempotency.');
       return { reservation: raced.reservation, checkoutCapability: await this.issueCapability(raced.reservation) };
     }
-    const saved = await this.reservations.saveReservation(reservation);
+    const saved = this.reservations.saveReservationAtomically
+      ? await this.reservations.saveReservationAtomically(reservation)
+      : await this.reservations.saveReservation(reservation);
     return { reservation: saved, checkoutCapability: await this.issueCapability(saved) };
   }
 

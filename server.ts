@@ -493,7 +493,9 @@ async function startServer() {
   app.use('/api/docs', docsRouter);
 
   // Security Hardening Middlewares (Milestone 8)
-  app.use('/api/gemini', rateLimiters.ai, promptGuardMiddleware);
+  // Chamadas de IA operacionais sempre exigem identidade validada e contexto
+  // de tenant; rate limiting e prompt guard são defesas complementares.
+  app.use('/api/gemini', rateLimiters.ai, promptGuardMiddleware, authMiddleware, tenantMiddleware);
   app.use('/api/ai', rateLimiters.ai, promptGuardMiddleware);
   app.use('/api/webhooks', rateLimiters.webhooks);
   app.use('/api', rateLimiters.rest);
@@ -868,11 +870,11 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
 
   // External integrations with dedicated token authentication
   app.use("/api/integration/n8n", n8nRouter);
-  app.use("/api/integration/ical", icalRouter);
-  app.use("/api/integration/google-calendar", googleCalendarRouter);
 
   // Protected Operational Modules (Multi-Tenant Hardened)
   const saasProtected = [authMiddleware, tenantMiddleware];
+  app.use("/api/integration/ical", saasProtected, icalRouter);
+  app.use("/api/integration/google-calendar", saasProtected, googleCalendarRouter);
   app.use("/api/pms", saasProtected, pmsRouter);
   app.use("/api/crm", saasProtected, crmRouter);
   app.use("/api/housekeeping", saasProtected, housekeepingRouter);

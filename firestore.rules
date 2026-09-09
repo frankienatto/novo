@@ -413,6 +413,15 @@ service cloud.firestore {
     match /synapse_hospitality/{datasetId} {
       allow read, write: if isStaffOfTenant(resource.data);
     }
+
+    // Integrações e índices de ocupação são exclusivamente administrados pelo
+    // backend. Clientes nunca criam feeds, identidades externas ou locks.
+    match /icalFeeds/{document=**} { allow read, write: if false; }
+    match /icalExternalEvents/{document=**} { allow read, write: if false; }
+    match /icalSyncRuns/{document=**} { allow read, write: if false; }
+    match /calendarSyncConflicts/{document=**} { allow read, write: if false; }
+    match /occupancyLocks/{document=**} { allow read, write: if false; }
+    match /icalSyncLocks/{document=**} { allow read, write: if false; }
   }
 }
 

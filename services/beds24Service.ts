@@ -5,14 +5,9 @@
  */
 
 const getHeaders = () => {
-    const apiKey = (import.meta as any).env?.VITE_BEDS24_API_KEY;
-    if (!apiKey) {
-        throw new Error('Beds24 API Key não configurada (VITE_BEDS24_API_KEY)');
-    }
-    return {
-        'Content-Type': 'application/json',
-        'token': apiKey
-    };
+    // Credenciais Beds24 nunca podem ser carregadas pelo bundle público. A
+    // integração deve ser executada por um endpoint server-side autenticado.
+    throw new Error('Integração Beds24 indisponível: requer configuração server-side.');
 };
 
 export const beds24Api = {

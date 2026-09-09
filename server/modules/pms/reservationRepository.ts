@@ -16,6 +16,8 @@ export interface IReservationRepository {
     excludeReservationId?: string
   ): Promise<Reservation[]>;
   saveReservation(reservation: Reservation): Promise<Reservation>;
+  saveReservationAtomically?(reservation: Reservation): Promise<Reservation>;
+  releaseOccupancyLocks?(organizationId: string, propertyId: string, reservationId: string): Promise<void>;
   createReservation?(reservation: Reservation): Promise<Reservation>;
   updateReservation(
     organizationId: string, 
@@ -148,6 +150,39 @@ export class ReservationRepository implements IReservationRepository {
 
     await this.db.collection('bookings').doc(reservation.reservationId).set(reservation, { merge: true });
     return reservation;
+  }
+
+  /** Reserva cada diária em documentos únicos dentro de uma transação Firestore.
+   * Isso transforma a verificação de disponibilidade em compare-and-create
+   * persistente, inclusive entre processos/redeploys. */
+  async saveReservationAtomically(reservation: Reservation): Promise<Reservation> {
+    // Adaptadores unitários sem Firestore transacional usam a persistência
+    // simples; produção sempre exige runTransaction do Admin SDK.
+    if (typeof (this.db as any).runTransaction !== 'function') return this.saveReservation(reservation);
+    const checkIn = new Date(`${reservation.stayPeriod.checkInDate}T00:00:00Z`);
+    const checkOut = new Date(`${reservation.stayPeriod.checkOutDate}T00:00:00Z`);
+    const lockRefs = [] as any[];
+    for (let date = new Date(checkIn); date < checkOut; date.setUTCDate(date.getUTCDate() + 1)) {
+      const day = date.toISOString().slice(0, 10);
+      const lockId = `${reservation.organizationId}:${reservation.propertyId}:${reservation.unitId}:${day}`;
+      lockRefs.push(this.db.collection('occupancyLocks').doc(lockId));
+    }
+    await this.db.runTransaction(async transaction => {
+      const locks = await Promise.all(lockRefs.map(ref => transaction.get(ref)));
+      if (locks.some((lock: any) => lock.exists)) throw new Error('Conflito de datas (Overbooking impedido).');
+      const now = new Date().toISOString();
+      transaction.set(this.db.collection('bookings').doc(reservation.reservationId), { ...reservation, createdAt: reservation.createdAt || now, updatedAt: now }, { merge: true });
+      lockRefs.forEach((ref, index) => transaction.create(ref, { organizationId: reservation.organizationId, propertyId: reservation.propertyId, unitId: reservation.unitId, reservationId: reservation.reservationId, date: new Date(checkIn.getTime() + index * 86400000).toISOString().slice(0, 10), createdAt: now }));
+    });
+    return reservation;
+  }
+
+  async releaseOccupancyLocks(organizationId: string, propertyId: string, reservationId: string): Promise<void> {
+    if (typeof (this.db as any).batch !== 'function') return;
+    const locks = await this.db.collection('occupancyLocks').where('organizationId', '==', organizationId).where('propertyId', '==', propertyId).where('reservationId', '==', reservationId).get();
+    const batch = this.db.batch();
+    locks.forEach(lock => batch.delete(lock.ref));
+    if (!locks.empty) await batch.commit();
   }
 
   async createReservation(reservation: Reservation): Promise<Reservation> {

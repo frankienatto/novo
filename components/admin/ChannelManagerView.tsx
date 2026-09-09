@@ -31,13 +31,15 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({ db, onCo
     const [isDisconnecting, setIsDisconnecting] = useState<OTAPlatform | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
     const [showApiConfig, setShowApiConfig] = useState(false);
-    const [apiKey, setApiKey] = useState(localStorage.getItem('VITE_BEDS24_API_KEY') || '');
+    const [apiKey, setApiKey] = useState('');
 
     const handleSaveApiKey = () => {
-        localStorage.setItem('VITE_BEDS24_API_KEY', apiKey);
+        // Tokens de integrações não podem ser persistidos no navegador. O
+        // provisionamento Beds24 será feito por backend seguro quando a
+        // integração server-side estiver disponível.
         setShowApiConfig(false);
         // @ts-ignore
-        import('../../services/apiService').then(m => m.eventBus.emit('new-toast', { type: 'success', title: 'Configuração Salva', message: 'Chave de API do Beds24 atualizada.' }));
+        import('../../services/apiService').then(m => m.eventBus.emit('new-toast', { type: 'warning', title: 'Configuração indisponível', message: 'A credencial Beds24 deve ser configurada no servidor.' }));
     };
     const [markups, setMarkups] = useState<Record<OTAPlatform, number | string>>({} as Record<OTAPlatform, number | string>);
     const [savingMarkup, setSavingMarkup] = useState<OTAPlatform | null>(null);
@@ -153,7 +155,7 @@ export const ChannelManagerView: React.FC<ChannelManagerViewProps> = ({ db, onCo
                                 placeholder="Insira seu token do Beds24..."
                             />
                             <p className="text-xs text-gray-500 mt-2">
-                                Este token será usado para sincronizar disponibilidade e tarifas diretamente com o Beds24 V2.
+                                A credencial será configurada exclusivamente no servidor; ela não é armazenada neste navegador.
                             </p>
                         </div>
                         <div className="flex justify-end gap-2 pt-4">
