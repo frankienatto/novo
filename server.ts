@@ -29,6 +29,7 @@ import { approvalRouter } from "./server/modules/approval/approvalRouter.ts";
 import { planningRouter } from "./server/modules/planning/planningRouter.ts";
 import { executionRouter } from "./server/modules/execution/executionRouter.ts";
 import { publicBookingAdminRouter } from "./server/modules/publicBooking/publicBookingAdminRouter.ts";
+import { stagingBootstrapRouter } from "./server/modules/staging/stagingBootstrapRouter.ts";
 import { publicCheckoutRouter, stripeWebhookHandler, mercadoPagoWebhookHandler, picPayWebhookHandler } from "./server/modules/publicBooking/publicCheckoutRouter.ts";
 import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware.ts";
 import { tenantMiddleware } from "./server/modules/saas/middlewares/tenantMiddleware.ts";
@@ -855,6 +856,9 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   });
 
   // Módulos SaaS, PMS, n8n, iCal Universal, Google Calendar, CRM & Housekeeping
+  // This route independently verifies the Firebase identity because the
+  // intended first user does not yet have a persistent tenant profile.
+  app.use("/api/staging", stagingBootstrapRouter);
   app.use("/api/saas", saasRouter);
 
   // External integrations with dedicated token authentication

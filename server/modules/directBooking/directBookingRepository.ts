@@ -1,5 +1,6 @@
 import { CommercialProposal, CreateProposalDTO, UpdateProposalDTO } from './directBookingTypes.ts';
 import { getAdminFirestore } from '../../config/firebaseAdmin.ts';
+import { randomUUID } from 'node:crypto';
 
 function cleanUndefined<T extends Record<string, any>>(obj: T): T {
   const result: any = {};
@@ -61,7 +62,10 @@ export class DirectBookingRepository implements IDirectBookingRepository {
   }
 
   async createProposal(organizationId: string, propertyId: string, dto: CreateProposalDTO): Promise<CommercialProposal> {
-    const id = `prop_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    // A timestamp plus a three-digit random suffix can collide under concurrent
+    // requests (and under deterministic clocks in tests). Proposal identity is
+    // an internal canonical key, so use a collision-resistant server UUID.
+    const id = `prop_${randomUUID()}`;
     const now = new Date();
 
     // Calcula número de noites

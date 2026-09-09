@@ -4,30 +4,20 @@ import { integrationRegistry } from './integrationRegistry';
 import { authMiddleware } from './middlewares/authMiddleware';
 import { tenantMiddleware } from './middlewares/tenantMiddleware';
 import { requirePermission } from './middlewares/rbacMiddleware';
-import { OnboardingPayload, IntegrationProvider } from './saasTypes';
+import { IntegrationProvider } from './saasTypes';
 
 export const saasRouter = Router();
 
 /**
- * Public Endpoint: Onboarding de Novo Tenant
- * Cria Organization, Property e Owner User. Retorna estrutura com onboardingStatus e nextSteps.
+ * A generic unauthenticated tenant creator is not a valid bootstrap boundary.
+ * Staging uses the separately guarded, one-time server-side route. Future SaaS
+ * onboarding must be introduced through an authorised invitation flow.
  */
-saasRouter.post('/api/saas/onboarding', async (req: Request, res: Response) => {
-  try {
-    const payload: OnboardingPayload = req.body;
-    const result = await organizationService.processOnboarding(payload);
-    return res.status(201).json({
-      success: true,
-      ...result
-    });
-  } catch (err: any) {
-    console.error('❌ [SaasRouter] Erro no Onboarding:', err.message);
-    return res.status(400).json({
-      success: false,
-      error: 'Falha no Onboarding',
-      message: err.message
-    });
-  }
+saasRouter.post('/api/saas/onboarding', (_req: Request, res: Response) => {
+  return res.status(410).json({
+    error: 'SAAS_ONBOARDING_RETIRED',
+    message: 'O onboarding de tenant requer fluxo server-side autorizado.'
+  });
 });
 
 // --- Rotas Autenticadas com Resolução de Tenant ---

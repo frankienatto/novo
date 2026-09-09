@@ -64,3 +64,29 @@ deployment a um tenant.
 Staging começa vazio. Provisione manualmente uma organization, property, unidades, catálogo público e pricing de teste. Não migre `P01`, `beach`, `sanctuary`, `org_dev_default`, `prop_dev_default`, `INITIAL_ROOMS` ou `database.ts`.
 
 Enquanto esse provisionamento autorizado não existir, a aplicação deve permanecer utilizável: áreas internas exibem um estado de acesso/configuração pendente e o caminho público de reserva informa que o catálogo canônico ainda não foi provisionado. Não habilite auto-seed no navegador nem use fixtures locais como fallback de produção; a reserva pública só pode operar depois da configuração canônica de catálogo e disponibilidade.
+
+## Bootstrap server-side único de staging
+
+O primeiro tenant de staging é criado somente pelo backend, em uma transação Firestore e com registros sintéticos `stg_*`. Antes de executar, configure no runtime (nunca em `VITE_*`):
+
+```text
+STAGING_BOOTSTRAP_ENABLED=true
+STAGING_BOOTSTRAP_UID=<UID_FIREBASE_AUTH_DO_ADMIN_DE_STAGING>
+```
+
+Após o deploy que contém essa configuração, o operador autenticado como esse UID chama `POST /api/staging/bootstrap` com um Firebase ID token no cabeçalho `Authorization: Bearer <ID_TOKEN>`. O corpo é ignorado. A resposta contém somente IDs sintéticos de organization, property e catálogo público; uma segunda execução retorna `already_provisioned` sem duplicar documentos. Remova ou defina `STAGING_BOOTSTRAP_ENABLED=false` imediatamente após sucesso e faça novo deploy de configuração.
+
+Exemplo de execução pós-deploy (o token deve ser obtido pelo cliente autenticado e mantido fora de histórico/shell compartilhado):
+
+```bash
+curl --fail-with-body --request POST "$STAGING_SERVICE_URL/api/staging/bootstrap" \
+  --header "Authorization: Bearer $FIREBASE_ID_TOKEN" \
+  --header "Content-Type: application/json" \
+  --data '{}'
+```
+
+O bootstrap cria `organizations`, `properties`, `users`, o perfil `staff` associado ao UID, uma categoria PMS, duas unidades, `publicBookingProperties`, `publicBookingUnits` e um audit server-only. Não cria reserva, pagamento, integração ou dado de produção. Para verificar: faça login, confirme a resolução do perfil `users/<UID>` para a propriedade staging e solicite cotação pública usando o `publicPropertyId` e um dos `publicUnitId` retornados.
+
+## Dados demo e amostras
+
+Fixtures, mocks e exemplos existentes continuam no repositório para demonstração, preview, onboarding, desenvolvimento e testes. Eles não são autoridade de produção e não são carregados automaticamente quando Firestore está vazio. O bootstrap de staging não reutiliza seus IDs nem seu inventário. Uma futura ação administrativa de **carregar/limpar dados de amostra** deverá ser server-side, explicitamente identificada como `sample`/`demo`, escopada por tenant e incapaz de alterar registros canônicos; ela não é implementada por este bootstrap.

@@ -19,6 +19,10 @@ const envSchema = z.object({
   PICPAY_WEBHOOK_TOKEN: z.string().min(1).optional(),
   PICPAY_PIX_API_BASE_URL: z.string().url().optional(),
   PAYMENTS_PUBLIC_BASE_URL: z.string().url().optional(),
+  // Disabled by default. This one-time, server-only staging operation is
+  // deliberately separate from normal SaaS onboarding.
+  STAGING_BOOTSTRAP_ENABLED: z.string().optional().transform(value => value === 'true'),
+  STAGING_BOOTSTRAP_UID: z.string().min(1).optional(),
   GOOGLE_CALENDAR_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CALENDAR_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_CALENDAR_REDIRECT_URI: z.string().url().optional(),
