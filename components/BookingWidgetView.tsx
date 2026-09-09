@@ -57,10 +57,15 @@ const BookingWidgetView: React.FC<BookingWidgetViewProps> = ({ db, onBookingCrea
         setPropertyId(id);
     }, []);
 
+    const properties = Array.isArray(db?.properties) ? db.properties : [];
+    const rooms = Array.isArray(db?.rooms) ? db.rooms : [];
+    const ratePlans = Array.isArray(db?.ratePlans) ? db.ratePlans : [];
+    const addOns = Array.isArray(db?.addOns) ? db.addOns : [];
+    const bookingRestrictions = Array.isArray(db?.bookingRestrictions) ? db.bookingRestrictions : [];
     const activeProperty = useMemo(() => {
-        if (!propertyId) return db.properties[0];
-        return db.properties.find(p => p.id === propertyId) || db.properties[0];
-    }, [propertyId, db.properties]);
+        if (!propertyId) return undefined;
+        return properties.find(p => p.id === propertyId);
+    }, [propertyId, properties]);
 
     const [step, setStep] = useState(1);
     const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
@@ -70,15 +75,15 @@ const BookingWidgetView: React.FC<BookingWidgetViewProps> = ({ db, onBookingCrea
     const [formData, setFormData] = useState({ checkIn: '', checkOut: '', guests: 1, fullName: '', email: '', phone: '', cpf: '' });
     const [validationError, setValidationError] = useState<string | null>(null);
 
-    const availableRooms = useMemo(() => db.rooms.filter(r => r.status === RoomStatus.AVAILABLE || r.status === RoomStatus.CLEANING), [db.rooms]);
-    const selectedRoom = useMemo(() => db.rooms.find(r => r.id === selectedRoomId), [selectedRoomId, db.rooms]);
+    const availableRooms = useMemo(() => rooms.filter(r => r.status === RoomStatus.AVAILABLE || r.status === RoomStatus.CLEANING), [rooms]);
+    const selectedRoom = useMemo(() => rooms.find(r => r.id === selectedRoomId), [selectedRoomId, rooms]);
 
     useEffect(() => {
         if (selectedRoom && !selectedRatePlanId) {
-            const defaultPlan = db.ratePlans.find(rp => rp.isDefault);
+            const defaultPlan = ratePlans.find(rp => rp.isDefault);
             if (defaultPlan) setSelectedRatePlanId(defaultPlan.id);
         }
-    }, [selectedRoom, selectedRatePlanId, db.ratePlans]);
+    }, [selectedRoom, selectedRatePlanId, ratePlans]);
 
     useEffect(() => {
         setValidationError(null);
@@ -94,7 +99,7 @@ const BookingWidgetView: React.FC<BookingWidgetViewProps> = ({ db, onBookingCrea
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            for (const restriction of db.bookingRestrictions) {
+            for (const restriction of bookingRestrictions) {
                 const restrictionStart = new Date(restriction.startDate);
                 const restrictionEnd = new Date(restriction.endDate);
 
@@ -117,7 +122,7 @@ const BookingWidgetView: React.FC<BookingWidgetViewProps> = ({ db, onBookingCrea
             setValidationError(error.message);
         }
 
-    }, [formData.checkIn, formData.checkOut, db.bookingRestrictions]);
+    }, [formData.checkIn, formData.checkOut, bookingRestrictions]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
     const handleSelectRoom = (roomId: number) => { setSelectedRoomId(roomId); setStep(2); };
@@ -169,18 +174,18 @@ const BookingWidgetView: React.FC<BookingWidgetViewProps> = ({ db, onBookingCrea
         return price;
     };
 
-    const addOnsTotal = useMemo(() => Array.from(selectedAddOns).reduce((total, id) => total + (db.addOns.find(a => a.id === id)?.price || 0), 0), [selectedAddOns, db.addOns]);
+    const addOnsTotal = useMemo(() => Array.from(selectedAddOns).reduce((total, id) => total + (addOns.find(a => a.id === id)?.price || 0), 0), [selectedAddOns, addOns]);
     
     const totalPrice = useMemo(() => {
-        const ratePlan = db.ratePlans.find(rp => rp.id === selectedRatePlanId);
+        const ratePlan = ratePlans.find(rp => rp.id === selectedRatePlanId);
         if (!selectedRoom || !ratePlan) return 0;
         return calculatePriceForPlan(selectedRoom, ratePlan, nights) + addOnsTotal;
-    }, [selectedRoom, nights, addOnsTotal, selectedRatePlanId, db.ratePlans]);
+    }, [selectedRoom, nights, addOnsTotal, selectedRatePlanId, ratePlans]);
 
     const toggleAddOn = (id: string) => setSelectedAddOns(prev => { const newSet = new Set(prev); if(newSet.has(id)) newSet.delete(id); else newSet.add(id); return newSet; });
 
-    if (!activeProperty) {
-        return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-gray-500" size={48} /></div>;
+    if (!activeProperty || rooms.length === 0 || ratePlans.length === 0) {
+        return <div className="flex items-center justify-center min-h-screen p-8 text-center text-gray-600">Catálogo público indisponível para esta propriedade.</div>;
     }
 
     const renderStepContent = () => {

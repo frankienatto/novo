@@ -12,7 +12,21 @@ declare global {
  * O navegador nunca é uma autoridade de provisionamento do tenant.
  */
 export function cloneDevelopmentFixture<T>(fixture: T, allowDevelopmentFixtures: boolean): T {
-  if (!allowDevelopmentFixtures) return {} as T;
+  if (!allowDevelopmentFixtures) {
+    // Production needs the DB shape to remain render-safe while Firestore is
+    // empty or still synchronising. This uses fixture keys only, never fixture
+    // business data, identifiers, prices, users or properties.
+    if (Array.isArray(fixture)) return [] as T;
+    if (fixture && typeof fixture === 'object') {
+      return Object.fromEntries(
+        Object.entries(fixture as Record<string, unknown>).map(([key, value]) => [
+          key,
+          Array.isArray(value) ? [] : value && typeof value === 'object' ? {} : typeof value === 'string' ? '' : null,
+        ]),
+      ) as T;
+    }
+    return fixture;
+  }
   return JSON.parse(JSON.stringify(fixture)) as T;
 }
 

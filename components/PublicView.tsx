@@ -135,10 +135,13 @@ interface PublicViewProps {
 const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartChat, onSendMessage }) => {
     
     const [selectedFacility, setSelectedFacility] = React.useState<Facility | null>(null);
-    const activeProperty = React.useMemo(() => db.properties.find(p => p.id === db.currentPropertyId), [db.properties, db.currentPropertyId]);
+    const properties = Array.isArray(db?.properties) ? db.properties : [];
+    const reviews = Array.isArray(db?.reviews) ? db.reviews : [];
+    const rooms = Array.isArray(db?.rooms) ? db.rooms : [];
+    const activeProperty = React.useMemo(() => properties.find(p => p.id === db?.currentPropertyId), [properties, db?.currentPropertyId]);
 
-    if (!activeProperty || !db.siteContent || !db.themeSettings) {
-        return <div className="text-center p-10">Carregando conteúdo da propriedade...</div>
+    if (!activeProperty || !db?.siteContent?.hero || !db?.themeSettings?.publicSite) {
+        return <div className="min-h-[60vh] flex items-center justify-center p-10 text-center text-gray-600">Conteúdo público ainda não configurado para esta propriedade.</div>
     }
 
     const { siteContent, themeSettings } = db;
@@ -155,7 +158,7 @@ const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartC
         setPage('booking', searchParams);
     };
     
-    const approvedReviews = db.reviews.filter(r => r.status === 'Approved');
+    const approvedReviews = reviews.filter(r => r.status === 'Approved');
 
     const searchBoxClass = publicSite.searchLayout === 'stacked' 
         ? "flex flex-col gap-2"
@@ -465,7 +468,7 @@ const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartC
                             </motion.button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
-                            {db.rooms.slice(0, 3).map((room, index) => (
+                            {rooms.slice(0, 3).map((room, index) => (
                                 <RoomCard key={room.id} room={room} index={index} onReserve={(roomId) => setPage('booking', { roomId })} />
                             ))}
                         </div>

@@ -68,26 +68,33 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
 
-    const activeProperty = useMemo(() => db.properties.find(p => p.id === db.currentPropertyId)!, [db.properties, db.currentPropertyId]);
-    const activePackages = useMemo(() => db.packageDeals.filter(p => p.isActive && new Date(p.validTo) >= new Date()), [db.packageDeals]);
+    const properties = Array.isArray(db?.properties) ? db.properties : [];
+    const rooms = Array.isArray(db?.rooms) ? db.rooms : [];
+    const ratePlans = Array.isArray(db?.ratePlans) ? db.ratePlans : [];
+    const packageDeals = Array.isArray(db?.packageDeals) ? db.packageDeals : [];
+    const addOns = Array.isArray(db?.addOns) ? db.addOns : [];
+    const promoCodes = Array.isArray(db?.promoCodes) ? db.promoCodes : [];
+    const bookingRestrictions = Array.isArray(db?.bookingRestrictions) ? db.bookingRestrictions : [];
+    const activeProperty = useMemo(() => properties.find(p => p.id === db?.currentPropertyId), [properties, db?.currentPropertyId]);
+    const activePackages = useMemo(() => packageDeals.filter(p => p.isActive && new Date(p.validTo) >= new Date()), [packageDeals]);
     
     const availableRooms = useMemo(() => {
-        let rooms = db.rooms.filter(r => r.status === RoomStatus.AVAILABLE || r.status === RoomStatus.CLEANING);
-        const selectedPackage = db.packageDeals.find(p => p.id === selectedPackageDealId);
+        let available = rooms.filter(r => r.status === RoomStatus.AVAILABLE || r.status === RoomStatus.CLEANING);
+        const selectedPackage = packageDeals.find(p => p.id === selectedPackageDealId);
         if (selectedPackage) {
-            rooms = rooms.filter(r => r.type === selectedPackage.includedRoomType);
+            available = available.filter(r => r.type === selectedPackage.includedRoomType);
         }
-        return rooms;
-    }, [db.rooms, selectedPackageDealId]);
+        return available;
+    }, [rooms, packageDeals, selectedPackageDealId]);
 
-    const selectedRoom = useMemo(() => db.rooms.find(r => r.id === selectedRoomId), [selectedRoomId, db.rooms]);
+    const selectedRoom = useMemo(() => rooms.find(r => r.id === selectedRoomId), [selectedRoomId, rooms]);
     
     useEffect(() => {
         if(selectedRoom && !selectedRatePlanId) {
-            const defaultPlan = db.ratePlans.find(rp => rp.isDefault);
+            const defaultPlan = ratePlans.find(rp => rp.isDefault);
             if (defaultPlan) setSelectedRatePlanId(defaultPlan.id);
         }
-    }, [selectedRoom, selectedRatePlanId, db.ratePlans]);
+    }, [selectedRoom, selectedRatePlanId, ratePlans]);
     
     useEffect(() => {
         setValidationError(null);
@@ -107,7 +114,7 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
             const today = new Date();
             today.setUTCHours(0, 0, 0, 0);
 
-            for (const restriction of db.bookingRestrictions) {
+            for (const restriction of bookingRestrictions) {
                 const restrictionStart = parseDateUTC(restriction.startDate);
                 const restrictionEnd = parseDateUTC(restriction.endDate);
                 if (!restrictionStart || !restrictionEnd) continue;
@@ -131,7 +138,7 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
         } catch (error: any) {
             setValidationError(error.message);
         }
-    }, [formData.checkIn, formData.checkOut, db.bookingRestrictions]);
+    }, [formData.checkIn, formData.checkOut, bookingRestrictions]);
 
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,7 +175,7 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
     const handleApplyPromoCode = () => {
         setPromoError('');
         setAppliedPromo(null);
-        const code = db.promoCodes.find(pc => pc.code.toUpperCase() === promoCode.toUpperCase() && pc.isActive);
+        const code = promoCodes.find(pc => pc.code.toUpperCase() === promoCode.toUpperCase() && pc.isActive);
         if (!code) {
             setPromoError('Código inválido ou expirado.');
             return;
@@ -267,19 +274,19 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
     
     const addOnsTotal = useMemo(() => {
         return Array.from(selectedAddOns).reduce((total, id) => {
-            const addOn = db.addOns.find(a => a.id === id);
+            const addOn = addOns.find(a => a.id === id);
             return total + (addOn?.price || 0);
         }, 0);
-    }, [selectedAddOns, db.addOns]);
+    }, [selectedAddOns, addOns]);
     
     const totalPrice = useMemo(() => {
         let price = 0;
-        const selectedPackage = db.packageDeals.find(p => p.id === selectedPackageDealId);
+        const selectedPackage = packageDeals.find(p => p.id === selectedPackageDealId);
         
         if (selectedPackage) {
             price = selectedPackage.priceType === 'per_night' ? selectedPackage.price * nights : selectedPackage.price;
         } else {
-            const ratePlan = db.ratePlans.find(rp => rp.id === selectedRatePlanId);
+            const ratePlan = ratePlans.find(rp => rp.id === selectedRatePlanId);
             if (!selectedRoom || !ratePlan) return 0;
             price = calculatePriceForPlan(selectedRoom, ratePlan, nights);
         }
@@ -296,7 +303,7 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
         
         return Math.max(0, finalPrice);
 
-    }, [selectedRoom, nights, addOnsTotal, selectedRatePlanId, db.ratePlans, selectedPackageDealId, appliedPromo]);
+    }, [selectedRoom, nights, addOnsTotal, selectedRatePlanId, ratePlans, packageDeals, selectedPackageDealId, appliedPromo]);
 
     const toggleAddOn = (id: string) => {
         setSelectedAddOns(prev => {
@@ -309,6 +316,10 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
             return newSet;
         });
     };
+
+    if (!activeProperty || rooms.length === 0 || ratePlans.length === 0) {
+        return <div className="min-h-[60vh] flex items-center justify-center p-8 text-center text-gray-600">Reservas ainda não estão configuradas para esta propriedade.</div>;
+    }
     
     const renderContent = () => {
          switch (step) {
@@ -407,7 +418,7 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
                         <p className="text-center text-gray-600 mb-8">Personalize sua experiência com nossos serviços adicionais.</p>
                         <form onSubmit={handleAddOnsSubmit} className="space-y-4">
                             <div className="space-y-3 max-h-96 overflow-y-auto pr-2 bg-white p-4 rounded-2xl shadow-lg">
-                                {db.addOns.map(addOn => (
+                                {addOns.map(addOn => (
                                     <div key={addOn.id} className={`p-4 rounded-lg border-2 cursor-pointer transition-colors flex justify-between items-center ${selectedAddOns.has(addOn.id) ? 'border-brand-green bg-green-50' : 'border-gray-200 bg-white'}`} onClick={() => toggleAddOn(addOn.id)}>
                                         <div>
                                             <h3 className="font-bold">{addOn.name}</h3>
@@ -479,7 +490,7 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
                                         <div className="pt-2 border-t mt-2">
                                             <p><strong>Extras:</strong></p>
                                             <ul className="list-disc list-inside pl-2">
-                                                {Array.from(selectedAddOns).map(id => <li key={id}>{db.addOns.find(a => a.id === id)?.name}</li>)}
+                                                {Array.from(selectedAddOns).map(id => <li key={id}>{addOns.find(a => a.id === id)?.name}</li>)}
                                             </ul>
                                         </div>
                                     )}

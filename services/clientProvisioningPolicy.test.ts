@@ -14,7 +14,7 @@ describe('client provisioning policy', () => {
   it('returns empty production state instead of a fixture', () => {
     const fixture = [{ id: 'S00', role: 'Super Administrador' }];
 
-    expect(cloneDevelopmentFixture(fixture, false)).toEqual({});
+    expect(cloneDevelopmentFixture(fixture, false)).toEqual([]);
     expect(resolveEmptyCollectionState(fixture, false, false)).toEqual([]);
     expect(resolveEmptyCollectionState({ id: 'main' }, true, false)).toEqual({});
     expect(mayUseLegacyDemoLogin(false)).toBe(false);

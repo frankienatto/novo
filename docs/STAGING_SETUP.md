@@ -62,3 +62,5 @@ deployment a um tenant.
 ## Dados de staging
 
 Staging começa vazio. Provisione manualmente uma organization, property, unidades, catálogo público e pricing de teste. Não migre `P01`, `beach`, `sanctuary`, `org_dev_default`, `prop_dev_default`, `INITIAL_ROOMS` ou `database.ts`.
+
+Enquanto esse provisionamento autorizado não existir, a aplicação deve permanecer utilizável: áreas internas exibem um estado de acesso/configuração pendente e o caminho público de reserva informa que o catálogo canônico ainda não foi provisionado. Não habilite auto-seed no navegador nem use fixtures locais como fallback de produção; a reserva pública só pode operar depois da configuração canônica de catálogo e disponibilidade.

@@ -108,6 +108,12 @@ import {
     CoworkingPlan
 } from './types';
 import { generateMaintenanceSuggestion, generateEquipmentInfoSuggestion, generateTaskDependencies } from './services/geminiService';
+import {
+    canRenderLegacyBooking,
+    hasProvisionedPublicPresentation,
+    isProvisionedGuestUser,
+    isProvisionedInternalUser,
+} from './services/productionRuntimePolicy';
 
 interface GuestData {
     fullName: string;
@@ -224,6 +230,25 @@ const WidgetThemeStyles: React.FC<{ themeSettings?: ThemeSettings | null }> = ({
     return <style>{styles}</style>;
 };
 
+const ProvisioningRequired: React.FC<{ scope: 'public' | 'booking' | 'internal'; onReturnHome?: () => void }> = ({ scope, onReturnHome }) => {
+    const copy = scope === 'internal'
+        ? { title: 'Acesso ainda não provisionado', detail: 'Sua conta foi autenticada, mas ainda não possui uma associação válida de equipe, tenant ou propriedade.' }
+        : scope === 'booking'
+            ? { title: 'Reservas ainda indisponíveis', detail: 'O catálogo público canônico desta propriedade ainda não foi provisionado.' }
+            : { title: 'Ambiente ainda não configurado', detail: 'Nenhuma propriedade pública foi provisionada neste ambiente.' };
+
+    return (
+        <section className="min-h-[70vh] flex items-center justify-center bg-[var(--ps-bg,#f7f8f6)] px-6 text-center">
+            <div className="max-w-lg rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+                <AlertTriangle size={38} className="mx-auto mb-4 text-brand-green" />
+                <h1 className="text-2xl font-bold text-brand-dark mb-3">{copy.title}</h1>
+                <p className="text-gray-600 leading-relaxed">{copy.detail}</p>
+                {onReturnHome && <button onClick={onReturnHome} className="mt-6 bg-brand-green text-white px-6 py-3 rounded-xl text-sm font-bold">Voltar ao início</button>}
+            </div>
+        </section>
+    );
+};
+
 export const App: React.FC = () => {
     const [page, setPage] = useState<Page>('home');
     const [pageParams, setPageParams] = useState<any>(null);
@@ -239,8 +264,9 @@ export const App: React.FC = () => {
         }
         return { user: null, token: null };
     });
-    const [dbState, setDbState] = useState<DBState | null>(localDefaultDb);
-    const [loading, setLoading] = useState<boolean>(false);
+    const isProductionBuild = import.meta.env.PROD;
+    const [dbState, setDbState] = useState<DBState | null>(() => import.meta.env.DEV ? localDefaultDb : null);
+    const [loading, setLoading] = useState<boolean>(true);
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [chatData, setChatData] = useState<ChatData>({ conversations: [], messages: [] });
 
@@ -255,14 +281,14 @@ export const App: React.FC = () => {
     
         const todayString = new Date().toLocaleDateString('en-CA');
     
-        const activeBooking = dbState?.bookings.find(
+        const activeBooking = dbState?.bookings?.find(
             b => b.guestId === user.id && b.status === 'Checked-in'
         );
         if (activeBooking) {
             return 'guestPortal';
         }
         
-        const futureBooking = dbState?.bookings.find(b => {
+        const futureBooking = dbState?.bookings?.find(b => {
             if (b.guestId !== user.id) return false;
             if (b.status !== 'Confirmed' && b.status !== 'Pre-Checked-in') return false;
             return b.checkIn >= todayString;
@@ -306,7 +332,9 @@ export const App: React.FC = () => {
                 console.log("App: Firebase auth user detected, syncing session.");
                 
                 // 1. Try to find in current dbState
-                let matchedUser = dbState ? [...dbState.staff, ...dbState.guests].find(u => u.email.toLowerCase() === fbUser.email.toLowerCase()) : null;
+                const staff = Array.isArray(dbState?.staff) ? dbState.staff : [];
+                const guests = Array.isArray(dbState?.guests) ? dbState.guests : [];
+                let matchedUser = [...staff, ...guests].find(u => u.email.toLowerCase() === fbUser.email.toLowerCase()) || null;
                 
                 // 2. If not found in local dbState (common for new registrations), try fetching directly from API/Firestore
                 if (!matchedUser) {
@@ -367,6 +395,7 @@ export const App: React.FC = () => {
                 }
             }
             console.log("App: data load finished");
+            setLoading(false);
 
             const handleNewNotification = (notification: AppNotification) => {
                 setNotifications(prev => [notification, ...prev]);
@@ -733,17 +762,24 @@ export const App: React.FC = () => {
     };
 
     const renderPage = () => {
+        const hasPublicPresentation = hasProvisionedPublicPresentation(dbState);
+        const canUseLegacyBooking = canRenderLegacyBooking(dbState, isProductionBuild);
+        const provisionedInternalUser = isProvisionedInternalUser(dbState, currentUser);
+        const provisionedGuestUser = isProvisionedGuestUser(dbState, currentUser);
+
         switch (page) {
             case 'home':
+                if (!hasPublicPresentation) return <ProvisioningRequired scope="public" />;
                 return <PublicView setPage={setPageAndParams} db={dbState!} chatData={chatData} onStartChat={apiService.startChat} onSendMessage={apiService.sendMessage} />;
             case 'booking':
+                if (!canUseLegacyBooking) return <ProvisioningRequired scope="booking" onReturnHome={() => setPageAndParams('home')} />;
                 return <BookingView setPage={setPageAndParams} initialParams={pageParams} db={dbState!} onBookingCreate={onBookingCreate} currentUser={currentUser as Guest | null} onAcknowledgeRules={acknowledgeRules} />;
             case 'register':
                 return <RegisterView setPage={setPageAndParams} onRegister={addGuest} />;
             case 'login':
                 return <LoginView setPage={setPageAndParams} handleLogin={handleLogin} handleLoginWithGoogle={handleLoginWithGoogle} />;
             case 'guestPortal':
-                if (currentUser && 'fullName' in currentUser) {
+                if (currentUser && 'fullName' in currentUser && provisionedGuestUser) {
                      return <GuestPortalView
                         currentUser={currentUser}
                         db={dbState!}
@@ -806,6 +842,7 @@ export const App: React.FC = () => {
                 if (!currentUser) {
                     return <LoginView setPage={setPageAndParams} handleLogin={handleLogin} handleLoginWithGoogle={handleLoginWithGoogle} />;
                 }
+                if ('fullName' in currentUser) return <ProvisioningRequired scope="internal" onReturnHome={() => setPageAndParams('home')} />;
                 return <div className="flex flex-col items-center justify-center h-screen bg-gray-50 text-gray-500 font-bold p-8 text-center">
                     <AlertTriangle size={48} className="mb-4 text-orange-400" />
                     <p>Acesso Restrito: Apenas hóspedes podem acessar esta página.</p>
@@ -815,7 +852,7 @@ export const App: React.FC = () => {
                 // Assuming online checkin is initiated from guest portal with booking and guest data
                 return <OnlineCheckinView booking={pageParams.booking} guest={pageParams.guest} onCheckinSubmit={apiService.submitOnlineCheckin} setPage={setPageAndParams} />;
             case 'admin':
-                if (currentUser && 'role' in currentUser) {
+                if (currentUser && 'role' in currentUser && provisionedInternalUser) {
                     return <AdminDashboard 
                         currentUser={currentUser} 
                         db={dbState!} 
@@ -824,7 +861,7 @@ export const App: React.FC = () => {
                         {...allAdminHandlers}
                     />;
                 }
-                return <div>Acesso Negado</div>;
+                return <ProvisioningRequired scope="internal" onReturnHome={() => setPageAndParams('home')} />;
             case 'forgotPassword':
                 return <ForgotPasswordView setPage={setPageAndParams} />;
             case 'usefulLinks':
@@ -848,10 +885,12 @@ export const App: React.FC = () => {
                 }
                 return <div>Carregando...</div>;
             case 'digitalMenu':
+                if (!hasPublicPresentation) return <ProvisioningRequired scope="public" />;
                 return <PublicDigitalMenuView db={dbState!} onPlaceOrder={handlePlaceOrder} />;
             case 'synapse':
                 return <SynapseApp />;
             case 'bookingWidget':
+                if (!canUseLegacyBooking) return <ProvisioningRequired scope="booking" />;
                 return (
                     <>
                         <WidgetThemeStyles themeSettings={dbState!.themeSettings} />
@@ -899,6 +938,7 @@ export const App: React.FC = () => {
     
      if (isWidgetMode) {
         if (!dbState) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-gray-500" size={48} /></div>;
+        if (!canRenderLegacyBooking(dbState, isProductionBuild)) return <ProvisioningRequired scope="booking" />;
         return (
             <>
                 <WidgetThemeStyles themeSettings={dbState.themeSettings} />
