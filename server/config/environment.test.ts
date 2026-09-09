@@ -6,6 +6,13 @@ const cwd = path.resolve(process.cwd());
 const secretNames = [
   'JWT_SECRET',
   'N8N_SECRET',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'MERCADOPAGO_ACCESS_TOKEN',
+  'MERCADOPAGO_WEBHOOK_SECRET',
+  'PICPAY_CLIENT_ID',
+  'PICPAY_CLIENT_SECRET',
+  'PICPAY_WEBHOOK_TOKEN',
   'ALOHA_API_KEY',
   'GEMINI_API_KEY',
   'ALOHA_PRO_WEBHOOK_SECRET',
@@ -29,7 +36,8 @@ describe('environment security', () => {
 
     expect(result.status).not.toBe(0);
     expect(output).toContain('JWT_SECRET');
-    expect(output).toContain('N8N_SECRET');
+    expect(output).not.toContain('N8N_SECRET');
+    expect(output).not.toContain('STRIPE_SECRET_KEY');
     expect(output).not.toMatch(/synapse_(jwt|n8n)_secret/);
   });
 

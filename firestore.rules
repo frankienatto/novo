@@ -423,6 +423,11 @@ service cloud.firestore {
     match /occupancyLocks/{document=**} { allow read, write: if false; }
     match /icalSyncLocks/{document=**} { allow read, write: if false; }
     match /aiRuns/{document=**} { allow read, write: if false; }
+    match /checkoutCapabilities/{document=**} { allow read, write: if false; }
+    match /publicReservationIdempotency/{document=**} { allow read, write: if false; }
+    match /paymentRecords/{document=**} { allow read, write: if false; }
+    match /stripeEvents/{document=**} { allow read, write: if false; }
+    match /paymentWebhookEvents/{document=**} { allow read, write: if false; }
   }
 }
 

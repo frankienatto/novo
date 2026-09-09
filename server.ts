@@ -29,7 +29,7 @@ import { approvalRouter } from "./server/modules/approval/approvalRouter.ts";
 import { planningRouter } from "./server/modules/planning/planningRouter.ts";
 import { executionRouter } from "./server/modules/execution/executionRouter.ts";
 import { publicBookingAdminRouter } from "./server/modules/publicBooking/publicBookingAdminRouter.ts";
-import { publicCheckoutRouter, stripeWebhookHandler } from "./server/modules/publicBooking/publicCheckoutRouter.ts";
+import { publicCheckoutRouter, stripeWebhookHandler, mercadoPagoWebhookHandler, picPayWebhookHandler } from "./server/modules/publicBooking/publicCheckoutRouter.ts";
 import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware.ts";
 import { tenantMiddleware } from "./server/modules/saas/middlewares/tenantMiddleware.ts";
 import { requirePermission } from "./server/modules/saas/middlewares/rbacMiddleware.ts";
@@ -448,8 +448,13 @@ async function startServer() {
   app.use(cors());
   // Stripe requires the untouched body for signature verification. This route
   // must stay before the JSON parser and before generic API middleware.
+  app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
   app.post('/api/public-booking/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
   app.use(express.json());
+  // These providers authenticate their JSON notifications before the payment
+  // core retrieves and validates the authoritative remote transaction.
+  app.post('/api/payments/mercadopago/webhook', mercadoPagoWebhookHandler);
+  app.post('/api/payments/picpay/webhook', picPayWebhookHandler);
 
   // Request ID & Correlation ID Middleware (Milestone 8)
   app.use(correlationMiddleware);

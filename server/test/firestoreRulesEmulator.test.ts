@@ -155,7 +155,7 @@ describeWithFirestoreEmulator('Firestore Rules Emulator: legacy booking financia
 });
 
 describeWithFirestoreEmulator('Firestore Rules Emulator: public checkout internal records', () => {
-  it.each(['checkoutCapabilities', 'publicReservationIdempotency', 'paymentRecords', 'stripeEvents'])('rejects direct client writes to %s', async (collectionName) => {
+  it.each(['checkoutCapabilities', 'publicReservationIdempotency', 'paymentRecords', 'stripeEvents', 'paymentWebhookEvents'])('rejects direct client writes to %s', async (collectionName) => {
     const db = testEnv.authenticatedContext('guest_a', { email: 'guest@example.test' }).firestore();
     await assertFails(setDoc(doc(db, collectionName, 'internal-record'), { reservationId: 'reservation_a', organizationId: 'org_a', propertyId: 'prop_a' }));
   });

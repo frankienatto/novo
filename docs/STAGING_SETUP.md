@@ -51,7 +51,14 @@ gcloud secrets create N8N_SECRET --replication-policy=automatic
 printf '%s' '<STAGING_VALUE>' | gcloud secrets versions add N8N_SECRET --data-file=-
 ```
 
-O runtime atual exige `N8N_SECRET` em produção, mesmo que os fluxos n8n permaneçam desabilitados; injete um valor exclusivo de staging. `GEMINI_API_KEY`, `ALOHA_PRO_WEBHOOK_SECRET`, `ALOHA_API_KEY`, `GOOGLE_CALENDAR_CLIENT_SECRET` e `BEDS24_API_TOKEN` seguem o mesmo padrão apenas quando a integração correspondente for habilitada. O endpoint de prontidão fica degradado sem `GEMINI_API_KEY`; configure-o para uma prontidão totalmente verde. Credenciais Google Calendar incluem também `GOOGLE_CALENDAR_CLIENT_ID` e `GOOGLE_CALENDAR_REDIRECT_URI`; OAuth/persistência ainda não está implementado. `N8N_ORGANIZATION_ID` e `N8N_PROPERTY_ID` não são secrets, mas restringem um deployment a um tenant.
+`N8N_SECRET`, `GEMINI_API_KEY`, credenciais Stripe, Mercado Pago, PicPay,
+Aloha, Google Calendar e Beds24 são capacidades opcionais: ausência delas não
+impede o processo de iniciar, mas cada integração correspondente falha fechada.
+O endpoint de prontidão informa as capacidades configuradas sem expor valores.
+Credenciais Google Calendar incluem também `GOOGLE_CALENDAR_CLIENT_ID` e
+`GOOGLE_CALENDAR_REDIRECT_URI`; OAuth/persistência ainda não está implementado.
+`N8N_ORGANIZATION_ID` e `N8N_PROPERTY_ID` não são secrets, mas restringem um
+deployment a um tenant.
 
 ## Dados de staging
 

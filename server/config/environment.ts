@@ -12,6 +12,13 @@ const envSchema = z.object({
   ALOHA_PRO_WEBHOOK_SECRET: z.string().min(1).optional(),
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  MERCADOPAGO_ACCESS_TOKEN: z.string().min(1).optional(),
+  MERCADOPAGO_WEBHOOK_SECRET: z.string().min(1).optional(),
+  PICPAY_CLIENT_ID: z.string().min(1).optional(),
+  PICPAY_CLIENT_SECRET: z.string().min(1).optional(),
+  PICPAY_WEBHOOK_TOKEN: z.string().min(1).optional(),
+  PICPAY_PIX_API_BASE_URL: z.string().url().optional(),
+  PAYMENTS_PUBLIC_BASE_URL: z.string().url().optional(),
   GOOGLE_CALENDAR_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CALENDAR_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_CALENDAR_REDIRECT_URI: z.string().url().optional(),
@@ -31,8 +38,10 @@ let parsedEnv: EnvConfig;
 try {
   parsedEnv = envSchema.parse(process.env);
   if (parsedEnv.NODE_ENV === 'production') {
-    const missing = ['JWT_SECRET', 'N8N_SECRET', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET']
-      .filter((key) => !parsedEnv[key as keyof Pick<EnvConfig, 'JWT_SECRET' | 'N8N_SECRET' | 'STRIPE_SECRET_KEY' | 'STRIPE_WEBHOOK_SECRET'>]);
+    // Payment and integration credentials are optional capabilities. A core
+    // deployment must never require dummy provider secrets to boot.
+    const missing = ['JWT_SECRET']
+      .filter((key) => !parsedEnv[key as keyof Pick<EnvConfig, 'JWT_SECRET'>]);
     if (missing.length > 0) {
       throw new Error(`Missing required production environment variables: ${missing.join(', ')}`);
     }

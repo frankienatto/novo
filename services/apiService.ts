@@ -3763,7 +3763,9 @@ export const addExternalAPIKey = async (name: string, scope: 'Leitura' | 'Leitur
     const newKey: ExternalAPIKey = {
         id: `AK${Date.now()}`,
         name,
-        key: `sk_live_${Math.random().toString(36).substring(2, 11)}`,
+        // Local demonstration identifier only; it must never resemble a live
+        // payment-provider credential or be mistaken for one in scans/logs.
+        key: `demo_api_key_${Math.random().toString(36).substring(2, 11)}`,
         createdAt: new Date().toISOString(),
         scope,
         updatedAt: new Date().toISOString()

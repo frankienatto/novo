@@ -35,6 +35,14 @@ Use Secret Manager e variáveis de runtime do Cloud Run; nunca arquivos `.env`, 
 | --- | --- | --- |
 | `GEMINI_API_KEY` | Gemini | configurável, fail-closed |
 | `N8N_SECRET`, `N8N_ORGANIZATION_ID`, `N8N_PROPERTY_ID` | n8n | configurável, um tenant por deployment |
+
+Os provedores de pagamento são capacidades opcionais e independentes: o core
+inicia com `JWT_SECRET`; uma solicitação a provedor não configurado falha
+fechada. Stripe exige `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET`; Mercado
+Pago exige `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET` e
+`PAYMENTS_PUBLIC_BASE_URL`; PicPay Pix exige `PICPAY_CLIENT_ID`,
+`PICPAY_CLIENT_SECRET` e `PICPAY_WEBHOOK_TOKEN`. Nenhuma dessas variáveis deve
+ser `VITE_*`.
 | `ALOHA_PRO_WEBHOOK_SECRET`, `ALOHA_API_KEY` | Aloha | configurável |
 | `SYSTEM_WEBHOOK_EMAIL`, `SYSTEM_WEBHOOK_PASSWORD` | legado removido | **DEPRECATED**; não configurar — webhooks usam a identidade ADC do Cloud Run |
 | `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `GOOGLE_CALENDAR_REDIRECT_URI` | Google Calendar | OAuth/persistência pendentes |

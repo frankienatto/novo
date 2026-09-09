@@ -41,7 +41,11 @@ gcloud run deploy synapse-staging \
   --port=8080 \
   --cpu=1 --memory=512Mi --min-instances=0 --max-instances=3 \
   --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=${PROJECT_ID}" \
-  --set-secrets="JWT_SECRET=JWT_SECRET:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,N8N_SECRET=N8N_SECRET:latest"
+  --set-secrets="JWT_SECRET=JWT_SECRET:latest"
 ```
 
-Adicione `GEMINI_API_KEY`, OAuth, Aloha e Beds24 apenas quando a integração correspondente for ativada. Embora n8n possa ficar funcionalmente desativado, o runtime de produção atual exige `N8N_SECRET`. Para prontidão totalmente verde, injete também `GEMINI_API_KEY`; sem ele, a aplicação permanece fail-closed para IA e `/health/readiness` reporta configuração incompleta. Após o deploy, registre a URL de staging nos domínios autorizados do Firebase Auth e no endpoint de webhook Stripe em modo teste.
+Adicione `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET`, ou os segredos do
+Mercado Pago/PicPay, somente quando o respectivo provedor for ativado. Gemini,
+n8n, OAuth, Aloha e Beds24 também são opcionais e falham fechados quando não
+configurados. Após o deploy, registre a URL de staging nos domínios autorizados
+do Firebase Auth e no endpoint de webhook do provedor configurado em modo teste.

@@ -9,10 +9,11 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, QrCode, Copy, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
-import { createPaymentIntent, createPixPayment } from '../../services/paymentService';
+import { createCanonicalPayment, getPaymentCapabilities, type PaymentCapabilities, type PublicPaymentProvider } from '../../services/paymentService';
 
 // Carrega o Stripe com a chave pública do .env
-const stripePromise = loadStripe((import.meta as any).env?.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
+const stripePublicKey = (import.meta as any).env?.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -21,9 +22,12 @@ interface PaymentModalProps {
   bookingId: string;
   guestName: string;
   onSuccess: (provider: 'stripe' | 'pix') => void;
+  /** Returned only by canonical public reservation creation. Legacy bookings
+   * intentionally cannot authorize a payment. */
+  checkoutCapability?: string;
 }
 
-const StripeForm = ({ amount, bookingId, onSuccess, onError }: any) => {
+const StripeForm = ({ amount, bookingId, checkoutCapability, onSuccess }: any) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -37,11 +41,11 @@ const StripeForm = ({ amount, bookingId, onSuccess, onError }: any) => {
     setErrorMessage(null);
 
     try {
-      // 1. Criar PaymentIntent no backend
-      const { clientSecret } = await createPaymentIntent(amount, bookingId);
+      const payment = await createCanonicalPayment(bookingId, checkoutCapability, 'stripe', 'card');
+      if (!payment.presentation?.clientSecret) throw new Error('Stripe não retornou uma sessão de pagamento.');
 
       // 2. Confirmar pagamento com o Stripe
-      const result = await stripe.confirmCardPayment(clientSecret, {
+      const result = await stripe.confirmCardPayment(payment.presentation.clientSecret, {
         payment_method: {
           card: elements.getElement(CardElement) as any,
         },
@@ -50,6 +54,7 @@ const StripeForm = ({ amount, bookingId, onSuccess, onError }: any) => {
       if (result.error) {
         setErrorMessage(result.error.message || 'Falha no pagamento');
       } else if (result.paymentIntent?.status === 'succeeded') {
+        // The webhook remains the only authority that marks Reservation paid.
         onSuccess();
       }
     } catch (err: any) {
@@ -95,7 +100,7 @@ const StripeForm = ({ amount, bookingId, onSuccess, onError }: any) => {
   );
 };
 
-const PixSection = ({ amount, bookingId, guestName, onSuccess }: any) => {
+const PixSection = ({ bookingId, checkoutCapability, provider }: { bookingId: string; checkoutCapability: string; provider: 'mercadopago' | 'picpay' }) => {
   const [pixData, setPixData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -104,7 +109,7 @@ const PixSection = ({ amount, bookingId, guestName, onSuccess }: any) => {
     const initPix = async () => {
       setIsLoading(true);
       try {
-        const data = await createPixPayment(amount, bookingId, guestName);
+        const data = await createCanonicalPayment(bookingId, checkoutCapability, provider, 'pix');
         setPixData(data);
       } catch (err) {
         console.error(err);
@@ -113,11 +118,11 @@ const PixSection = ({ amount, bookingId, guestName, onSuccess }: any) => {
       }
     };
     initPix();
-  }, []);
+  }, [bookingId, checkoutCapability, provider]);
 
   const copyToClipboard = () => {
-    if (pixData?.copyPaste) {
-      navigator.clipboard.writeText(pixData.copyPaste);
+    if (pixData?.presentation?.qrCode) {
+      navigator.clipboard.writeText(pixData.presentation.qrCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -128,14 +133,14 @@ const PixSection = ({ amount, bookingId, guestName, onSuccess }: any) => {
   return (
     <div className="flex flex-col items-center space-y-6 text-center">
       <div className="p-4 bg-white rounded-xl shadow-inner border-2 border-gray-100">
-        <QRCodeSVG value={pixData?.qrCode || ''} size={200} />
+        <QRCodeSVG value={pixData?.presentation?.qrCode || ''} size={200} />
       </div>
 
       <div className="w-full space-y-3">
         <p className="text-sm text-gray-600">Escaneie o QR Code ou use o código abaixo:</p>
         <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
           <code className="text-xs text-gray-700 truncate flex-1 text-left">
-            {pixData?.copyPaste}
+            {pixData?.presentation?.qrCode}
           </code>
           <button 
             onClick={copyToClipboard}
@@ -148,22 +153,24 @@ const PixSection = ({ amount, bookingId, guestName, onSuccess }: any) => {
 
       <div className="p-4 bg-blue-50 text-blue-800 rounded-lg text-sm flex items-start gap-3 text-left">
         <div className="mt-1"><AlertCircle className="w-4 h-4" /></div>
-        <p>O pagamento via PIX é instantâneo. Sua reserva será confirmada assim que o sistema detectar a transação.</p>
+        <p>Pagamento pendente. A reserva só será confirmada após a validação do provedor pelo servidor.</p>
       </div>
-
-      <button
-        onClick={() => onSuccess()}
-        className="w-full py-3 px-4 border-2 border-brand-primary text-brand-primary rounded-lg font-medium hover:bg-brand-primary hover:text-white transition-all flex justify-center items-center gap-2"
-      >
-        Já fiz o pagamento
-      </button>
+      {pixData?.presentation?.expiresAt && <p className="text-xs text-gray-500">Expira em: {new Date(pixData.presentation.expiresAt).toLocaleString('pt-BR')}</p>}
     </div>
   );
 };
 
-export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, amount, bookingId, guestName, onSuccess }) => {
-  const [method, setMethod] = useState<'stripe' | 'pix' | null>(null);
+export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, amount, bookingId, guestName: _guestName, onSuccess, checkoutCapability }) => {
+  const [method, setMethod] = useState<'stripe' | 'mercadopago-pix' | 'picpay-pix' | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [capabilities, setCapabilities] = useState<PaymentCapabilities | null>(null);
+  const [capabilityError, setCapabilityError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setCapabilities(null); setCapabilityError(null);
+    getPaymentCapabilities().then(setCapabilities).catch(error => setCapabilityError(error.message));
+  }, [isOpen]);
 
   const handleSuccess = (provider: 'stripe' | 'pix') => {
     setIsSuccess(true);
@@ -211,21 +218,21 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, amo
                 <h4 className="text-2xl font-display font-medium text-gray-900">Pagamento Recebido!</h4>
                 <p className="text-gray-600">Sua reserva está sendo confirmada...</p>
               </motion.div>
-            ) : method === 'stripe' ? (
+            ) : method === 'stripe' && checkoutCapability ? (
               <motion.div key="stripe" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                 <button onClick={() => setMethod(null)} className="mb-4 text-sm text-brand-primary font-medium hover:underline flex items-center gap-1">
                   ← Trocar método
                 </button>
                 <Elements stripe={stripePromise}>
-                  <StripeForm amount={amount} bookingId={bookingId} onSuccess={() => handleSuccess('stripe')} />
+                  <StripeForm amount={amount} bookingId={bookingId} checkoutCapability={checkoutCapability} onSuccess={() => handleSuccess('stripe')} />
                 </Elements>
               </motion.div>
-            ) : method === 'pix' ? (
+            ) : (method === 'mercadopago-pix' || method === 'picpay-pix') && checkoutCapability ? (
               <motion.div key="pix" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                 <button onClick={() => setMethod(null)} className="mb-4 text-sm text-brand-primary font-medium hover:underline flex items-center gap-1">
                   ← Trocar método
                 </button>
-                <PixSection amount={amount} bookingId={bookingId} guestName={guestName} onSuccess={() => handleSuccess('pix')} />
+                <PixSection bookingId={bookingId} checkoutCapability={checkoutCapability} provider={method === 'mercadopago-pix' ? 'mercadopago' : 'picpay'} />
               </motion.div>
             ) : (
               <motion.div key="methods" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
@@ -237,19 +244,31 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, amo
 
                 <p className="text-sm font-medium text-gray-500 uppercase tracking-wider text-center">Escolha como pagar</p>
 
+                {!checkoutCapability && <div className="p-3 text-sm text-amber-800 bg-amber-50 rounded-lg">Esta reserva não possui checkout canônico autorizado. Pagamentos legados permanecem bloqueados.</div>}
+                {capabilityError && <div className="p-3 text-sm text-red-700 bg-red-50 rounded-lg">{capabilityError}</div>}
+
                 <div className="grid grid-cols-1 gap-3">
-                  <button
-                    onClick={() => setMethod('pix')}
+                  {capabilities?.mercadopago.pix && checkoutCapability && <button
+                    onClick={() => setMethod('mercadopago-pix')}
                     className="flex flex-col items-center justify-center p-6 border-2 border-gray-100 rounded-xl hover:border-brand-primary hover:bg-brand-light/20 transition-all group"
                   >
                     <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                       <QrCode className="w-7 h-7" />
                     </div>
                     <span className="font-medium text-gray-900">PIX</span>
-                    <span className="text-xs text-gray-500">Instantâneo e sem taxas</span>
-                  </button>
+                    <span className="text-xs text-gray-500">Mercado Pago</span>
+                  </button>}
 
-                  <button
+                  {capabilities?.picpay.pix && checkoutCapability && <button
+                    onClick={() => setMethod('picpay-pix')}
+                    className="flex flex-col items-center justify-center p-6 border-2 border-gray-100 rounded-xl hover:border-brand-primary hover:bg-brand-light/20 transition-all group"
+                  >
+                    <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"><QrCode className="w-7 h-7" /></div>
+                    <span className="font-medium text-gray-900">PIX</span>
+                    <span className="text-xs text-gray-500">PicPay</span>
+                  </button>}
+
+                  {capabilities?.stripe.card && checkoutCapability && stripePromise && <button
                     onClick={() => setMethod('stripe')}
                     className="flex flex-col items-center justify-center p-6 border-2 border-gray-100 rounded-xl hover:border-brand-primary hover:bg-brand-light/20 transition-all group"
                   >
@@ -258,7 +277,8 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, amo
                     </div>
                     <span className="font-medium text-gray-900">Cartão de Crédito</span>
                     <span className="text-xs text-gray-500">Stripe (Visa, Master, etc)</span>
-                  </button>
+                  </button>}
+                  {capabilities && !capabilities.stripe.card && !capabilities.mercadopago.pix && !capabilities.picpay.pix && <p className="text-sm text-center text-gray-500">Nenhum método de pagamento está configurado para esta reserva.</p>}
                 </div>
               </motion.div>
             )}
