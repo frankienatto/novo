@@ -691,6 +691,10 @@ interface GeminiCoreParams {
   systemInstruction?: string;
   context?: Record<string, any>;
   modelName?: string;
+  organizationId?: string;
+  propertyId?: string;
+  userId?: string;
+  permissions?: import('./server/modules/saas/saasTypes.ts').Permission[];
 }
 
 interface GeminiCoreResult {
@@ -699,10 +703,12 @@ interface GeminiCoreResult {
 }
 
 async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiCoreResult> {
-  const { agentId, prompt, schema, systemInstruction, context, modelName = "gemini-3.6-flash" } = params;
+  const { agentId, prompt, schema, systemInstruction, context, modelName = "gemini-3.6-flash", organizationId, propertyId, userId, permissions } = params;
 
   // 1. Regra de mock customizado (preserva suporte aos mocks legados)
-  const customMock = getCustomMockForPrompt(String(prompt || ""), schema);
+  const customMock = process.env.NODE_ENV !== 'production'
+    ? getCustomMockForPrompt(String(prompt || ""), schema)
+    : null;
   if (customMock) {
     return { data: customMock, source: "mock_rule" };
   }
@@ -714,7 +720,11 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
     schema,
     systemInstruction,
     context,
-    modelName
+    modelName,
+    organizationId,
+    propertyId,
+    userId,
+    permissions
   });
 
   return {
@@ -724,38 +734,34 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
 }
 
   // Prompt Registry Management Endpoints (Sprint 02)
-  app.get("/api/prompts", (req, res) => {
+  // Prompt definitions are operational configuration. They are not public
+  // content and writes remain disabled until a dedicated RBAC policy exists.
+  app.get("/api/prompts", authMiddleware, tenantMiddleware, (req, res) => {
     return res.status(200).json({
       success: true,
       prompts: getAllPrompts()
     });
   });
 
-  app.get("/api/prompts/:agentId", (req, res) => {
+  app.get("/api/prompts/:agentId", authMiddleware, tenantMiddleware, (req, res) => {
     const { agentId } = req.params;
-    const promptDef = getPrompt(agentId);
+    const promptDef = getPrompt(String(agentId));
     return res.status(200).json({
       success: true,
       prompt: promptDef
     });
   });
 
-  app.post("/api/prompts", (req, res) => {
-    const { agentId, systemInstruction, name, description } = req.body;
-    if (!agentId || !systemInstruction) {
-      return res.status(400).json({ error: "Os parâmetros 'agentId' e 'systemInstruction' são obrigatórios." });
-    }
-
-    const updated = updatePrompt(agentId, systemInstruction, name, description);
-    return res.status(200).json({
-      success: true,
-      prompt: updated
+  app.post("/api/prompts", authMiddleware, tenantMiddleware, (_req, res) => {
+    return res.status(403).json({
+      error: 'PROMPT_CONFIGURATION_RBAC_MAPPING_REQUIRED',
+      message: 'Alteração de prompts está desabilitada até existir uma permissão RBAC específica.'
     });
   });
 
   // Gemini API Proxy - Agent Execution Endpoint (Sprint 01 & 02 - Server-Side Execution & Prompt Registry)
   app.post("/api/gemini/agent-execute", async (req, res) => {
-    const { agentId, prompt, schema, systemInstruction, context } = req.body;
+    const { agentId, prompt, schema } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: "O parâmetro 'prompt' é obrigatório." });
@@ -766,8 +772,12 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         agentId,
         prompt,
         schema,
-        systemInstruction,
-        context
+        // System instruction and operational context are server-owned. A client
+        // may not inject either through this endpoint.
+        organizationId: req.organizationId!,
+        propertyId: req.propertyId!,
+        userId: req.saasUser!.userId,
+        permissions: req.saasUser!.permissions
       });
 
       return res.status(200).json({
@@ -778,6 +788,9 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
       });
     } catch (e: any) {
       console.error(`❌ [agent-execute] Erro no pipeline de IA (${agentId}):`, e?.message || e);
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({ success: false, error: 'AI_PROVIDER_UNAVAILABLE' });
+      }
       try {
         const fallbackObj = generateMockFromSchema(schema, String(prompt || ""));
         return res.status(200).json({
@@ -797,8 +810,8 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   });
 
   // Endpoint oficial do Copilot / Orquestrador com Memória de Sessão e Contexto Operacional (Milestone 3 - Etapa 3.2)
-  app.post("/api/ai/copilot", async (req, res) => {
-    const { prompt, agentId, sessionId, organizationId, propertyId, userId } = req.body;
+  app.post("/api/ai/copilot", authMiddleware, tenantMiddleware, async (req, res) => {
+    const { prompt, agentId, sessionId } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: "O parâmetro 'prompt' é obrigatório." });
@@ -809,9 +822,10 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         prompt,
         agentId,
         sessionId,
-        organizationId,
-        propertyId,
-        userId
+        organizationId: req.organizationId!,
+        propertyId: req.propertyId!,
+        userId: req.saasUser!.userId,
+        permissions: req.saasUser!.permissions
       });
 
       return res.status(200).json({
@@ -896,7 +910,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
 
   // Legacy Endpoint - Redirecionado internamente para o Pipeline Unificado de IA (Milestone 1)
   app.post("/api/gemini/generateText", async (req, res) => {
-    const { prompt, schema, systemInstruction } = req.body;
+    const { prompt, schema } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: "O parâmetro 'prompt' é obrigatório." });
@@ -907,12 +921,15 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         agentId: "synapse_orchestrator",
         prompt,
         schema,
-        systemInstruction
+        organizationId: req.organizationId!,
+        propertyId: req.propertyId!,
+        userId: req.saasUser!.userId
       });
 
       return res.status(200).json(execution.data);
     } catch (e: any) {
-      console.warn("⚠️ [Gemini Fallback] (generateText) - Fallback ativado no pipeline unificado.");
+      if (process.env.NODE_ENV === 'production') return res.status(503).json({ error: 'AI_PROVIDER_UNAVAILABLE' });
+      console.warn("⚠️ [Gemini Fallback] (generateText) - fallback permitido somente fora de produção.");
       try {
         const customMock = getCustomMockForPrompt(String(prompt || ""), schema);
         if (customMock) {
@@ -931,6 +948,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   app.post("/api/gemini/searchGrounding", async (req, res) => {
     try {
         if (!process.env.GEMINI_API_KEY) {
+            if (process.env.NODE_ENV === 'production') return res.status(503).json({ error: 'AI_PROVIDER_UNAVAILABLE' });
             console.warn("⚠️ Servidor sem chave GEMINI_API_KEY. Usando Mock Fallback Inteligente.");
             return res.status(200).json({
                 text: "Análise de Tendência de Turismo: Observamos um aumento de 22% nas buscas por turismo sustentável e hospedagens pé na areia na região de Ubatuba e adjacências para o próximo feriado. Principais atrativos incluem gastronomia caiçara, trilhas ecológicas e praias preservadas. É recomendado focar no ecoturismo.",
@@ -959,6 +977,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         const sources = result.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         res.status(200).json({ text, sources });
     } catch (e: any) {
+        if (process.env.NODE_ENV === 'production') return res.status(503).json({ error: 'AI_PROVIDER_UNAVAILABLE' });
         console.warn("⚠️ [Gemini Fallback] (searchGrounding) - Fallback de busca ativado.");
         res.status(200).json({
             text: "Análise de Tendência de Turismo Regional (Fallback): Há forte tendência por turismo rústico e viagens rápidas de final de semana na região praiana. Férias planejadas mostram interesse crescente em acomodações flexíveis e ecológicas. Recomenda-se promoções direcionadas nas mídias sociais para estadias de 3 dias.",
@@ -974,6 +993,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
     const { prompt } = req.body;
     try {
         if (!process.env.GEMINI_API_KEY) {
+            if (process.env.NODE_ENV === 'production') return res.status(503).json({ error: 'AI_PROVIDER_UNAVAILABLE' });
             console.warn("⚠️ Servidor sem chave GEMINI_API_KEY. Usando Unsplash Fallback.");
             const promptLower = String(prompt || "").toLowerCase();
             let fallbackUrl = "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=1000&auto=format&fit=crop"; 
@@ -1008,6 +1028,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         }
         throw new Error("Failed to generate image parts");
     } catch (e: any) {
+        if (process.env.NODE_ENV === 'production') return res.status(503).json({ error: 'AI_PROVIDER_UNAVAILABLE' });
         console.warn("⚠️ [Gemini Fallback] (generateImage) - Fallback de imagem ativado.");
         const promptLower = String(prompt || "").toLowerCase();
         let fallbackUrl = "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=1000&auto=format&fit=crop"; 
@@ -1025,6 +1046,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   app.post("/api/gemini/generateCaption", async (req, res) => {
     try {
         if (!process.env.GEMINI_API_KEY) {
+            if (process.env.NODE_ENV === 'production') return res.status(503).json({ error: 'AI_PROVIDER_UNAVAILABLE' });
             console.warn("⚠️ Servidor sem chave GEMINI_API_KEY. Usando legenda default.");
             return res.status(200).json({ text: "Amamos cada detalhe desse paraíso! Venha viver momentos inesquecíveis na melhor pousada pé na areia. Reservas abertas! 🌅✨ #ForestHouse #Paraiso #Hospitalidade" });
         }
@@ -1045,6 +1067,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         });
         res.status(200).json({ text: response.text });
     } catch (e: any) {
+        if (process.env.NODE_ENV === 'production') return res.status(503).json({ error: 'AI_PROVIDER_UNAVAILABLE' });
         console.warn("⚠️ [Gemini Fallback] (generateCaption) - Legenda default ativada.");
         res.status(200).json({ text: "Sinta a vibe pé na areia e desconecte-se do mundo na Forest House Beach! 🌴 Seu refúgio perfeito está esperando por você. Reservas abertas! 🌅✨ #ForestHouse #Mar #Paz" });
     }

@@ -7,6 +7,16 @@ import { strategicPriorityEngine } from './strategicPriorityEngine.ts';
 import { logger } from '../../../utils/logger.ts';
 
 export class StrategicAnalyzer {
+  private hasTestContextLoader = false;
+  private contextLoader: (organizationId: string, propertyId: string) => Promise<any> =
+    (organizationId, propertyId) => contextService.buildOperationalContext(organizationId, propertyId);
+
+  /** Explicit deterministic seam for tests; production always uses ContextService. */
+  public setContextLoaderForTests(loader?: (organizationId: string, propertyId: string) => Promise<any>): void {
+    this.hasTestContextLoader = Boolean(loader);
+    this.contextLoader = loader || ((organizationId, propertyId) => contextService.buildOperationalContext(organizationId, propertyId));
+  }
+
   /**
    * Extrai snapshot de KPIs operacionais a partir do ContextService e gera o diagnóstico estratégico integrado.
    */
@@ -15,9 +25,14 @@ export class StrategicAnalyzer {
 
     let rawOpContext: any = {};
     try {
-      rawOpContext = await contextService.buildOperationalContext(organizationId, propertyId);
+      if (process.env.NODE_ENV === 'test' && !this.hasTestContextLoader) {
+        rawOpContext = {};
+      } else {
+        rawOpContext = await this.contextLoader(organizationId, propertyId);
+      }
     } catch (err: any) {
-      logger.warn(`[StrategicAnalyzer] Falha ao consultar ContextService. Utilizando fallbacks operacionais: ${err?.message}`);
+      if (process.env.NODE_ENV === 'production') throw new Error('OPERATIONAL_CONTEXT_UNAVAILABLE');
+      logger.warn(`[StrategicAnalyzer] Falha ao consultar ContextService em ambiente não produtivo: ${err?.message}`);
     }
 
     const occupancyRatePercent = rawOpContext.occupancySummary?.occupancyRatePercent ?? 54.5;

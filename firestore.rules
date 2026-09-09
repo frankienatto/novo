@@ -422,6 +422,7 @@ service cloud.firestore {
     match /calendarSyncConflicts/{document=**} { allow read, write: if false; }
     match /occupancyLocks/{document=**} { allow read, write: if false; }
     match /icalSyncLocks/{document=**} { allow read, write: if false; }
+    match /aiRuns/{document=**} { allow read, write: if false; }
   }
 }
 

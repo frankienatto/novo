@@ -93,7 +93,8 @@ describe('FASE 3.0 — Synapse Agent Orchestrator', () => {
     const result = await synapseAgentOrchestrator.execute({
       prompt: 'Qual é o RevPAR e Ocupação previstos para o próximo mês?',
       organizationId: 'org_test_bus',
-      propertyId: 'prop_test_bus'
+      propertyId: 'prop_test_bus',
+      userId: 'usr_test_bus'
     });
 
     expect(result.primaryAgentId).toBe('revenue_agent');
@@ -110,7 +111,8 @@ describe('FASE 3.0 — Synapse Agent Orchestrator', () => {
     const result = await synapseAgentOrchestrator.execute({
       prompt: 'Qual é o status das aprovações pendentes do workflow?',
       organizationId: 'org_test_obs',
-      propertyId: 'prop_test_obs'
+      propertyId: 'prop_test_obs',
+      userId: 'usr_test_obs'
     });
 
     expect(result.primaryAgentId).toBe('approval_agent');
@@ -128,7 +130,8 @@ describe('FASE 3.0 — Synapse Agent Orchestrator', () => {
     const legacyResult = await aiOrchestrator.execute({
       prompt: 'Como está a saúde executiva e os KPIs da diretoria?',
       organizationId: 'org_legacy',
-      propertyId: 'prop_legacy'
+      propertyId: 'prop_legacy',
+      userId: 'usr_legacy'
     });
 
     expect(legacyResult.text).toBeDefined();

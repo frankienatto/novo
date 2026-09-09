@@ -5,6 +5,9 @@ import {
   OperationalContext, 
   AgentSelectionResult 
 } from "./aiTypes.ts";
+import type { Permission } from '../saas/saasTypes.ts';
+import { aiAuditRepository, createAiRunAudit } from './aiAuditRepository.ts';
+import { AGENT_ACTION_ALLOWLIST } from './agentActions.ts';
 
 export interface AiOrchestratorParams {
   prompt: string;
@@ -13,6 +16,7 @@ export interface AiOrchestratorParams {
   organizationId?: string;
   propertyId?: string;
   userId?: string;
+  permissions?: Permission[];
   schema?: any;
   systemInstruction?: string;
   context?: Record<string, any>;
@@ -39,15 +43,17 @@ export class AiOrchestrator {
       prompt,
       agentId: requestedAgentId,
       sessionId: rawSessionId,
-      organizationId = 'org_dev_default',
-      propertyId = 'prop_dev_default',
-      userId = 'usr_dev_default',
+      organizationId,
+      propertyId,
+      userId,
+      permissions,
       schema,
       systemInstruction,
       context,
       modelName = "gemini-3.6-flash"
     } = params;
 
+    if (!organizationId || !propertyId || !userId) throw new Error('Contexto autenticado de organização, propriedade e usuário é obrigatório.');
     const sessionId = rawSessionId || `session_${organizationId}_${propertyId}`;
 
     const orchResult = await synapseAgentOrchestrator.execute({
@@ -57,6 +63,7 @@ export class AiOrchestrator {
       organizationId,
       propertyId,
       userId,
+      permissions,
       schema,
       systemInstruction,
       context,
@@ -70,6 +77,20 @@ export class AiOrchestrator {
       userId,
       sessionId
     );
+
+    const proposedActions = Array.isArray(orchResult.data?.proposedActions) ? orchResult.data.proposedActions : [];
+    await aiAuditRepository.record(createAiRunAudit({
+      organizationId,
+      propertyId,
+      agentId: orchResult.primaryAgentId,
+      actorUserId: userId,
+      status: 'completed',
+      task: prompt,
+      proposedActionTypes: proposedActions.map((action: { type?: string }) => action.type || 'unknown'),
+      requiresApproval: proposedActions.some((action: { type?: keyof typeof AGENT_ACTION_ALLOWLIST }) => action.type && AGENT_ACTION_ALLOWLIST[action.type]?.requiresApproval),
+      resultStatus: 'generated',
+      provider: orchResult.source
+    }));
 
     return {
       text: orchResult.text,

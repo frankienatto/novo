@@ -27,6 +27,7 @@ import { contextDistributionService } from './context/contextDistributionService
 import { cacheConfig } from '../../config/cacheConfig.ts';
 import { metricsCollector } from '../../utils/metricsCollector.ts';
 import { env } from '../../config/environment.ts';
+import { buildContextForAgent } from './contextPolicy.ts';
 
 interface CacheEntry {
   data: OperationalContext;
@@ -62,6 +63,18 @@ export class ContextService {
     metricsCollector.recordContextInvalidation(invalidatedCount);
   }
 
+  /** Tenant-scoped, minimum-context view for an AI agent. */
+  async getContextForAgent(
+    agentId: string,
+    organizationId: string,
+    propertyId: string,
+    userId: string,
+    sessionId?: string
+  ): Promise<OperationalContext> {
+    const operationalContext = await this.buildOperationalContext(organizationId, propertyId, userId, sessionId);
+    return buildContextForAgent(agentId, operationalContext);
+  }
+
   /**
    * Constrói e retorna o objeto estruturado OperationalContext com cache em memória e isolamento por tenant.
    */
@@ -72,8 +85,9 @@ export class ContextService {
     sessionId?: string,
     activeGuestId?: string
   ): Promise<OperationalContext> {
-    const resolvedOrgId = organizationId || 'org_dev_default';
-    const resolvedPropId = propertyId || 'prop_dev_default';
+    if (!organizationId || !propertyId) throw new Error('Contexto de tenant é obrigatório para construir contexto operacional.');
+    const resolvedOrgId = organizationId;
+    const resolvedPropId = propertyId;
 
     const cacheKey = `${resolvedOrgId}:${resolvedPropId}:${userId || 'none'}:${sessionId || 'none'}:${activeGuestId || 'none'}`;
 

@@ -36,7 +36,8 @@ export class InMemorySessionMemory implements SessionMemoryRepository {
       timestamp: now
     };
 
-    const organizationId = meta?.organizationId || existing?.organizationId || 'org_dev_default';
+    const organizationId = meta?.organizationId || existing?.organizationId;
+    if (!organizationId) throw new Error('AI_TENANT_CONTEXT_REQUIRED');
     const propertyId = meta?.propertyId || existing?.propertyId;
     const agentId = meta?.agentId || existing?.agentId;
 

@@ -142,6 +142,7 @@ Por favor, execute este passo fornecendo uma resposta analítica clara com açõ
         agentId: nextTask.assignedAgentId,
         organizationId: goal.organizationId,
         propertyId: goal.propertyId,
+        userId: actor,
         sessionId: goal.sessionId,
         priority: goal.definition.priority
       });
