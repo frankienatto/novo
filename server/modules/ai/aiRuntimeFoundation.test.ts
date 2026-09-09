@@ -24,10 +24,18 @@ describe('AI runtime deterministic foundation', () => {
   });
 
   it('fails closed when the production provider has no configured Gemini key', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
     const previous = process.env.GEMINI_API_KEY;
-    delete process.env.GEMINI_API_KEY;
-    await expect(new GeminiAiProvider().generate({ model: 'test', prompt: 'x', systemInstruction: 'y' })).rejects.toThrow('AI_PROVIDER_NOT_CONFIGURED');
-    if (previous) process.env.GEMINI_API_KEY = previous;
+    try {
+      process.env.NODE_ENV = 'production';
+      delete process.env.GEMINI_API_KEY;
+      expect(getAiProvider()).toBeInstanceOf(GeminiAiProvider);
+      await expect(new GeminiAiProvider().generate({ model: 'test', prompt: 'x', systemInstruction: 'y' })).rejects.toThrow('AI_PROVIDER_NOT_CONFIGURED');
+    } finally {
+      if (previousNodeEnv) process.env.NODE_ENV = previousNodeEnv;
+      else delete process.env.NODE_ENV;
+      if (previous) process.env.GEMINI_API_KEY = previous;
+    }
   });
 
   it('minimizes context by agent and removes PII, payment data and secrets', () => {

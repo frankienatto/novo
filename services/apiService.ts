@@ -137,6 +137,11 @@ import {
     orderBy
 } from 'firebase/firestore';
 import { db as localDefaultDb, allAdminSections } from '../database';
+import {
+    cloneDevelopmentFixture,
+    mayUseLegacyDemoLogin,
+    resolveEmptyCollectionState,
+} from './clientProvisioningPolicy';
 console.log("apiService.ts: initial load");
 import { 
     decideNextOrchestrationAction, 
@@ -237,142 +242,28 @@ export const eventBus = {
 };
 
 const DB_STORAGE_KEY = 'forest-beach-house-db';
+// Preview fixtures may render locally in development, but must never be persisted by the browser.
+const allowDevelopmentFixtures = import.meta.env.DEV;
 
 export const resetDb = async (category?: keyof DBState) => {
-    if (category) {
-        if (!window.confirm(`Tem certeza que deseja resetar os dados de ${String(category)}? Esta operação apagará todos os dados atuais e restaurará os padrões.`)) {
-            return;
-        }
-        
-        try {
-            // Atualiza síncrono local primeiro para dar feedback imediato na UI
-            const defaultData = localDefaultDb[category];
-            if (defaultData) {
-                (state as any)[category] = JSON.parse(JSON.stringify(defaultData));
-                eventBus.emit('db-update');
-            }
-
-            const items = state[category];
-            let collectionPath = String(category);
-            if (category === 'staffTasks') collectionPath = 'tasks';
-
-            // Apaga dados existentes de forma assíncrona
-            if (Array.isArray(items)) {
-                await Promise.all(items.map(async (item: any) => {
-                    if (item && item.id) {
-                        try {
-                            await deleteDoc(doc(firestore, collectionPath, item.id));
-                        } catch (e) {
-                            console.error(`Error deleting ${item.id}`, e);
-                        }
-                    }
-                }));
-            }
-
-            // Restaura dados padrão de forma assíncrona
-            if (defaultData && Array.isArray(defaultData)) {
-                await Promise.all(defaultData.map(async (item: any) => {
-                    if (item && item.id) {
-                        try {
-                            await setDoc(doc(firestore, collectionPath, item.id), item);
-                        } catch (e) {
-                            console.error(`Error restoring ${item.id}`, e);
-                        }
-                    }
-                }));
-            } else if (defaultData && !Array.isArray(defaultData)) {
-                try {
-                    await setDoc(doc(firestore, collectionPath, 'main'), defaultData);
-                } catch (e) {
-                    console.error(`Error restoring singleton ${collectionPath}`, e);
-                }
-            }
-            
-            alert(`Dados de ${String(category)} resetados de forma bem-sucedida!`);
-            window.location.reload();
-        } catch (error: any) {
-            console.warn(`Erro ao resetar de forma remota ${String(category)}, aplicando fallback local:`, error.message);
-            alert(`Dados de ${String(category)} resetados localmente com sucesso!`);
-            window.location.reload();
-        }
-    } else {
-        try {
-            // Atualiza síncrono local completo primeiro
-            state = JSON.parse(JSON.stringify(localDefaultDb));
-            eventBus.emit('db-update');
-
-            const categories = Object.keys(localDefaultDb) as Array<keyof DBState>;
-            
-            // Vamos processar sequencialmente para evitar afogamento da rede gRPC
-            for (const cat of categories) {
-                let collectionPath = String(cat);
-                if (cat === 'staffTasks') collectionPath = 'tasks';
-                
-                const isSingleton = ['siteContent', 'themeSettings', 'digitalMenu', 'sharedSpaces'].includes(cat);
-                const items = state[cat];
-
-                try {
-                    if (isSingleton) {
-                        try {
-                            await deleteDoc(doc(firestore, collectionPath, 'main'));
-                        } catch (e) {}
-                        
-                        const defaultData = (localDefaultDb as any)[cat];
-                        if (defaultData) {
-                            await setDoc(doc(firestore, collectionPath, 'main'), defaultData);
-                        }
-                    } else {
-                        // Apaga antigos por lotes
-                        if (Array.isArray(items)) {
-                            const chunks = [];
-                            const tempItems = [...items];
-                            while (tempItems.length > 0) {
-                                chunks.push(tempItems.splice(0, 8)); // Lotes confortáveis de 8
-                            }
-                            for (const chunk of chunks) {
-                                await Promise.all(chunk.map(async (item: any) => {
-                                    if (item && item.id) {
-                                        try {
-                                            await deleteDoc(doc(firestore, collectionPath, item.id));
-                                        } catch (e) {}
-                                    }
-                                }));
-                            }
-                        }
-
-                        // Semeia novos por lotes
-                        const defaultData = (localDefaultDb as any)[cat];
-                        if (defaultData && Array.isArray(defaultData)) {
-                            const chunks = [];
-                            const tempDefaults = [...defaultData];
-                            while (tempDefaults.length > 0) {
-                                chunks.push(tempDefaults.splice(0, 8)); // Lotes confortáveis de 8
-                            }
-                            for (const chunk of chunks) {
-                                await Promise.all(chunk.map(async (item: any) => {
-                                    if (item && item.id) {
-                                        try {
-                                            await setDoc(doc(firestore, collectionPath, item.id), item);
-                                        } catch (e) {}
-                                    }
-                                }));
-                            }
-                        }
-                    }
-                } catch (catError: any) {
-                    console.warn(`Erro parcial no reset da coleção ${cat}:`, catError.message);
-                }
-            }
-            
-            localStorage.removeItem(DB_STORAGE_KEY);
-            alert("Sistema completo redefinido para o padrão com sucesso!");
-            window.location.reload();
-        } catch (error: any) {
-            console.warn("Erro ao redefinir sistema completo remoto, aplicando fallback de reload imediato:", error.message);
-            localStorage.removeItem(DB_STORAGE_KEY);
-            window.location.reload();
-        }
+    if (!allowDevelopmentFixtures) {
+        throw new Error('CLIENT_PROVISIONING_DISABLED');
     }
+
+    if (!window.confirm(category
+        ? `Restaurar apenas os fixtures locais de ${String(category)}? Nada será gravado no Firestore.`
+        : 'Restaurar todos os fixtures locais? Nada será gravado no Firestore.')) {
+        return;
+    }
+
+    if (category) {
+        (state as any)[category] = cloneDevelopmentFixture(localDefaultDb[category], true);
+    } else {
+        state = cloneDevelopmentFixture(localDefaultDb, true) as DBState;
+    }
+
+    localStorage.removeItem(DB_STORAGE_KEY);
+    eventBus.emit('db-update');
 };
 
 export const checkFirestoreConnection = async () => {
@@ -399,7 +290,7 @@ export const checkFirestoreConnection = async () => {
 
 checkFirestoreConnection();
 
-let state: DBState = JSON.parse(JSON.stringify(localDefaultDb));
+let state: DBState = cloneDevelopmentFixture(localDefaultDb, allowDevelopmentFixtures) as DBState;
 let isInitialLoadComplete = false;
 let resolveInitialLoad: () => void;
 export const dbReady = new Promise<void>((resolve) => {
@@ -555,79 +446,26 @@ const startSync = () => {
                         isEmpty = snapshot.empty;
                     }
                     
-                    // Auto-seeding
-                    if (isEmpty && user && (c.key === 'properties' || c.key === 'rooms' || c.key === 'staff' || c.key === 'siteContent' || c.key === 'themeSettings' || c.key === 'sharedSpaces' || c.key === 'propertyEvents' || c.key === 'localGuideTips' || c.key === 'tables' || c.key === 'integrationSettings' || c.key === 'integrationSyncLogs' || c.key === 'integrationBillingMappings' || c.key === 'externalApiKeys')) {
-                        let defaultData = (localDefaultDb as any)[c.key];
-                        
-                        // Fallback data if database.ts wasn't updated correctly
-                        if (!defaultData) {
-                            if (c.key === 'integrationSettings') {
-                                defaultData = [
-                                    { id: 'INT01', platform: 'Cloudbeds', connected: false, apiKey: 'DEMO_KEY_NOT_CONFIGURED', propertyId: 'DEMO_PROPERTY', lastSync: new Date().toISOString(), status: 'Demo', config: { syncRooms: false, syncGuests: false, syncPOS: false }, updatedAt: new Date().toISOString() },
-                                    { id: 'INT02', platform: 'Aloha Pro', connected: false, status: 'Pausado', config: { syncRooms: true, syncGuests: true, syncPOS: true }, updatedAt: new Date().toISOString() }
-                                ];
-                            } else if (c.key === 'integrationSyncLogs') {
-                                defaultData = [{ id: 'LOG01', timestamp: new Date().toISOString(), platform: 'Aloha Pro', action: 'Configuração Inicial', status: 'Success', details: 'Integração preparada para conexão via API.', updatedAt: new Date().toISOString() }];
-                            } else if (c.key === 'integrationBillingMappings') {
-                                defaultData = [{ id: 'MAP01', appItemName: 'Consumo Restaurante', pmsItemName: 'Restaurante POS', integrationId: 'INT02', updatedAt: new Date().toISOString() }];
-                            } else if (c.key === 'externalApiKeys') {
-                                defaultData = [{ id: 'AK01', name: 'Integração Web', key: 'DEMO_KEY_NOT_CONFIGURED', createdAt: new Date().toISOString(), scope: 'Leitura/Escrita', updatedAt: new Date().toISOString() }];
-                            }
-                        }
-
-                        if (defaultData) {
-                            console.log(`🔥 Firebase Seed: Populando ${c.path} com dados padrão...`);
-                            try {
-                                if (c.isSingleton) {
-                                    await saveToFirestore(c.path, 'main', defaultData);
-                                } else if (Array.isArray(defaultData)) {
-                                    for (const item of defaultData) {
-                                        const id = item.id ? item.id.toString() : `auto_${Math.random().toString(36).substr(2, 9)}`;
-                                        await saveToFirestore(c.path, id, item);
-                                    }
-                                }
-                            } catch (err) {
-                                console.warn(`🔥 Firebase Seed: Falha ao popular ${c.path}.`, err);
-                            }
-                            // Don't call checkLoaded yet, wait for the seeded data snapshot
-                            return;
-                        }
-                    }
-
                     if (c.isSingleton) {
                         if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-                            const defaultData = (localDefaultDb as any)[c.key];
+                            const defaultData = allowDevelopmentFixtures ? (localDefaultDb as any)[c.key] : undefined;
                             (state as any)[c.key] = defaultData ? { ...JSON.parse(JSON.stringify(defaultData)), ...data } : data;
                         } else {
-                            const fallbackData = (localDefaultDb as any)[c.key];
-                            (state as any)[c.key] = fallbackData ? JSON.parse(JSON.stringify(fallbackData)) : {};
+                            (state as any)[c.key] = resolveEmptyCollectionState(
+                                (localDefaultDb as any)[c.key],
+                                true,
+                                allowDevelopmentFixtures,
+                            );
                         }
                     } else if (Array.isArray(data) && data.length > 0) {
                         (state as any)[c.key] = data;
                         
-                        // Garante que o Aloha Pro sempre apareça nas configurações de integração se estiver ausente
-                        if (c.key === 'integrationSettings') {
-                            const hasAloha = data.some((s: any) => s.platform === 'Aloha Pro');
-                            if (!hasAloha && user) {
-                                console.log("🔌 Semeando opção integrada do Aloha Pro nas configurações...");
-                                const alohaItem = { 
-                                    id: 'INT02', 
-                                    platform: 'Aloha Pro', 
-                                    connected: false, 
-                                    status: 'Pausado', 
-                                    config: { syncRooms: true, syncGuests: true, syncPOS: true }, 
-                                    updatedAt: new Date().toISOString() 
-                                };
-                                data.push(alohaItem);
-                                (state as any)[c.key] = [...data];
-                                saveToFirestore('integrationSettings', 'INT02', alohaItem).catch(err => {
-                                    console.warn("Could not auto-sync Aloha Pro to Firestore:", err);
-                                });
-                            }
-                        }
                     } else if (isEmpty) {
-                        const fallbackData = (localDefaultDb as any)[c.key];
-                        (state as any)[c.key] = Array.isArray(fallbackData) ? JSON.parse(JSON.stringify(fallbackData)) : (fallbackData || (c.isSingleton ? {} : []));
+                        (state as any)[c.key] = resolveEmptyCollectionState(
+                            (localDefaultDb as any)[c.key],
+                            false,
+                            allowDevelopmentFixtures,
+                        );
                     } else if (data) {
                         (state as any)[c.key] = data;
                     }
@@ -733,7 +571,7 @@ export const login = async (email: string, pass: string): Promise<{ user: User, 
     const normalizedEmail = email.toLowerCase().trim();
 
     // Master Override to guarantee Admin login always works seamlessly
-    if (normalizedEmail === 'frankienatto@gmail.com' && pass === 'admin') {
+    if (mayUseLegacyDemoLogin(allowDevelopmentFixtures) && normalizedEmail === 'frankienatto@gmail.com' && pass === 'admin') {
         let adminUser = state.staff.find(u => u.email.toLowerCase() === 'frankienatto@gmail.com');
         if (!adminUser) {
             adminUser = {
@@ -745,15 +583,10 @@ export const login = async (email: string, pass: string): Promise<{ user: User, 
                 permissions: allAdminSections
             } as Staff;
         }
-        try {
-            await saveToFirestore('staff', adminUser.id, adminUser);
-        } catch (e) {
-            console.warn("Could not sync override admin to Firestore:", e);
-        }
         return { user: JSON.parse(JSON.stringify(adminUser)), token: 'admin-master-token' };
     }
 
-    if (normalizedEmail === 'super@admin.com' && pass === 'super') {
+    if (mayUseLegacyDemoLogin(allowDevelopmentFixtures) && normalizedEmail === 'super@admin.com' && pass === 'super') {
         let saasAdmin = state.staff.find(u => u.email.toLowerCase() === 'super@admin.com');
         if (!saasAdmin) {
             saasAdmin = {
@@ -764,11 +597,6 @@ export const login = async (email: string, pass: string): Promise<{ user: User, 
                 password: 'super',
                 permissions: allAdminSections
             } as Staff;
-        }
-        try {
-            await saveToFirestore('staff', saasAdmin.id, saasAdmin);
-        } catch (e) {
-            console.warn("Could not sync override saasAdmin to Firestore:", e);
         }
         return { user: JSON.parse(JSON.stringify(saasAdmin)), token: 'saas-master-token' };
     }
