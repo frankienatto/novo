@@ -1,18 +1,18 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { initializeFirestore, getFirestore, doc, getDocFromServer, setLogLevel } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import { firebaseWebConfig } from './firebaseWebConfig';
 
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseWebConfig);
 
 // Inicializa Firestore com auto-detect de Long Polling para garantir conectividade contínua em iframes
 let firestoreDb;
 try {
   firestoreDb = initializeFirestore(app, {
     experimentalAutoDetectLongPolling: true,
-  }, firebaseConfig.firestoreDatabaseId);
+  }, firebaseWebConfig.firestoreDatabaseId);
 } catch {
-  firestoreDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  firestoreDb = getFirestore(app, firebaseWebConfig.firestoreDatabaseId);
 }
 export const db = firestoreDb;
 
@@ -24,6 +24,7 @@ try {
 }
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+export { firebaseWebConfig };
 
 export { signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut };
 

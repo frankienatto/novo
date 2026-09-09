@@ -10,8 +10,6 @@ const envSchema = z.object({
   N8N_PROPERTY_ID: z.string().min(1).optional(),
   ALOHA_API_KEY: z.string().min(1).optional(),
   ALOHA_PRO_WEBHOOK_SECRET: z.string().min(1).optional(),
-  SYSTEM_WEBHOOK_EMAIL: z.string().email().optional(),
-  SYSTEM_WEBHOOK_PASSWORD: z.string().min(8).optional(),
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   GOOGLE_CALENDAR_CLIENT_ID: z.string().min(1).optional(),

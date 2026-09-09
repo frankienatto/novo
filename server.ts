@@ -6,9 +6,7 @@ import cors from 'cors';
 import { runGoogleAdsIntegration, runMetaAdsIntegration } from './services/marketingService.ts';
 import Stripe from 'stripe';
 import { GoogleGenAI } from "@google/genai";
-import { db as firestore, auth } from "./services/firebase.ts";
-import { collection, getDocs, setDoc, doc, query, where } from "firebase/firestore";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { getAdminFirestore } from "./server/config/firebaseAdmin.ts";
 import { compileSystemInstruction, getAllPrompts, getPrompt, updatePrompt } from "./server/ai/promptRegistry.ts";
 import { saasRouter } from "./server/modules/saas/saasRouter.ts";
 import { pmsRouter } from "./server/modules/pms/pmsRouter.ts";
@@ -89,35 +87,10 @@ console.error = function (...args: any[]) {
 const appDir = process.cwd();
 
 async function ensureSystemAuthenticated() {
-  if (auth.currentUser) {
-    console.log("🔐 Webhook Auth: System already authenticated as", auth.currentUser.email);
-    return;
-  }
-  const email = process.env.SYSTEM_WEBHOOK_EMAIL;
-  const password = process.env.SYSTEM_WEBHOOK_PASSWORD;
-
-  if (!email || !password) {
-    throw new Error('System webhook credentials are not configured.');
-  }
-  
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-    console.log("🔐 Webhook Auth: System authenticated successfully!");
-  } catch (err: any) {
-    const code = err.code || "";
-    const msg = err.message || "";
-    if (code === "auth/user-not-found" || msg.includes("user-not-found") || code === "auth/invalid-credential" || msg.includes("invalid-credential") || code === "auth/wrong-password" || msg.includes("wrong-password")) {
-      console.log("🔐 Webhook Auth: System user not found or invalid. Recreating account...");
-      try {
-        await createUserWithEmailAndPassword(auth, email, password);
-        console.log("🔐 Webhook Auth: System user created and authenticated!");
-      } catch (createErr: any) {
-        console.error("🔐 Webhook Auth: Failed to create system user:", createErr.message);
-      }
-    } else {
-      console.error("🔐 Webhook Auth: Authentication failed:", err.message);
-    }
-  }
+  // Server-side webhooks use Application Default Credentials (Cloud Run's
+  // runtime service account). They must never create or authenticate a
+  // privileged Firebase Web user from environment credentials.
+  getAdminFirestore();
 }
 
 // Lazy initialization for Stripe
@@ -1164,9 +1137,8 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         let guestId = `WG${Date.now()}`;
         let guestInfo: any = null;
         try {
-            const guestsRef = collection(firestore, 'guests');
-            const qGuest = query(guestsRef, where("fullName", "==", bookingData.guestName));
-            const guestQuerySnap = await getDocs(qGuest);
+            const guestsRef = getAdminFirestore().collection('guests');
+            const guestQuerySnap = await guestsRef.where("fullName", "==", bookingData.guestName).get();
             
             if (!guestQuerySnap.empty) {
                 guestId = guestQuerySnap.docs[0].id;
@@ -1187,9 +1159,9 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
                     interests: [],
                     conciergeChatHistory: []
                 };
-                const guestDocRef = doc(guestsRef, guestId);
+                const guestDocRef = guestsRef.doc(guestId);
                 console.log("👤 Webhook: Writing new guest to Firestore...");
-                await setDoc(guestDocRef, guestInfo);
+                await guestDocRef.set(guestInfo);
                 console.log("👤 Webhook: Guest created successfully");
             }
         } catch (e: any) {
@@ -1200,8 +1172,8 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         console.log("🔑 Webhook: [Step 2] Querying rooms...");
         let roomId = 1; // Standard Fallback
         try {
-            const roomsRef = collection(firestore, 'rooms');
-            const roomQuerySnap = await getDocs(roomsRef);
+            const roomsRef = getAdminFirestore().collection('rooms');
+            const roomQuerySnap = await roomsRef.get();
             if (!roomQuerySnap.empty) {
                 const rooms = roomQuerySnap.docs.map(d => ({ id: d.id, name: d.get("name") || "" }));
                 const matchedRoom = rooms.find(r => 
@@ -1223,8 +1195,8 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         console.log("📅 Webhook: [Step 3] Creating booking in Firestore...");
         const bookingId = `WB${Date.now()}`;
         try {
-            const bookingsRef = collection(firestore, 'bookings');
-            const bookingDocRef = doc(bookingsRef, bookingId);
+            const bookingsRef = getAdminFirestore().collection('bookings');
+            const bookingDocRef = bookingsRef.doc(bookingId);
             
             let targetUnit = bookingData.propertyUnitId || bookingData.propertyId || req.body.propertyUnitId || req.body.propertyId || req.body.unit;
             if (!targetUnit) {
@@ -1236,7 +1208,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
                 }
             }
 
-            await setDoc(bookingDocRef, {
+            await bookingDocRef.set({
                 id: bookingId,
                 guestId: guestId,
                 roomId: roomId,
@@ -1263,9 +1235,9 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         // 4. Create Sync Logs so they display automatically in the Integration Log Dashboard
         console.log("📝 Webhook: [Step 4] Logging sync event...");
         try {
-            const syncLogsRef = collection(firestore, 'integrationSyncLogs');
+            const syncLogsRef = getAdminFirestore().collection('integrationSyncLogs');
             const logId = `WLOG${Date.now()}`;
-            await setDoc(doc(syncLogsRef, logId), {
+            await syncLogsRef.doc(logId).set({
                 id: logId,
                 timestamp: new Date().toISOString(),
                 platform: 'Aloha Pro',
@@ -1297,9 +1269,9 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
         // Write fail/error log to Firestore so it is visible in the Integration Log Dashboard
         try {
             await ensureSystemAuthenticated();
-            const syncLogsRef = collection(firestore, 'integrationSyncLogs');
+            const syncLogsRef = getAdminFirestore().collection('integrationSyncLogs');
             const logId = `WLOG_ERR_${Date.now()}`;
-            await setDoc(doc(syncLogsRef, logId), {
+            await syncLogsRef.doc(logId).set({
                 id: logId,
                 timestamp: new Date().toISOString(),
                 platform: 'Aloha Pro',

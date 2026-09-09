@@ -36,12 +36,12 @@ Use Secret Manager e variáveis de runtime do Cloud Run; nunca arquivos `.env`, 
 | `GEMINI_API_KEY` | Gemini | configurável, fail-closed |
 | `N8N_SECRET`, `N8N_ORGANIZATION_ID`, `N8N_PROPERTY_ID` | n8n | configurável, um tenant por deployment |
 | `ALOHA_PRO_WEBHOOK_SECRET`, `ALOHA_API_KEY` | Aloha | configurável |
-| `SYSTEM_WEBHOOK_EMAIL`, `SYSTEM_WEBHOOK_PASSWORD` | webhook legado Aloha | configurável; Secret Manager |
+| `SYSTEM_WEBHOOK_EMAIL`, `SYSTEM_WEBHOOK_PASSWORD` | legado removido | **DEPRECATED**; não configurar — webhooks usam a identidade ADC do Cloud Run |
 | `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `GOOGLE_CALENDAR_REDIRECT_URI` | Google Calendar | OAuth/persistência pendentes |
 | `BEDS24_API_TOKEN` | Beds24 | backend pendente; desativado com segurança |
 | `GOOGLE_ADS_API_KEY`, `META_ADS_ACCESS_TOKEN`, `META_ADS_AD_ACCOUNT_ID` | Ads | não implementadas; endpoints falham fechados |
 
-`VITE_STRIPE_PUBLISHABLE_KEY` e a configuração Firebase Web são identificadores públicos de cliente, não segredos. Restrinja a chave Firebase por domínio/API no projeto Firebase e substitua o arquivo de configuração de desenvolvimento por um app Firebase de produção no processo de build.
+`VITE_STRIPE_PUBLISHABLE_KEY` e a configuração Firebase Web são identificadores públicos de cliente, não segredos. Para builds de staging/produção, forneça `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_MEASUREMENT_ID` e, quando aplicável, `VITE_FIRESTORE_DATABASE_ID`. Restrinja a chave Firebase por domínio/API; ausência dessa configuração faz o frontend falhar fechado em produção.
 
 ## Google Cloud recomendado
 

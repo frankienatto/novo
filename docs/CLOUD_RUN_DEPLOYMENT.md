@@ -11,11 +11,20 @@ export REPOSITORY=synapse
 export IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/synapse:${GIT_SHA}"
 gcloud artifacts repositories create "$REPOSITORY" --repository-format=docker --location="$REGION" --description="Synapse staging images"
 gcloud auth configure-docker "${REGION}-docker.pkg.dev"
-docker build --tag "$IMAGE" .
+docker build \
+  --build-arg VITE_FIREBASE_API_KEY="$VITE_FIREBASE_API_KEY" \
+  --build-arg VITE_FIREBASE_AUTH_DOMAIN="$VITE_FIREBASE_AUTH_DOMAIN" \
+  --build-arg VITE_FIREBASE_PROJECT_ID="$VITE_FIREBASE_PROJECT_ID" \
+  --build-arg VITE_FIREBASE_APP_ID="$VITE_FIREBASE_APP_ID" \
+  --build-arg VITE_FIREBASE_STORAGE_BUCKET="$VITE_FIREBASE_STORAGE_BUCKET" \
+  --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID="$VITE_FIREBASE_MESSAGING_SENDER_ID" \
+  --build-arg VITE_FIREBASE_MEASUREMENT_ID="$VITE_FIREBASE_MEASUREMENT_ID" \
+  --build-arg VITE_FIRESTORE_DATABASE_ID="$VITE_FIRESTORE_DATABASE_ID" \
+  --tag "$IMAGE" .
 docker push "$IMAGE"
 ```
 
-Também é aceitável usar Cloud Build com o mesmo Dockerfile, sem build args contendo segredos.
+Esses build args são somente a configuração pública da Firebase Web App de staging e serão incorporados ao bundle frontend. Nunca passe secret server-side por build args. Também é aceitável usar Cloud Build com o mesmo Dockerfile, sem build args contendo segredos.
 
 ## Serviço
 

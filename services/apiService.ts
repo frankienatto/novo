@@ -116,10 +116,9 @@ import {
     CoworkingCheckIn,
     DeliveryOrder
 } from '../types';
-import { db as firestore, auth, handleFirestoreError, OperationType, signInWithPopup, googleProvider, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from './firebase';
+import { db as firestore, auth, firebaseWebConfig, handleFirestoreError, OperationType, signInWithPopup, googleProvider, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from './firebase';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth, signOut as secondarySignOut } from 'firebase/auth';
-import firebaseConfig from '../firebase-applet-config.json';
 import { 
     collection, 
     onSnapshot, 
@@ -1882,7 +1881,7 @@ export const addStaff = async (staffData: Omit<Staff, 'id'>) => {
     let secondaryApp;
     const normalizedEmail = staffData.email.toLowerCase().trim();
     try {
-        secondaryApp = getApps().find(app => app.name === 'SecondaryRegistration') || initializeApp(firebaseConfig, 'SecondaryRegistration');
+        secondaryApp = getApps().find(app => app.name === 'SecondaryRegistration') || initializeApp(firebaseWebConfig, 'SecondaryRegistration');
         const secondaryAuth = getAuth(secondaryApp);
         
         // 1. Create the user in Auth

@@ -14,7 +14,7 @@ gcloud config set project "$PROJECT_ID"
 gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com cloudbuild.googleapis.com firestore.googleapis.com identitytoolkit.googleapis.com logging.googleapis.com monitoring.googleapis.com
 ```
 
-Associe o projeto ao Firebase pelo Console Firebase ou `firebase projects:addfirebase "$PROJECT_ID"`. Configure Firebase Auth com os provedores realmente usados pela aplicação e inclua os domínios de staging em **Authorized domains**. A configuração Web Firebase é pública e deve ser exclusiva de staging; restrinja sua API key por domínio/API. Não use service-account JSON na imagem.
+Associe o projeto ao Firebase pelo Console Firebase ou `firebase projects:addfirebase "$PROJECT_ID"`. Crie uma Web App de staging, configure apenas os provedores de Auth realmente usados pela aplicação e inclua os domínios de staging em **Authorized domains**. A configuração Web Firebase é pública e deve ser exclusiva de staging; restrinja sua API key por domínio/API. Forneça-a no build por `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_MEASUREMENT_ID` e, quando não for `(default)`, `VITE_FIRESTORE_DATABASE_ID`. Não use service-account JSON na imagem.
 
 Crie Firestore vazio para staging, aplique as regras e não importe fixtures automaticamente:
 

@@ -8,7 +8,6 @@ const secretNames = [
   'N8N_SECRET',
   'ALOHA_API_KEY',
   'GEMINI_API_KEY',
-  'SYSTEM_WEBHOOK_PASSWORD',
   'ALOHA_PRO_WEBHOOK_SECRET',
 ];
 
