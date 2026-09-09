@@ -16,14 +16,13 @@ gcloud services enable run.googleapis.com artifactregistry.googleapis.com secret
 
 Associe o projeto ao Firebase pelo Console Firebase ou `firebase projects:addfirebase "$PROJECT_ID"`. Crie uma Web App de staging, configure apenas os provedores de Auth realmente usados pela aplicação e inclua os domínios de staging em **Authorized domains**. A configuração Web Firebase é pública e deve ser exclusiva de staging; restrinja sua API key por domínio/API. Forneça-a no build por `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_MEASUREMENT_ID` e, quando não for `(default)`, `VITE_FIRESTORE_DATABASE_ID`. Não use service-account JSON na imagem.
 
-Crie Firestore vazio para staging, aplique as regras e não importe fixtures automaticamente:
+Crie Firestore vazio para staging, aplique as regras e não importe fixtures automaticamente. Este repositório declara explicitamente apenas o banco nomeado `synapse-staging`; portanto, o comando abaixo não altera `(default)` nem qualquer banco legado/AI Studio do mesmo projeto:
 
 ```bash
-firebase use "$PROJECT_ID"
-firebase deploy --only firestore:rules --project "$PROJECT_ID"
+firebase deploy --only firestore:synapse-staging --project servidor-hospedagem1
 ```
 
-Se índices forem adicionados futuramente, use `firebase deploy --only firestore:indexes --project "$PROJECT_ID"`. O repositório atual não contém `firestore.indexes.json`.
+Não use `firebase deploy --only firestore:rules` casualmente neste projeto multi-database: esse alvo pode implantar regras para todos os bancos configurados no `firebase.json`. Se índices forem adicionados futuramente, associe-os explicitamente ao mesmo `database` antes de configurar um deploy. O repositório atual não contém `firestore.indexes.json`.
 
 ## Secrets e IAM
 
