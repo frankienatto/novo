@@ -49,14 +49,7 @@ export class N8nService {
             }
           }
 
-          if (!resolvedUnitId) {
-            // Fallback: busca a primeira UH disponível no inventário do tenant
-            const units = await pmsService.listUnits(organizationId, propertyId);
-            if (units.length === 0) {
-              throw new Error('Nenhuma Unidade Hoteleira encontrada no inventário da propriedade.');
-            }
-            resolvedUnitId = units[0].unitId;
-          }
+          if (!resolvedUnitId) throw new Error('Unidade canônica não identificada no evento n8n.');
 
           const createDTO = EventNormalizer.toCreateReservationDTO(sanitized, resolvedUnitId);
           const reservation = await reservationService.createReservation(organizationId, propertyId, createDTO);
@@ -69,9 +62,7 @@ export class N8nService {
         case 'reservation.updated': {
           const sanitized = alohaIntegrationService.sanitizeReservationPayload(data);
           const reservations = await reservationService.listReservations(organizationId, propertyId);
-          const existing = reservations.find(
-            r => r.notes?.includes(sanitized.alohaReservationId) || r.guest.fullName === sanitized.guestName
-          );
+          const existing = reservations.find(r => r.notes?.includes(sanitized.alohaReservationId));
 
           if (!existing) {
             throw new Error(`Reserva com referência Aloha ID [${sanitized.alohaReservationId}] não encontrada no PMS.`);
@@ -85,9 +76,7 @@ export class N8nService {
         case 'reservation.cancelled': {
           const sanitized = alohaIntegrationService.sanitizeReservationPayload(data);
           const reservations = await reservationService.listReservations(organizationId, propertyId);
-          const existing = reservations.find(
-            r => r.notes?.includes(sanitized.alohaReservationId) || r.guest.fullName === sanitized.guestName
-          );
+          const existing = reservations.find(r => r.notes?.includes(sanitized.alohaReservationId));
 
           if (!existing) {
             throw new Error(`Reserva com referência Aloha ID [${sanitized.alohaReservationId}] não encontrada no PMS para cancelamento.`);
@@ -129,18 +118,8 @@ export class N8nService {
           break;
         }
 
-        case 'ical.sync_requested': {
-          const feedUrl = data.feedUrl;
-          this.icalConfigs.set(propertyId, {
-            propertyId,
-            unitId: data.unitId,
-            feedUrl,
-            lastSyncedAt: timestamp,
-            status: 'ACTIVE'
-          });
-          message = `Solicitação de sincronização iCal recebida via n8n para a propriedade ${propertyId}.`;
-          break;
-        }
+        case 'ical.sync_requested':
+          throw new Error('Provisionamento de feed iCal via n8n não é permitido; use a rota autenticada de feeds.');
 
         case 'gcal.sync_requested': {
           const calendarId = data.calendarId;

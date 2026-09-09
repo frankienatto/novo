@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
-describe('FASE 4.4 — Validação E2E das Rotas Reais do Backend', () => {
-  const baseUrl = 'http://localhost:3000';
+// O teste exige um servidor isolado já iniciado; nunca assume localhost nem
+// inicializa serviços externos durante a suíte unitária.
+const describeE2E = process.env.SYNAPSE_E2E_BASE_URL ? describe : describe.skip;
+
+describeE2E('FASE 4.4 — Validação E2E das Rotas Reais do Backend', () => {
+  const baseUrl = process.env.SYNAPSE_E2E_BASE_URL!;
 
   describe('Rotas Públicas e Health Checks', () => {
     it('GET /health deve responder com HTTP 200 e status ok', async () => {

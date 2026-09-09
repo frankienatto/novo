@@ -64,30 +64,13 @@ class MetricsCollector {
     let totalMaintenanceTasks = 0;
     let totalN8nIntegrations = 0;
 
-    try {
-      const reservas = await reservationRepository.findReservations('org_dev_default', 'prop_dev_default');
-      totalReservas = reservas.length;
-    } catch (_) {}
-
-    try {
-      const guests = await guestRepository.listByOrganization('org_dev_default');
-      totalGuests = guests.length;
-    } catch (_) {}
-
-    try {
-      const hkTasks = await housekeepingRepository.findTasks('org_dev_default', 'prop_dev_default');
-      totalHousekeepingTasks = hkTasks.length;
-    } catch (_) {}
-
-    try {
-      const maintTasks = await maintenanceRepository.findTasks('org_dev_default', 'prop_dev_default');
-      totalMaintenanceTasks = maintTasks.length;
-    } catch (_) {}
-
-    try {
-      const n8nSummary = n8nService.getIntegrationSummary('org_dev_default', 'prop_dev_default');
-      totalN8nIntegrations = (n8nSummary.icalSyncStatus !== 'NOT_CONFIGURED' || n8nSummary.gcalSyncStatus !== 'NOT_CONFIGURED') ? 1 : 0;
-    } catch (_) {}
+    // Global metrics have no authenticated tenant scope. Never use development
+    // IDs as an implicit source of production operational data.
+    void reservationRepository;
+    void guestRepository;
+    void housekeepingRepository;
+    void maintenanceRepository;
+    void n8nService;
 
     return {
       timestamp: new Date().toISOString(),

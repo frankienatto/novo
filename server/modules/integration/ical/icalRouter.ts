@@ -3,6 +3,7 @@ import { icalService } from './icalService.ts';
 import { requirePermission } from '../../saas/middlewares/rbacMiddleware.ts';
 import { icalRepository } from './icalRepository.ts';
 import { randomUUID } from 'node:crypto';
+import { validateIcalRemoteUrl } from './icalUrlSafety.ts';
 
 export const icalRouter = Router();
 
@@ -21,8 +22,7 @@ icalRouter.post('/feeds', requirePermission('manage_integrations'), async (req: 
   const { unitId, provider, feedUrl } = req.body || {};
   if (!unitId || !provider || !feedUrl) return res.status(400).json({ error: 'unitId, provider e feedUrl são obrigatórios.' });
   try {
-    const url = new URL(feedUrl);
-    if (!['https:', 'http:'].includes(url.protocol)) throw new Error('protocol');
+    await validateIcalRemoteUrl(String(feedUrl));
   } catch { return res.status(400).json({ error: 'URL iCal inválida.' }); }
   const now = new Date().toISOString();
   const feed = { feedId: randomUUID(), organizationId: req.organizationId!, propertyId: req.propertyId!, unitId, provider: String(provider), feedUrl: String(feedUrl), active: true, createdAt: now, updatedAt: now };

@@ -11,6 +11,9 @@ import path from 'node:path';
 
 const projectId = 'synapse-p01b-rules';
 let testEnv: RulesTestEnvironment;
+// A validação dinâmica é executada somente quando um Emulator foi configurado
+// explicitamente (CI/runner isolado). Nunca deve tentar Firebase de produção.
+const describeWithFirestoreEmulator = process.env.FIRESTORE_EMULATOR_HOST ? describe : describe.skip;
 
 const adminA = {
   organizationId: 'org_a',
@@ -52,7 +55,7 @@ afterAll(async () => {
   await testEnv.cleanup();
 });
 
-describe('Firestore Rules Emulator: staff privilege escalation', () => {
+describeWithFirestoreEmulator('Firestore Rules Emulator: staff privilege escalation', () => {
   it('A. rejects unauthenticated staff creation', async () => {
     await assertFails(setDoc(doc(testEnv.unauthenticatedContext().firestore(), 'staff', 'anonymous'), userA));
   });
@@ -109,7 +112,7 @@ describe('Firestore Rules Emulator: staff privilege escalation', () => {
   });
 });
 
-describe('Firestore Rules Emulator: legacy booking financial fields', () => {
+describeWithFirestoreEmulator('Firestore Rules Emulator: legacy booking financial fields', () => {
   const guestBooking = {
     organizationId: 'org_a', propertyId: 'prop_a', guestId: 'guest_a',
     paymentStatus: 'Pending', balance: 125, totalPrice: 125, amountPaid: 0,
@@ -151,7 +154,7 @@ describe('Firestore Rules Emulator: legacy booking financial fields', () => {
   });
 });
 
-describe('Firestore Rules Emulator: public checkout internal records', () => {
+describeWithFirestoreEmulator('Firestore Rules Emulator: public checkout internal records', () => {
   it.each(['checkoutCapabilities', 'publicReservationIdempotency', 'paymentRecords', 'stripeEvents'])('rejects direct client writes to %s', async (collectionName) => {
     const db = testEnv.authenticatedContext('guest_a', { email: 'guest@example.test' }).firestore();
     await assertFails(setDoc(doc(db, collectionName, 'internal-record'), { reservationId: 'reservation_a', organizationId: 'org_a', propertyId: 'prop_a' }));

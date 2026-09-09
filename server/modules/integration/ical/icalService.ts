@@ -5,25 +5,14 @@ import { ICalParser } from './icalParser.ts';
 import { ICalParseResult, ICalFeedSummary } from './icalTypes.ts';
 import { randomUUID, createHash } from 'node:crypto';
 import { icalRepository, ICalFeedRecord } from './icalRepository.ts';
-import { lookup } from 'node:dns/promises';
+import { validateIcalRemoteUrl } from './icalUrlSafety.ts';
 
 export class ICalService {
   private lastExportedMap: Map<string, string> = new Map();
   private lastImportedMap: Map<string, string> = new Map();
 
-  private isPrivateAddress(address: string) {
-    return address === '::1' || address === '0.0.0.0' || /^127\./.test(address) || /^10\./.test(address) || /^192\.168\./.test(address) || /^169\.254\./.test(address) || /^172\.(1[6-9]|2\d|3[01])\./.test(address) || /^fc/i.test(address) || /^fe80:/i.test(address);
-  }
-  private async validateRemoteUrl(raw: string) {
-    const url = new URL(raw);
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('URL de feed inválida.');
-    if (url.hostname === 'localhost' || this.isPrivateAddress(url.hostname)) throw new Error('Destino de feed não permitido.');
-    const addresses = await lookup(url.hostname, { all: true });
-    if (!addresses.length || addresses.some(item => this.isPrivateAddress(item.address))) throw new Error('Destino de feed não permitido.');
-    return url;
-  }
   private async downloadFeed(feed: ICalFeedRecord) {
-    const url = await this.validateRemoteUrl(feed.feedUrl);
+    const url = await validateIcalRemoteUrl(feed.feedUrl);
     const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 10_000);
     try {
       const response = await fetch(url, { signal: controller.signal, redirect: 'error', headers: { accept: 'text/calendar,text/plain;q=0.9' } });

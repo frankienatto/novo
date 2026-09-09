@@ -31,9 +31,10 @@ export class IntegrationRegistry {
       propertyId,
       type: type || provider,
       provider,
-      status: 'connected',
+      // Metadados cadastrados não comprovam OAuth/API externa ativa.
+      status: existing?.status || 'pending',
       config,
-      connectedAt: now,
+      connectedAt: existing?.connectedAt,
       metadata,
       createdAt: existing ? existing.createdAt : now,
       updatedAt: now

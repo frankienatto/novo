@@ -1114,7 +1114,6 @@ export const payBalance = async (bookingId: string, paymentDetails?: PaymentDeta
     throw new Error('Payment confirmation must be processed by the server-side payment flow.');
 };
 
-import ICAL from 'ical.js';
 
 export const updateRoomControls = async (roomId: number, controls: Partial<Pick<Room, 'lightsOn' | 'fanSpeed' | 'doNotDisturb'>>) => {
     await delay(LATENCY / 2);
@@ -1132,26 +1131,10 @@ export const syncICalForRoom = async (roomId: number): Promise<{success: boolean
         return { success: false, message: 'Configuração de iCal não encontrada para este quarto.' };
     }
 
-    try {
-        const response = await fetch(`/api/ical-proxy?url=${encodeURIComponent(room.icalConfig[0].url)}`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const icalText = await response.text();
-        
-        const jcalData = ICAL.parse(icalText);
-        const vcalendar = new ICAL.Component(jcalData);
-        const vevents = vcalendar.getAllSubcomponents('vevent');
-        
-        console.log(`Sincronizado ${vevents.length} eventos para quarto ${roomId}`);
-        
-        room.icalConfig[0].lastSync = new Date().toISOString();
-        await saveToFirestore('rooms', room.id.toString(), room);
-        eventBus.emit('db-update');
-        
-        return { success: true, message: `Sincronizado com sucesso: ${vevents.length} eventos encontrados.` };
-    } catch (error) {
-        console.error('Erro ao sincronizar iCal:', error);
-        return { success: false, message: 'Falha na sincronização (verifique CORS/URL ou conexão).' };
-    }
+    // A legacy room does not prove a canonical unit/feed mapping. Never send a
+    // client-controlled URL to the server. Provision a canonical feed first.
+    void roomId;
+    return { success: false, message: 'Sincronização iCal legada desativada. Configure um feed canônico server-side.' };
 };
 
 // ... existing code ...

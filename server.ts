@@ -34,6 +34,7 @@ import { publicBookingAdminRouter } from "./server/modules/publicBooking/publicB
 import { publicCheckoutRouter, stripeWebhookHandler } from "./server/modules/publicBooking/publicCheckoutRouter.ts";
 import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware.ts";
 import { tenantMiddleware } from "./server/modules/saas/middlewares/tenantMiddleware.ts";
+import { requirePermission } from "./server/modules/saas/middlewares/rbacMiddleware.ts";
 import { aiOrchestrator } from "./server/modules/ai/aiOrchestrator.ts";
 import { getAllAgentDeclarations } from "./server/modules/ai/orchestrator/agentRegistry.ts";
 import { env } from "./server/config/environment.ts";
@@ -501,35 +502,30 @@ async function startServer() {
   app.use('/api', rateLimiters.rest);
 
   // API routes
-  app.get("/api/ical-proxy", async (req, res) => {
-    const icalUrl = req.query.url as string;
-    if (!icalUrl) return res.status(400).json({ error: "No URL provided" });
-    try {
-        const response = await fetch(icalUrl);
-        if (!response.ok) throw new Error("Failed to fetch");
-        const text = await response.text();
-         res.send(text);
-    } catch (e) {
-        res.status(500).json({ error: "Failed to fetch iCal" });
-    }
+  // Retired: this legacy endpoint accepted arbitrary URLs and was an SSRF primitive.
+  // Feeds are downloaded only through the tenant-scoped iCal service.
+  app.get("/api/ical-proxy", (_req, res) => {
+    return res.status(410).json({ error: 'ICAL_PROXY_RETIRED', message: 'Use a sincronização iCal server-side configurada para a propriedade.' });
   });
 
   // Marketing API proxies
-  app.post("/api/marketing/google-ads", async (req, res) => {
+  app.post("/api/marketing/google-ads", authMiddleware, tenantMiddleware, requirePermission('manage_integrations'), async (req, res) => {
     try {
         const result = await runGoogleAdsIntegration(req.body);
         res.status(200).json(result);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        logger.warn('Google Ads integration unavailable', { code: e?.message?.includes('não configurada') ? 'INTEGRATION_NOT_CONFIGURED' : 'INTEGRATION_ERROR' });
+        res.status(503).json({ error: 'INTEGRATION_UNAVAILABLE' });
     }
   });
 
-  app.post("/api/marketing/meta-ads", async (req, res) => {
+  app.post("/api/marketing/meta-ads", authMiddleware, tenantMiddleware, requirePermission('manage_integrations'), async (req, res) => {
     try {
         const result = await runMetaAdsIntegration(req.body);
         res.status(200).json(result);
     } catch (e: any) {
-        res.status(500).json({ error: e.message });
+        logger.warn('Meta Ads integration unavailable', { code: e?.message?.includes('não configuradas') ? 'INTEGRATION_NOT_CONFIGURED' : 'INTEGRATION_ERROR' });
+        res.status(503).json({ error: 'INTEGRATION_UNAVAILABLE' });
     }
   });
 

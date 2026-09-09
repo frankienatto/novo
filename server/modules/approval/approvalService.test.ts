@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeAll, describe, it, expect, vi } from 'vitest';
 import { createMockFirestore } from '../../test/mockFirestore.ts';
 
 const mockDb = createMockFirestore();
@@ -14,10 +14,24 @@ import { approvalService } from './approvalService.ts';
 import { agentRouter } from '../ai/agentRouter.ts';
 import { getPrompt } from '../../ai/promptRegistry.ts';
 import { contextService } from '../ai/contextService.ts';
+import { approvalRepository } from './approvalRepository.ts';
 
 describe('ApprovalService & Human Approval Workflow (Unit / Domain)', () => {
   const orgId = 'org_dev_default';
   const propId = 'prop_dev_default';
+
+  beforeAll(async () => {
+    // Fixture explícita: os testes de domínio não dependem de dashboards ou
+    // Firestore externos para produzir uma recomendação pendente.
+    await approvalRepository.submitRecommendation({
+      recommendationId: 'rec_approval_test_fixture',
+      title: 'Recomendação de teste',
+      description: 'Fixture determinística para o fluxo de aprovação.',
+      moduleOrigin: 'test_fixture',
+      organizationId: orgId,
+      propertyId: propId,
+    });
+  });
 
   it('1. Deve carregar o Dashboard do Human Approval Workflow', async () => {
     const dashboard = await approvalService.getDashboard(orgId, propId);
