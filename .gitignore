@@ -4,6 +4,14 @@ dist-ssr
 .cache
 *.tsbuildinfo
 
+# Local environment and cloud credentials (the template remains versioned)
+.env
+.env.*
+!.env.example
+serviceAccount.json
+firebase-adminsdk*.json
+credentials.json
+
 # Logs
 logs
 *.log

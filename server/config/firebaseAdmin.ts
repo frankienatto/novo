@@ -14,7 +14,7 @@ export function getFirebaseAdminApp(): App {
 
   let projectId = process.env.FIREBASE_PROJECT_ID || process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT;
 
-  if (!projectId) {
+  if (!projectId && process.env.NODE_ENV !== 'production') {
     try {
       const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
       if (fs.existsSync(configPath)) {
@@ -30,7 +30,7 @@ export function getFirebaseAdminApp(): App {
   }
 
   if (!projectId) {
-    projectId = 'gen-lang-client-0115946484';
+    throw new Error('FIREBASE_PROJECT_ID, GCP_PROJECT ou GCLOUD_PROJECT é obrigatório em produção.');
   }
 
   try {
@@ -55,7 +55,7 @@ export function getAdminFirestore(): Firestore {
   const app = getFirebaseAdminApp();
   let databaseId = process.env.FIRESTORE_DATABASE_ID;
 
-  if (!databaseId) {
+  if (!databaseId && process.env.NODE_ENV !== 'production') {
     try {
       const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
       if (fs.existsSync(configPath)) {

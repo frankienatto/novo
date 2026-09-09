@@ -469,7 +469,8 @@ function generateMockFromSchema(schema: any, promptPhrase: string = "", depth: n
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  // Cloud Run fornece PORT em runtime; o schema já valida e normaliza o valor.
+  const PORT = env.PORT;
   
   app.use(cors());
   // Stripe requires the untouched body for signature verification. This route

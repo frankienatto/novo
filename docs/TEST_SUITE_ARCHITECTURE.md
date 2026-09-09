@@ -49,7 +49,7 @@ Para garantir que a suíte padrão execute com 100% de sucesso sem credenciais:
 ## 3. Comandos de Execução
 
 ```bash
-# Executar a suíte padrão completa (Unit + Integration + E2E com infraestrutura local mockada):
+# Executar a suíte padrão completa (unit/integration e E2E que não exige servidor externo):
 npm test
 # ou:
 ./node_modules/.bin/vitest run --maxWorkers=1
@@ -57,3 +57,15 @@ npm test
 # Executar testes com cobertura de código:
 npm run test -- --coverage
 ```
+
+### Gates de infraestrutura em CI/runner isolado
+
+```bash
+# Firebase Emulator já iniciado no runner isolado
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm test -- server/test/firestoreRulesEmulator.test.ts
+
+# Aplicação isolada já iniciada pelo job de E2E
+SYNAPSE_E2E_BASE_URL=http://127.0.0.1:3000 npm test -- server/modules/ai/validation/apiRoutesE2E.test.ts
+```
+
+Sem essas variáveis, os testes são pulados explicitamente; nunca tentam Firebase ou serviços de produção.
