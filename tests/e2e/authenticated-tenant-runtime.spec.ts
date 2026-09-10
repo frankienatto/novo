@@ -23,8 +23,12 @@ test.describe('runtime autenticado e tenant canônico', () => {
     });
 
     await page.goto('/?page=login', { waitUntil: 'domcontentloaded' });
-    await page.getByLabel(/e-?mail/i).fill(email!);
-    await page.getByLabel(/senha|password/i).fill(password!);
+    const emailInput = page.locator('input[type="email"]').first();
+    const passwordInput = page.locator('input[type="password"]').first();
+    await expect(emailInput).toBeVisible();
+    await expect(passwordInput).toBeVisible();
+    await emailInput.fill(email!);
+    await passwordInput.fill(password!);
     await page.getByRole('button', { name: /entrar|login/i }).click();
     await page.waitForTimeout(2500);
 
