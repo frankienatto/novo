@@ -9,6 +9,7 @@ import { Section } from './shared';
 import { RoomStatus } from '../../types';
 import { PropertyUnitId } from '../../types';
 import { SynapseContextBar } from '../../src/shared/ui';
+import { canMutateCalendarFromBrowser } from './calendarRuntimePolicy';
 
 interface CalendarViewProps {
     db: DBState;
@@ -225,8 +226,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
                     initialView="resourceTimelineMonth"
                     resources={resources}
                     events={events}
-                    editable={!isLiveRuntime}
-                    selectable={!isLiveRuntime}
+                    editable={canMutateCalendarFromBrowser(isLiveRuntime)}
+                    selectable={canMutateCalendarFromBrowser(isLiveRuntime)}
                     eventDrop={handleEventDrop}
                     eventResize={handleEventResize}
                     select={handleDateSelect}

@@ -177,6 +177,7 @@ crmRouter.get('/guests/:guestId/360', async (req: Request, res: Response) => {
 crmRouter.get('/guests/:guestId/intelligence', async (req: Request, res: Response) => {
   try {
     const guestId = String(req.params.guestId);
+    if (!await getTenantGuest(req, guestId)) return res.status(404).json({ error: 'Hóspede não encontrado neste tenant.' });
     const intelligence = await guestIntelligenceService.calculateGuestIntelligence(guestId);
 
     return res.status(200).json({
@@ -199,6 +200,7 @@ crmRouter.get('/guests/:guestId/intelligence', async (req: Request, res: Respons
 crmRouter.get('/guests/:guestId/summary', async (req: Request, res: Response) => {
   try {
     const guestId = String(req.params.guestId);
+    if (!await getTenantGuest(req, guestId)) return res.status(404).json({ error: 'Hóspede não encontrado neste tenant.' });
     const summary = await guestIntelligenceService.getGuestSummary(guestId);
 
     return res.status(200).json({
@@ -258,7 +260,7 @@ crmRouter.post('/guests/:guestId/stays', async (req: Request, res: Response) => 
     }
 
     const updatedGuest = await crmService.recordStay(guestId, {
-      propertyId: req.body.propertyId || propId,
+      propertyId: propId,
       reservationId,
       checkInDate,
       checkOutDate,
@@ -304,8 +306,8 @@ crmRouter.post('/guests/:guestId/timeline', async (req: Request, res: Response) 
     }
 
     const dto: AppendTimelineEventDTO = {
-      organizationId: req.body.organizationId || orgId,
-      propertyId: req.body.propertyId || propId,
+      organizationId: orgId,
+      propertyId: propId,
       source,
       eventType,
       title,
@@ -338,6 +340,7 @@ crmRouter.post('/guests/:guestId/timeline', async (req: Request, res: Response) 
 crmRouter.get('/guests/:guestId/timeline', async (req: Request, res: Response) => {
   try {
     const guestId = String(req.params.guestId);
+    if (!await getTenantGuest(req, guestId)) return res.status(404).json({ error: 'Hóspede não encontrado neste tenant.' });
     const paginationParams = parsePaginationParams(req.query, cacheConfig.MAX_TIMELINE_PAGE_SIZE, 10);
 
     const timeline = await timelineService.getTimeline(guestId);

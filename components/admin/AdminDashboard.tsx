@@ -344,7 +344,15 @@ const RoomForm: React.FC<{
 };
 
 
+const LegacyLiveUnavailable: React.FC<{ module: string }> = ({ module }) => (
+    <div className="mx-auto mt-12 max-w-xl rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+        <h2 className="text-xl font-bold text-brand-dark">{module} em configuração</h2>
+        <p className="mt-3 text-sm text-gray-600">Esta área ainda não possui integração operacional canônica para este ambiente. Dados demonstrativos não são exibidos em staging ou produção.</p>
+    </div>
+);
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
+    const isLiveRuntime = import.meta.env.PROD;
     const { currentUser, db, onLogout, notifications, onMarkNotificationAsRead, onMarkAllNotificationsAsRead, chatData } = props;
     const [activeSection, setActiveSection] = useState<AdminSection>(currentUser.role === 'Diretor de Marketing' ? 'marketing_dashboard' : 'dashboard');
     const [selectedUnit, setSelectedUnit] = useState<PropertyUnitId | 'all'>(
@@ -697,6 +705,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                         onAddGuest={() => handleOpenGuestModal()}
                    />;
             case 'Financeiro':
+                if (isLiveRuntime) return <LegacyLiveUnavailable module="Financeiro" />;
                 return <FinanceDashboard 
                             db={db}
                             currentUser={currentUser}
@@ -717,6 +726,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                     onNavigate={setActiveSection}
                 />;
             case 'Diretor de Marketing':
+                if (isLiveRuntime) return <LegacyLiveUnavailable module="Marketing" />;
                 return <MarketingDashboard 
                             db={db} 
                             onBriefingAction={handleBriefingAction}
@@ -728,6 +738,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     }
 
     const renderSection = () => {
+        const legacyLiveSections = new Set<AdminSection>([
+            'marketing_dashboard', 'pos', 'financial_manager', 'reports', 'projects', 'staff', 'coworking', 'delivery_orders',
+            'inventory', 'shopping_list', 'team_manager_ai', 'maintenance_manager', 'supplier_manager',
+            'ad_campaign_manager', 'email_autopilot', 'social_media', 'creative_studio', 'ai_marketing_lab',
+        ]);
+        if (isLiveRuntime && legacyLiveSections.has(activeSection)) {
+            return <LegacyLiveUnavailable module="Integração operacional" />;
+        }
         switch (activeSection) {
             case 'dashboard':
                 return renderDashboard();

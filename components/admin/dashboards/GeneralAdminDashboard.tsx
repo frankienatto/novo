@@ -34,6 +34,7 @@ interface GeneralAdminDashboardProps {
 }
 
 export const GeneralAdminDashboard: React.FC<GeneralAdminDashboardProps> = ({ db, onBriefingAction, dailyBriefing, isLoadingBriefing, dashboardActions, isLoadingActions, onNavigate }) => {
+    const isDemoRuntime = !import.meta.env.PROD;
     // Consumo unificado do Kernel de Inteligência Executiva
     const {
         dashboard: execDashboard,
@@ -43,28 +44,30 @@ export const GeneralAdminDashboard: React.FC<GeneralAdminDashboardProps> = ({ db
 
     // Fallbacks dinâmicos caso as APIs estejam carregando ou offline
     const fallbackHealthScore: HealthScoreBreakdown = useMemo(() => {
-        const occRate = db.rooms.length > 0 ? (db.rooms.filter(r => r.status === 'Ocupado').length / db.rooms.length) * 100 : 80;
-        const cleanRate = db.rooms.length > 0 ? ((db.rooms.length - db.rooms.filter(r => r.status === 'Sujo').length) / db.rooms.length) * 100 : 90;
-        const overall = Math.round((occRate + cleanRate + 90 + 88 + 85 + 88 + 92 + 84 + 82) / 9);
+        const occRate = db.rooms.length > 0 ? (db.rooms.filter(r => r.status === 'Ocupado').length / db.rooms.length) * 100 : (isDemoRuntime ? 80 : 0);
+        const cleanRate = db.rooms.length > 0 ? ((db.rooms.length - db.rooms.filter(r => r.status === 'Sujo').length) / db.rooms.length) * 100 : (isDemoRuntime ? 90 : 0);
+        const overall = isDemoRuntime
+            ? Math.round((occRate + cleanRate + 90 + 88 + 85 + 88 + 92 + 84 + 82) / 9)
+            : 0;
 
         return {
-            overallScore: Math.max(60, Math.min(98, overall)),
-            revenueHealth: 92,
-            commercialHealth: 85,
-            marketingHealth: 88,
-            salesHealth: 86,
+            overallScore: isDemoRuntime ? Math.max(60, Math.min(98, overall)) : 0,
+            revenueHealth: isDemoRuntime ? 92 : 0,
+            commercialHealth: isDemoRuntime ? 85 : 0,
+            marketingHealth: isDemoRuntime ? 88 : 0,
+            salesHealth: isDemoRuntime ? 86 : 0,
             operationalHealth: Math.round(cleanRate),
-            guestExperienceHealth: 94,
+            guestExperienceHealth: isDemoRuntime ? 94 : 0,
             housekeepingHealth: Math.round(cleanRate),
-            maintenanceHealth: 82,
+            maintenanceHealth: isDemoRuntime ? 82 : 0,
         };
-    }, [db]);
+    }, [db, isDemoRuntime]);
 
     const fallbackKpis: ExecutiveKpis = useMemo(() => {
         const totalBookingRevenue = db.bookings.reduce((sum, b) => sum + b.totalPrice, 0);
         const totalPOSRevenue = db.transactions.reduce((sum, t) => sum + t.total, 0);
         const totalRevenue = totalBookingRevenue + totalPOSRevenue;
-        const occupancyRatePercent = db.rooms.length > 0 ? Math.round((db.rooms.filter(r => r.status === 'Ocupado').length / db.rooms.length) * 100) : 75;
+        const occupancyRatePercent = db.rooms.length > 0 ? Math.round((db.rooms.filter(r => r.status === 'Ocupado').length / db.rooms.length) * 100) : 0;
         const today = new Date().toISOString().split('T')[0];
         const checkInsToday = db.bookings.filter(b => b.checkIn === today).length;
         const checkOutsToday = db.bookings.filter(b => b.checkOut === today).length;
@@ -74,24 +77,24 @@ export const GeneralAdminDashboard: React.FC<GeneralAdminDashboardProps> = ({ db
 
         return {
             revenue: {
-                totalRevenue: totalRevenue > 0 ? totalRevenue : 148500,
-                adr: 280,
-                revpar: Math.round((280 * occupancyRatePercent) / 100),
+                totalRevenue: totalRevenue,
+                adr: db.bookings.length ? totalBookingRevenue / db.bookings.length : 0,
+                revpar: 0,
                 occupancyRatePercent,
-                pickupCount: 12,
-                bookingPacePercent: 14.5,
+                pickupCount: 0,
+                bookingPacePercent: 0,
             },
             commercial: {
-                pipelineValue: 85000,
-                openOpportunitiesCount: 18,
-                proposalsCount: 8,
-                conversionRatePercent: 32,
+                pipelineValue: 0,
+                openOpportunitiesCount: 0,
+                proposalsCount: 0,
+                conversionRatePercent: 0,
             },
             retentionAndMarketing: {
-                retentionRatePercent: 42,
-                repeatGuestRatioPercent: 28,
-                averageLtv: 1250,
-                topPerformingChannel: 'WhatsApp Direct & Site Oficial',
+                retentionRatePercent: 0,
+                repeatGuestRatioPercent: 0,
+                averageLtv: 0,
+                topPerformingChannel: 'Sem dados',
             },
             operations: {
                 pendingCheckInsCount: checkInsToday,
@@ -132,7 +135,7 @@ export const GeneralAdminDashboard: React.FC<GeneralAdminDashboardProps> = ({ db
             });
         }
 
-        if (alerts.length === 0) {
+        if (isDemoRuntime && alerts.length === 0) {
             alerts.push({
                 alertId: 'exec_alert_default',
                 category: 'commercial',
@@ -166,6 +169,14 @@ export const GeneralAdminDashboard: React.FC<GeneralAdminDashboardProps> = ({ db
         ],
     }), []);
 
+    const emptyPriorities: ExecutivePriorities = useMemo(() => ({
+        dailyPriorities: [],
+        operationalRisks: [],
+        commercialOpportunities: [],
+        revenueOpportunities: [],
+        marketingOpportunities: [],
+    }), []);
+
     const fallbackSummary: ExecutiveSummaryModule = useMemo(() => ({
         operationalToday: 'Operações fluindo normalmente com atendimento ao cliente e controle de estadias ativo.',
         commercialSummary: 'Pipeline comercial com boa captação de leads via canais diretos.',
@@ -177,11 +188,22 @@ export const GeneralAdminDashboard: React.FC<GeneralAdminDashboardProps> = ({ db
         salesSummary: 'Taxa de conversão saudável em reservas diretas e pacotes.',
     }), []);
 
+    const emptySummary: ExecutiveSummaryModule = useMemo(() => ({
+        operationalToday: 'Sem dados suficientes.',
+        commercialSummary: 'Sem dados suficientes.',
+        financialAnalyticalSummary: 'Sem dados suficientes.',
+        receptionSummary: 'Sem dados suficientes.',
+        housekeepingSummary: 'Sem dados suficientes.',
+        maintenanceSummary: 'Sem dados suficientes.',
+        marketingSummary: 'Sem dados suficientes.',
+        salesSummary: 'Sem dados suficientes.',
+    }), []);
+
     const activeHealth = healthData || copilotDash?.healthScores || fallbackHealthScore;
     const activeKpis = execDashboard?.kpis || fallbackKpis;
-    const activeAlerts = execDashboard?.alerts || fallbackAlerts;
-    const activePriorities = execDashboard?.priorities || fallbackPriorities;
-    const activeSummary = execDashboard?.summary || fallbackSummary;
+    const activeAlerts = execDashboard?.alerts || (isDemoRuntime ? fallbackAlerts : []);
+    const activePriorities = execDashboard?.priorities || (isDemoRuntime ? fallbackPriorities : emptyPriorities);
+    const activeSummary = execDashboard?.summary || (isDemoRuntime ? fallbackSummary : emptySummary);
     const activeBrief = copilotDash?.dailyBrief;
 
     const summary = useMemo(() => {
@@ -190,7 +212,9 @@ export const GeneralAdminDashboard: React.FC<GeneralAdminDashboardProps> = ({ db
         const totalRevenue = totalBookingRevenue + totalPOSRevenue;
         const totalExpenses = db.expenses.reduce((sum, e) => sum + e.amount, 0);
         const netProfit = totalRevenue - totalExpenses;
-        const occupancyRate = (db.rooms.filter(r => r.status === 'Ocupado').length / db.rooms.length) * 100;
+        const occupancyRate = db.rooms.length > 0
+            ? (db.rooms.filter(r => r.status === 'Ocupado').length / db.rooms.length) * 100
+            : 0;
         return { totalRevenue, netProfit, occupancyRate };
     }, [db]);
     

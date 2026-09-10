@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { SynapseOrganization, SynapseProperty, SynapseUser } from '../types/synapseTypes';
+import { getCanonicalSession } from '../../services/canonicalPmsRuntime';
+import { auth } from '../../services/firebase';
 
 interface SynapsePlatformContextType {
   activeOrg: SynapseOrganization;
@@ -68,6 +71,38 @@ export const SynapsePlatformProvider: React.FC<{ children: React.ReactNode }> = 
     localStorage.setItem('synapse_org_id', activeOrg.id);
     localStorage.setItem('synapse_prop_id', activeProperty.id);
   }, [activeOrg, activeProperty, isDemoRuntime]);
+
+  // In staging/production the only authority for the executive context is the
+  // authenticated SaaS session. Demo identifiers never fill a missing tenant.
+  useEffect(() => {
+    if (isDemoRuntime) return;
+    let active = true;
+    const clearContext = () => {
+      if (!active) return;
+      setActiveOrg(emptyOrg);
+      setActiveProperty(emptyProperty);
+    };
+    const loadSession = async () => {
+      try {
+        const session = await getCanonicalSession();
+        if (!active) return;
+        setActiveOrg({ id: session.organizationId, name: '', code: '' });
+        setActiveProperty({ id: session.propertyId, orgId: session.organizationId, name: '', city: '', status: 'active' });
+      } catch {
+        clearContext();
+      }
+    };
+
+    // Firebase restores the authenticated user asynchronously. Waiting for this
+    // transition keeps the production context structurally empty until the
+    // canonical session can be read, instead of treating a transient null user
+    // as an unprovisioned tenant.
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) void loadSession();
+      else clearContext();
+    });
+    return () => { active = false; unsubscribe(); };
+  }, [isDemoRuntime]);
 
   const setOrganization = (orgId: string) => {
     const found = organizations.find((o) => o.id === orgId);

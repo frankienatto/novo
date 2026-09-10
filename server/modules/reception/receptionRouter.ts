@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { receptionService } from './receptionService.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 
 export const receptionRouter = Router();
 
@@ -7,7 +8,7 @@ export const receptionRouter = Router();
  * GET /api/reception/dashboard
  * Obter o resumo operacional completo e sugestões inteligentes da recepção
  */
-receptionRouter.get('/dashboard', async (req: Request, res: Response) => {
+receptionRouter.get('/dashboard', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -30,7 +31,7 @@ receptionRouter.get('/dashboard', async (req: Request, res: Response) => {
  * GET /api/reception/checkins/today
  * Listar check-ins previstos para hoje
  */
-receptionRouter.get('/checkins/today', async (req: Request, res: Response) => {
+receptionRouter.get('/checkins/today', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -54,7 +55,7 @@ receptionRouter.get('/checkins/today', async (req: Request, res: Response) => {
  * GET /api/reception/checkouts/today
  * Listar check-outs previstos para hoje
  */
-receptionRouter.get('/checkouts/today', async (req: Request, res: Response) => {
+receptionRouter.get('/checkouts/today', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -78,7 +79,7 @@ receptionRouter.get('/checkouts/today', async (req: Request, res: Response) => {
  * GET /api/reception/alerts
  * Listar alertas operacionais da recepção
  */
-receptionRouter.get('/alerts', async (req: Request, res: Response) => {
+receptionRouter.get('/alerts', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -102,7 +103,7 @@ receptionRouter.get('/alerts', async (req: Request, res: Response) => {
  * GET /api/reception/vips
  * Listar chegadas VIP previstas para hoje
  */
-receptionRouter.get('/vips', async (req: Request, res: Response) => {
+receptionRouter.get('/vips', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;

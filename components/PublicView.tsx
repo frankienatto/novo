@@ -275,7 +275,7 @@ const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartC
 
     return (
         <div>
-            <nav className="fixed top-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-xl border-b border-white/20 px-6 py-4 flex justify-between items-center transition-all duration-500">
+            <nav className="fixed top-0 left-0 right-0 z-40 bg-white/70 backdrop-blur-xl border-b border-white/20 px-6 py-4 flex justify-between items-center transition-all duration-500">
                 <div className="h-10 cursor-pointer" onClick={() => document.getElementById('home')?.scrollIntoView({ behavior: 'smooth' })}>
                     <img src={publicSite.logoUrl} alt="Logo" className="object-contain" style={{ width: '168.025px', height: '86px', marginTop: '-24px' }} />
                 </div>

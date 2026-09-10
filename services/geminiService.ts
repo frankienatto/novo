@@ -13,6 +13,7 @@ import {
     AutomationRule, ChatConversation, CampaignPerformanceAnalysis, DigitalMenuCategory, 
     MarketInsight, AIPackageSuggestion, AIConciergeMessage
 } from '../types';
+import { auth } from './firebase';
 
 export const Type = {
     STRING: 'STRING',
@@ -27,6 +28,15 @@ const geminiCache: Record<string, { data: any, timestamp: number }> = {};
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+/** Gemini endpoints are server-side, tenant-scoped boundaries. Legacy UI helpers
+ * must therefore carry the Firebase bearer token instead of invoking them as
+ * anonymous browser requests. */
+const authenticatedGeminiHeaders = async (): Promise<Record<string, string>> => {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error('AUTHENTICATED_GEMINI_API_REQUIRED');
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+};
 
 const withRetry = async <T>(fn: () => Promise<T>, retries = 3): Promise<T> => {
     let lastError: any;
@@ -67,7 +77,7 @@ const callGemini = async (prompt: string, schema: any, systemInstruction?: strin
         const response = await withRetry(async () => {
              const result = await fetch('/api/gemini/generateText', {
                  method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
+                 headers: await authenticatedGeminiHeaders(),
                  body: JSON.stringify({ prompt, schema, systemInstruction })
              });
              
@@ -1000,7 +1010,7 @@ export const callGeminiAgent = async (agentId: string, prompt: string, schema?: 
     try {
         const response = await fetch('/api/gemini/agent-execute', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await authenticatedGeminiHeaders(),
             body: JSON.stringify({ agentId, prompt, schema, systemInstruction, context })
         });
         const contentType = response.headers.get('content-type') || '';

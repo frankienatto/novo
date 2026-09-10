@@ -13,6 +13,11 @@ import ForgotPasswordView from './components/ForgotPasswordView';
 import ToastContainer from './components/ToastContainer';
 import * as apiService from './services/apiService';
 import { eventBus } from './services/apiService';
+import {
+    transitionCanonicalReservation,
+    updateCanonicalHousekeepingTask,
+    updateCanonicalRoomStatus,
+} from './services/canonicalPmsRuntime';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { db as localDefaultDb } from './database';
 import BookingWidgetView from './components/BookingWidgetView';
@@ -522,6 +527,12 @@ export const App: React.FC = () => {
     };
 
     const updateRoomStatus = async (roomId: Room['id'], newStatus: RoomStatus) => {
+        if (isProductionBuild) {
+            if (typeof roomId !== 'string') throw new Error('CANONICAL_UNIT_ID_REQUIRED');
+            await updateCanonicalRoomStatus(roomId, newStatus);
+            await fetchData();
+            return;
+        }
         await apiService.updateRoomStatus(roomId, newStatus);
     };
 
@@ -648,14 +659,40 @@ export const App: React.FC = () => {
         onSavePaymentGatewaySettings: async (settings: PaymentGatewaySettings) => { await apiService.savePaymentGatewaySettings(settings); await fetchData(); },
         onApproveReview: async (reviewId: string) => { await apiService.approveReview(reviewId); await fetchData(); },
         onRejectReview: async (reviewId: string) => { await apiService.rejectReview(reviewId); await fetchData(); },
-        onApproveTask: async (taskId: string) => { await apiService.approveTask(taskId); await fetchData(); },
-        onRejectTask: async (taskId: string, comment: string) => { await apiService.rejectTask(taskId, comment); await fetchData(); },
+        onApproveTask: async (taskId: string) => {
+            if (isProductionBuild) {
+                const task = dbState?.staffTasks.find((item) => item.id === taskId);
+                if (!task) throw new Error('HOUSEKEEPING_TASK_NOT_FOUND');
+                await updateCanonicalHousekeepingTask({ ...task, status: TaskStatus.DONE });
+            } else {
+                await apiService.approveTask(taskId);
+            }
+            await fetchData();
+        },
+        onRejectTask: async (taskId: string, comment: string) => {
+            if (isProductionBuild) {
+                const task = dbState?.staffTasks.find((item) => item.id === taskId);
+                if (!task) throw new Error('HOUSEKEEPING_TASK_NOT_FOUND');
+                await updateCanonicalHousekeepingTask({ ...task, status: TaskStatus.IN_PROGRESS, description: `${task.description}\n${comment}` });
+            } else {
+                await apiService.rejectTask(taskId, comment);
+            }
+            await fetchData();
+        },
         onPublishWorkSchedule: async (schedule: any) => { await apiService.publishWorkSchedule(schedule); await fetchData(); },
         onSaveStaffPerformanceReview: async (staffId: string, review: any) => { await apiService.saveStaffPerformanceReview(staffId, review); await fetchData(); },
         onSaveOnboardingPlan: async (staffId: string, plan: any) => { await apiService.saveOnboardingPlan(staffId, plan); await fetchData(); },
         onStartInternalChat: (user1Id: string, user1Name: string, user2Id: string, user2Name: string) => apiService.startOrGetInternalChat(user1Id, user1Name, user2Id, user2Name),
-        onCheckIn: async (bookingId: string) => { await apiService.handleCheckIn(bookingId); await fetchData(); },
-        onCheckOut: async (bookingId: string) => { await apiService.handleCheckOut(bookingId); await fetchData(); },
+        onCheckIn: async (bookingId: string) => {
+            if (isProductionBuild) await transitionCanonicalReservation(bookingId, 'check-in');
+            else await apiService.handleCheckIn(bookingId);
+            await fetchData();
+        },
+        onCheckOut: async (bookingId: string) => {
+            if (isProductionBuild) await transitionCanonicalReservation(bookingId, 'check-out');
+            else await apiService.handleCheckOut(bookingId);
+            await fetchData();
+        },
         onSavePlatformConnections: async (connections: SocialConnection[]) => { await apiService.savePlatformConnections(connections); await fetchData(); },
         onGeneratePersonas: async (audienceDescription: string) => { await apiService.generateAndSavePersonas(audienceDescription); await fetchData(); },
         onCreatePersonaFromAudience: async (audience: CustomAudience) => { await apiService.createPersonaFromAudience(audience); await fetchData(); },

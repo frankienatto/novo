@@ -3,6 +3,7 @@ import { housekeepingService } from './housekeepingService.ts';
 import { CleaningStatus, InspectionStatus, TaskPriority } from './housekeepingTypes.ts';
 import { validateRequest } from '../../middlewares/validationMiddleware.ts';
 import { housekeepingSchemas } from '../../schemas/routeSchemas.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 
 export const housekeepingRouter = Router();
 
@@ -10,7 +11,7 @@ export const housekeepingRouter = Router();
  * GET /api/housekeeping/tasks
  * Listar todas as tarefas de governança com suporte a filtros multi-tenant
  */
-housekeepingRouter.get('/tasks', async (req: Request, res: Response) => {
+housekeepingRouter.get('/tasks', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -43,7 +44,7 @@ housekeepingRouter.get('/tasks', async (req: Request, res: Response) => {
  * POST /api/housekeeping/tasks
  * Criar uma nova tarefa de governança/limpeza
  */
-housekeepingRouter.post('/tasks', validateRequest({ body: housekeepingSchemas.createTask }), async (req: Request, res: Response) => {
+housekeepingRouter.post('/tasks', requirePermission('manage_bookings'), validateRequest({ body: housekeepingSchemas.createTask }), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
@@ -82,7 +83,7 @@ housekeepingRouter.post('/tasks', validateRequest({ body: housekeepingSchemas.cr
  * PATCH /api/housekeeping/tasks/:id
  * Atualizar status ou atribuição de uma tarefa de governança
  */
-housekeepingRouter.patch('/tasks/:id', async (req: Request, res: Response) => {
+housekeepingRouter.patch('/tasks/:id', requirePermission('manage_bookings'), async (req: Request, res: Response) => {
   try {
     const taskId = String(req.params.id);
     const organizationId = req.organizationId!;
@@ -116,7 +117,7 @@ housekeepingRouter.patch('/tasks/:id', async (req: Request, res: Response) => {
  * GET /api/housekeeping/dashboard
  * Obter o resumo do Dashboard de Governança
  */
-housekeepingRouter.get('/dashboard', async (req: Request, res: Response) => {
+housekeepingRouter.get('/dashboard', requirePermission('view_dashboard'), async (req: Request, res: Response) => {
   try {
     const organizationId = req.organizationId!;
     const propertyId = req.propertyId!;
