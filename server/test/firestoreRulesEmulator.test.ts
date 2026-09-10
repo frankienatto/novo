@@ -148,9 +148,9 @@ describeWithFirestoreEmulator('Firestore Rules Emulator: legacy booking financia
     await assertFails(updateDoc(doc(db, 'bookings', 'booking_a'), { [field]: value }));
   });
 
-  it('allows the guest to update a non-financial booking field', async () => {
+  it('rejects direct guest mutation of a non-financial legacy booking field', async () => {
     const db = testEnv.authenticatedContext('guest_a', { email: 'guest@example.test' }).firestore();
-    await assertSucceeds(updateDoc(doc(db, 'bookings', 'booking_a'), { notes: 'Updated note' }));
+    await assertFails(updateDoc(doc(db, 'bookings', 'booking_a'), { notes: 'Updated note' }));
   });
 });
 

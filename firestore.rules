@@ -50,8 +50,8 @@ service cloud.firestore {
     }
 
     // Financial facts are written only by trusted server-side integrations.
-    // A guest may retain access to their booking's non-financial profile data,
-    // but may never turn a booking into payment evidence from the browser.
+    // Legacy client booking updates remain staff-only; guest booking changes
+    // are mediated by the canonical authenticated Guest API.
     function financialFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'paymentStatus', 'balance', 'totalPrice', 'amountPaid', 'paid',
