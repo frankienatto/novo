@@ -304,8 +304,14 @@ export const App: React.FC = () => {
         // Handle routing from URL parameters on initial load
         const urlParams = new URLSearchParams(window.location.search);
         const pageParam = urlParams.get('page');
+
         if (pageParam === 'digitalMenu') {
             setPage('digitalMenu');
+            return;
+        }
+
+        if (pageParam === 'login') {
+            setPage('login');
         }
     }, []);
     
