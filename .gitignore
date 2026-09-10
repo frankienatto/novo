@@ -35,3 +35,7 @@ node_modules
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright artifacts
+/test-results/
+/playwright-report/
