@@ -20,70 +20,70 @@ interface ApiResponseWrapper<T> {
 
 export const executiveApi = {
   // Executive Dashboard Endpoints
-  getDashboard: async (orgId: string, propId: string) => {
+  getDashboard: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<ExecutiveDashboard>>(
-      `/api/executive/dashboard?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive/dashboard'
     );
   },
 
-  getKpis: async (orgId: string, propId: string) => {
+  getKpis: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<ExecutiveKpis>>(
-      `/api/executive/kpis?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive/kpis'
     );
   },
 
-  getAlerts: async (orgId: string, propId: string) => {
+  getAlerts: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<ExecutiveAlert[]>>(
-      `/api/executive/alerts?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive/alerts'
     );
   },
 
-  getPriorities: async (orgId: string, propId: string) => {
+  getPriorities: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<ExecutivePriorities>>(
-      `/api/executive/priorities?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive/priorities'
     );
   },
 
-  getSummary: async (orgId: string, propId: string) => {
+  getSummary: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<ExecutiveSummaryModule>>(
-      `/api/executive/summary?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive/summary'
     );
   },
 
   // Executive Copilot Endpoints
-  getCopilotDashboard: async (orgId: string, propId: string) => {
+  getCopilotDashboard: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<ExecutiveCopilotDashboard>>(
-      `/api/executive-copilot/dashboard?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive-copilot/dashboard'
     );
   },
 
-  getCopilotSummary: async (orgId: string, propId: string) => {
+  getCopilotSummary: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<any>>(
-      `/api/executive-copilot/summary?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive-copilot/summary'
     );
   },
 
-  getCopilotHealth: async (orgId: string, propId: string) => {
+  getCopilotHealth: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<HealthScoreBreakdown>>(
-      `/api/executive-copilot/health?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive-copilot/health'
     );
   },
 
-  getCopilotRisks: async (orgId: string, propId: string) => {
+  getCopilotRisks: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<ExecutiveRisk[]>>(
-      `/api/executive-copilot/risks?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive-copilot/risks'
     );
   },
 
-  getCopilotOpportunities: async (orgId: string, propId: string) => {
+  getCopilotOpportunities: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<ExecutiveOpportunity[]>>(
-      `/api/executive-copilot/opportunities?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive-copilot/opportunities'
     );
   },
 
-  getCopilotBrief: async (orgId: string, propId: string) => {
+  getCopilotBrief: async (_orgId?: string, _propId?: string) => {
     return httpClient.get<ApiResponseWrapper<ExecutiveDailyBrief>>(
-      `/api/executive-copilot/brief?orgId=${orgId}&propertyId=${propId}`
+      '/api/executive-copilot/brief'
     );
   },
 
