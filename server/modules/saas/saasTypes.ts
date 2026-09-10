@@ -14,17 +14,29 @@ export type Permission =
   | 'view_dashboard' 
   | 'manage_bookings' 
   | 'view_financials'
+  | 'manage_financial_entries'
+  | 'approve_financial_actions'
+  | 'view_pos'
+  | 'manage_pos_catalog'
+  | 'operate_pos'
+  | 'manage_pos'
+  | 'view_projects'
+  | 'manage_projects'
+  | 'manage_project_financials'
+  | 'view_staff'
+  | 'manage_staff'
+  | 'manage_staff_permissions'
   | 'approve_decisions'
   | 'manage_planning'
   | 'manage_execution';
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  owner: ['manage_org', 'manage_properties', 'manage_users', 'manage_integrations', 'view_dashboard', 'manage_bookings', 'view_financials', 'approve_decisions', 'manage_planning', 'manage_execution'],
-  admin: ['manage_properties', 'manage_users', 'manage_integrations', 'view_dashboard', 'manage_bookings', 'view_financials', 'approve_decisions', 'manage_planning', 'manage_execution'],
-  manager: ['manage_users', 'view_dashboard', 'manage_bookings', 'view_financials'],
-  receptionist: ['view_dashboard', 'manage_bookings'],
+  owner: ['manage_org', 'manage_properties', 'manage_users', 'manage_integrations', 'view_dashboard', 'manage_bookings', 'view_financials', 'manage_financial_entries', 'approve_financial_actions', 'view_pos', 'manage_pos_catalog', 'operate_pos', 'manage_pos', 'view_projects', 'manage_projects', 'manage_project_financials', 'view_staff', 'manage_staff', 'manage_staff_permissions', 'approve_decisions', 'manage_planning', 'manage_execution'],
+  admin: ['manage_properties', 'manage_users', 'manage_integrations', 'view_dashboard', 'manage_bookings', 'view_financials', 'manage_financial_entries', 'approve_financial_actions', 'view_pos', 'manage_pos_catalog', 'operate_pos', 'manage_pos', 'view_projects', 'manage_projects', 'manage_project_financials', 'view_staff', 'manage_staff', 'manage_staff_permissions', 'approve_decisions', 'manage_planning', 'manage_execution'],
+  manager: ['manage_users', 'view_dashboard', 'manage_bookings', 'view_financials', 'view_pos', 'manage_pos_catalog', 'operate_pos', 'manage_pos', 'view_projects', 'manage_projects', 'view_staff'],
+  receptionist: ['view_dashboard', 'manage_bookings', 'view_pos', 'operate_pos'],
   housekeeping: ['view_dashboard'],
-  financial: ['view_dashboard', 'view_financials']
+  financial: ['view_dashboard', 'view_financials', 'manage_financial_entries', 'approve_financial_actions', 'view_pos', 'view_projects', 'manage_project_financials']
 };
 
 export interface Organization {

@@ -65,6 +65,7 @@ import FinanceDashboard from './dashboards/FinanceDashboard';
 import EmailAutopilotView from './EmailAutopilotView';
 import MaintenanceManagerView from './MaintenanceManagerView';
 import SupplierManagerView from './SupplierManagerView';
+import { CanonicalManagementView } from './CanonicalManagementView';
 
 
 import UnitSelector from './UnitSelector';
@@ -739,7 +740,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
 
     const renderSection = () => {
         const legacyLiveSections = new Set<AdminSection>([
-            'marketing_dashboard', 'pos', 'financial_manager', 'reports', 'projects', 'staff', 'coworking', 'delivery_orders',
+            'marketing_dashboard', 'reports', 'coworking', 'delivery_orders',
             'inventory', 'shopping_list', 'team_manager_ai', 'maintenance_manager', 'supplier_manager',
             'ad_campaign_manager', 'email_autopilot', 'social_media', 'creative_studio', 'ai_marketing_lab',
         ]);
@@ -783,6 +784,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             case 'guests':
                 return <GuestsView db={db} onAddGuest={handleOpenGuestModal} onEditGuest={(guest) => { setViewingGuestProfileId(guest.id); }} onDeleteGuestPost={props.onDeleteGuestPost} onDeletePostComment={props.onDeletePostComment} />;
             case 'staff':
+                if (isLiveRuntime) return <CanonicalManagementView mode="staff" />;
                 return <StaffView 
                     db={db} 
                     currentUser={currentUser} 
@@ -805,6 +807,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             case 'delivery_orders':
                 return <DeliveryOrdersView db={db} onSale={props.onSale} onAddDeliveryOrder={props.onAddDeliveryOrder} onUpdateDeliveryOrder={props.onUpdateDeliveryOrder} />;
             case 'pos':
+                if (isLiveRuntime) return <CanonicalManagementView mode="pos" />;
                 return <POSView 
                     db={db} 
                     onSale={props.onSale} 
@@ -818,6 +821,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                     onDeleteTable={props.onDeleteTable}
                 />;
             case 'financial_manager':
+                if (isLiveRuntime) return <CanonicalManagementView mode="finance" />;
                 return <FinancialManagerView 
                             db={db} 
                             onAddExpense={props.onAddExpense} 
@@ -889,6 +893,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             case 'property_settings':
                 return <VisualEditorView {...props} />;
             case 'projects':
+                if (isLiveRuntime) return <CanonicalManagementView mode="projects" />;
                 return <ProjectsView 
                     db={db} 
                     currentUser={currentUser} 

@@ -7,6 +7,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Canonical management and financial records are written exclusively by
+    // server routes after auth, tenant and RBAC verification. Browser clients
+    // must never calculate or persist authoritative totals, entries or roles.
+    match /posCatalogItems/{itemId} { allow read, write: if false; }
+    match /posSales/{saleId} { allow read, write: if false; }
+    match /financialEntries/{entryId} { allow read, write: if false; }
+    match /projects/{projectId} { allow read, write: if false; }
+    match /projectTasks/{taskId} { allow read, write: if false; }
+
     // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { organizationService } from './organizationService';
+import { organizationRepository } from './organizationRepository';
 import { integrationRegistry } from './integrationRegistry';
 import { authMiddleware } from './middlewares/authMiddleware';
 import { tenantMiddleware } from './middlewares/tenantMiddleware';
@@ -135,6 +136,25 @@ saasRouter.post(
     }
   }
 );
+
+// Canonical staff management: tenancy comes only from verified middleware.
+saasRouter.get('/staff', [...saasProtected, requirePermission('view_staff')], async (req: Request, res: Response) => {
+  try { const overview = await organizationService.getOrganizationOverview(req.organizationId!); return res.status(200).json({ success: true, data: overview.users }); }
+  catch (err: any) { return res.status(500).json({ success: false, error: err?.message || err }); }
+});
+saasRouter.get('/staff/:userId', [...saasProtected, requirePermission('view_staff')], async (req: Request, res: Response) => {
+  try { const user = await organizationRepository.getUserById(String(req.params.userId)); if (!user || user.organizationId !== req.organizationId) return res.status(404).json({ success: false, error: 'USER_NOT_FOUND' }); return res.status(200).json({ success: true, data: user }); }
+  catch (err: any) { return res.status(500).json({ success: false, error: err?.message || err }); }
+});
+saasRouter.patch('/staff/:userId', [...saasProtected, requirePermission('manage_staff')], async (req: Request, res: Response) => {
+  try {
+    const authorizationChange = req.body?.role !== undefined || req.body?.permissions !== undefined || req.body?.propertyIds !== undefined;
+    const canManagePermissions = req.saasUser!.role === 'owner' || req.saasUser!.permissions.includes('manage_staff_permissions');
+    if (authorizationChange && !canManagePermissions) return res.status(403).json({ success: false, error: 'STAFF_PERMISSION_MANAGEMENT_REQUIRED' });
+    const user = await organizationService.updateOperationalUser(req.saasUser!, String(req.params.userId), req.organizationId!, req.body || {}, canManagePermissions);
+    return res.status(200).json({ success: true, data: user });
+  } catch (err: any) { const error = err?.message || String(err); const status = /NOT_FOUND/.test(error) ? 404 : /DENIED|REQUIRED|FOREIGN|UNHELD/.test(error) ? 403 : 400; return res.status(status).json({ success: false, error }); }
+});
 
 /**
  * Registro de Integrações (Armazenamento de Metadados / Status)

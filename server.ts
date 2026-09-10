@@ -31,6 +31,7 @@ import { planningRouter } from "./server/modules/planning/planningRouter.ts";
 import { executionRouter } from "./server/modules/execution/executionRouter.ts";
 import { publicBookingAdminRouter } from "./server/modules/publicBooking/publicBookingAdminRouter.ts";
 import { stagingBootstrapRouter } from "./server/modules/staging/stagingBootstrapRouter.ts";
+import { managementRouter } from "./server/modules/management/managementRouter.ts";
 import { publicCheckoutRouter, stripeWebhookHandler, mercadoPagoWebhookHandler, picPayWebhookHandler } from "./server/modules/publicBooking/publicCheckoutRouter.ts";
 import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware.ts";
 import { tenantMiddleware } from "./server/modules/saas/middlewares/tenantMiddleware.ts";
@@ -868,6 +869,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
 
   // Protected Operational Modules (Multi-Tenant Hardened)
   const saasProtected = [authMiddleware, tenantMiddleware];
+  app.use("/api/management", saasProtected, managementRouter);
   app.use("/api/integration/ical", saasProtected, icalRouter);
   app.use("/api/integration/google-calendar", saasProtected, googleCalendarRouter);
   app.use("/api/pms", saasProtected, pmsRouter);
