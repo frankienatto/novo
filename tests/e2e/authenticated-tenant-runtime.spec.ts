@@ -29,7 +29,9 @@ test.describe('runtime autenticado e tenant canônico', () => {
     await expect(passwordInput).toBeVisible();
     await emailInput.fill(email!);
     await passwordInput.fill(password!);
-    await page.getByRole('button', { name: /entrar|login/i }).click();
+    const submitButton = page.locator('button[type="submit"]').first();
+    await expect(submitButton).toBeVisible();
+    await submitButton.click();
     await page.waitForTimeout(2500);
 
     expect(violations).toEqual([]);
