@@ -6,6 +6,7 @@ import { publicCheckoutService } from './publicCheckoutService.ts';
 import { MercadoPagoPaymentProvider, PicPayPixPaymentProvider } from './paymentProviders.ts';
 import { createPaymentProviderRegistry } from './paymentProviders.ts';
 import type { CreateCanonicalPaymentRequest } from './publicCheckoutTypes.ts';
+import { publicBookingService } from './publicBookingService.ts';
 
 export const publicCheckoutRouter = Router();
 
@@ -21,6 +22,27 @@ publicCheckoutRouter.get('/payment-capabilities', (_req: Request, res: Response)
     },
     picpay: { pix: providers.picpay.isConfigured() && providers.picpay.supports('pix') },
   });
+});
+
+/** Public catalog is resolved exclusively from server-administered mappings. */
+publicCheckoutRouter.get('/catalog/:publicPropertyId', async (req: Request, res: Response) => {
+  try {
+    const publicPropertyId = Array.isArray(req.params.publicPropertyId) ? req.params.publicPropertyId[0] : req.params.publicPropertyId;
+    const catalog = await publicBookingService.getPublicCatalog(publicPropertyId);
+    return res.status(200).json({ data: catalog });
+  } catch (error: any) {
+    return res.status(404).json({ error: error?.message || 'Public catalog is unavailable.' });
+  }
+});
+
+/** Quote calculation deliberately ignores any amount or currency supplied by a browser. */
+publicCheckoutRouter.post('/quote', async (req: Request, res: Response) => {
+  try {
+    const quote = await publicBookingService.quote(req.body || {});
+    return res.status(200).json({ data: quote });
+  } catch (error: any) {
+    return res.status(400).json({ error: error?.message || 'Public quote is unavailable.' });
+  }
 });
 
 publicCheckoutRouter.post('/reservations', async (req: Request, res: Response) => {

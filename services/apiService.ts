@@ -141,6 +141,7 @@ import {
     mayUseLegacyDemoLogin,
     resolveEmptyCollectionState,
 } from './clientProvisioningPolicy';
+import { adaptCanonicalSession, createCanonicalGuest, createCanonicalHousekeepingTask, createCanonicalRoom, getCanonicalGuestSession, getCanonicalSession, loadCanonicalPmsState, transitionCanonicalReservation, updateCanonicalGuest, updateCanonicalHousekeepingTask, updateCanonicalRoomStatus as updatePmsRoomStatus } from './canonicalPmsRuntime';
 console.log("apiService.ts: initial load");
 import { 
     decideNextOrchestrationAction, 
@@ -324,6 +325,13 @@ const activeListeners: { [key: string]: () => void } = {};
 
 const startSync = () => {
     if (typeof window === 'undefined') return;
+    if (!allowDevelopmentFixtures) {
+        // Production/staging reads operational facts through authenticated API
+        // boundaries. Browser Firestore listeners are never authoritative.
+        isInitialLoadComplete = true;
+        resolveInitialLoad();
+        return;
+    }
 
     auth.onAuthStateChanged(async (user) => {
         // Clean up existing listeners
@@ -500,6 +508,9 @@ const startSync = () => {
 startSync();
 
 const saveToFirestore = async (collectionPath: string, id: string, data: any) => {
+    if (!allowDevelopmentFixtures) {
+        throw new Error('CLIENT_FIRESTORE_WRITES_DISABLED');
+    }
     console.log(`🔥 Firestore Save Request: ${collectionPath}/${id}`, data);
     try {
         if (!auth.currentUser) {
@@ -520,6 +531,9 @@ const saveToFirestore = async (collectionPath: string, id: string, data: any) =>
 };
 
 const deleteFromFirestore = async (collectionPath: string, id: string) => {
+    if (!allowDevelopmentFixtures) {
+        throw new Error('CLIENT_FIRESTORE_WRITES_DISABLED');
+    }
     try {
         await deleteDoc(doc(firestore, collectionPath, id));
     } catch (error) {
@@ -555,6 +569,9 @@ export const createNotification = async (notification: Omit<AppNotification, 'id
 
 // --- DB State & Getters ---
 export const getDbState = async (): Promise<DBState> => {
+    if (!allowDevelopmentFixtures) {
+        return loadCanonicalPmsState(JSON.parse(JSON.stringify(state)));
+    }
     return JSON.parse(JSON.stringify(state)); 
 };
 
@@ -603,6 +620,17 @@ export const login = async (email: string, pass: string): Promise<{ user: User, 
     try {
         const result = await signInWithEmailAndPassword(auth, normalizedEmail, pass);
         const fbUid = result.user.uid;
+
+        if (!allowDevelopmentFixtures) {
+            const token = await result.user.getIdToken();
+            try {
+                const session = await getCanonicalSession();
+                return { user: adaptCanonicalSession(session), token };
+            } catch {
+                const guest = await getCanonicalGuestSession();
+                return { user: guest, token };
+            }
+        }
 
         // Try getting by ID first (most reliable)
         let user: User | undefined;
@@ -686,6 +714,14 @@ export const login = async (email: string, pass: string): Promise<{ user: User, 
 };
 
 export const getUserByEmail = async (email: string): Promise<User | null> => {
+    if (!allowDevelopmentFixtures) {
+        try {
+            const session = await getCanonicalSession();
+            return session.email.toLowerCase() === email.toLowerCase().trim() ? adaptCanonicalSession(session) : null;
+        } catch {
+            return null;
+        }
+    }
     const normalizedEmail = email.toLowerCase().trim();
     
     // 1. Try Staff
@@ -720,6 +756,11 @@ export const loginWithGoogle = async (): Promise<{ user: User, token: string } |
         const result = await signInWithPopup(auth, googleProvider);
         const fbUser = result.user;
         const fbUid = fbUser.uid;
+
+        if (!allowDevelopmentFixtures) {
+            const session = await getCanonicalSession();
+            return { user: adaptCanonicalSession(session), token: await fbUser.getIdToken() };
+        }
         
         // Find existing user in our DB
         let user = [...state.staff, ...state.guests].find(u => u.email.toLowerCase() === fbUser.email?.toLowerCase());
@@ -780,6 +821,9 @@ export const logout = async () => {
 // --- Guest-facing actions (Public/Portal) ---
 
 export const addGuest = async (guestData: Omit<Guest, 'id'>) => {
+    if (!allowDevelopmentFixtures) {
+        return createCanonicalGuest(guestData);
+    }
     // 1. Create Firebase Auth user
     const normalizedEmail = guestData.email.toLowerCase().trim();
     try {
@@ -874,7 +918,13 @@ export const acknowledgeRules = async (bookingId: string, signatureUrl?: string)
     }
 };
 
-export const updateRoomStatus = async (roomId: number, newStatus: RoomStatus) => {
+export const updateRoomStatus = async (roomId: Room['id'], newStatus: RoomStatus) => {
+    if (!allowDevelopmentFixtures) {
+        if (typeof roomId !== 'string') throw new Error('CANONICAL_UNIT_ID_REQUIRED');
+        await updatePmsRoomStatus(roomId, newStatus);
+        eventBus.emit('db-update');
+        return;
+    }
     await delay(LATENCY);
     const room = state.rooms.find(r => r.id === roomId);
     if (room) {
@@ -885,6 +935,13 @@ export const updateRoomStatus = async (roomId: number, newStatus: RoomStatus) =>
 };
 
 export const updateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
+    if (!allowDevelopmentFixtures) {
+        const task = state.staffTasks.find((item) => item.id === taskId);
+        if (!task) throw new Error('TAREFA_CANONICA_NAO_ENCONTRADA');
+        await updateCanonicalHousekeepingTask({ ...task, status: newStatus });
+        eventBus.emit('db-update');
+        return;
+    }
     await delay(LATENCY);
     const task = state.staffTasks.find(t => t.id === taskId);
     if (task) {
@@ -897,6 +954,13 @@ export const updateTaskStatus = async (taskId: string, newStatus: TaskStatus) =>
 };
 
 export const updateGuestProfile = async (guestId: string, updates: Partial<Guest>) => {
+    if (!allowDevelopmentFixtures) {
+        const guest = state.guests.find((item) => item.id === guestId);
+        if (!guest) throw new Error('HOSPEDE_CANONICO_NAO_ENCONTRADO');
+        const updated = await updateCanonicalGuest({ ...guest, ...updates });
+        eventBus.emit('user-update', updated);
+        return;
+    }
     await delay(LATENCY);
     const guest = state.guests.find(g => g.id === guestId);
     if (guest) {
@@ -908,6 +972,11 @@ export const updateGuestProfile = async (guestId: string, updates: Partial<Guest
 };
 
 export const updateGuest = async (guestData: Guest) => {
+    if (!allowDevelopmentFixtures) {
+        await updateCanonicalGuest(guestData);
+        eventBus.emit('db-update');
+        return;
+    }
     await delay(LATENCY);
     const index = state.guests.findIndex(g => g.id === guestData.id);
     if (index !== -1) {
@@ -942,7 +1011,7 @@ export const payBalance = async (bookingId: string, paymentDetails?: PaymentDeta
 };
 
 
-export const updateRoomControls = async (roomId: number, controls: Partial<Pick<Room, 'lightsOn' | 'fanSpeed' | 'doNotDisturb'>>) => {
+export const updateRoomControls = async (roomId: Room['id'], controls: Partial<Pick<Room, 'lightsOn' | 'fanSpeed' | 'doNotDisturb'>>) => {
     await delay(LATENCY / 2);
     const room = state.rooms.find(r => r.id === roomId);
     if (room) {
@@ -1004,6 +1073,11 @@ export const saveTravelDetails = async (bookingId: string, details: Booking['tra
 };
 
 export const handleCheckIn = async (bookingId: string) => {
+    if (!allowDevelopmentFixtures) {
+        await transitionCanonicalReservation(bookingId, 'check-in');
+        eventBus.emit('db-update');
+        return;
+    }
     await delay(LATENCY);
     const booking = state.bookings.find(b => b.id === bookingId);
     if (booking) {
@@ -1829,9 +1903,14 @@ export const addTaskAttachment = async (taskId: string, fileName: string, url: s
 
 // --- Admin-only actions ---
 export const addRoom = async (roomData: Omit<Room, 'id' | 'status'>) => {
+    if (!allowDevelopmentFixtures) {
+        const unit = await createCanonicalRoom({ name: roomData.name, type: roomData.type });
+        return { ...roomData, id: unit.unitId, status: RoomStatus.AVAILABLE, propertyId: unit.propertyId } as Room;
+    }
+    const numericRoomIds = state.rooms.map((room) => room.id).filter((id): id is number => typeof id === 'number');
     const newRoom: Room = {
         ...roomData,
-        id: Math.max(...state.rooms.map(r => r.id)) + 1,
+        id: (numericRoomIds.length ? Math.max(...numericRoomIds) : 0) + 1,
         status: RoomStatus.AVAILABLE,
     };
     state.rooms.push(newRoom);
@@ -1867,6 +1946,12 @@ export const addBooking = async (bookingData: Omit<Booking, 'id' | 'totalPrice' 
 };
 
 export const updateBookingDetails = async (bookingId: string, updates: Partial<Pick<Booking, 'checkIn' | 'checkOut' | 'roomId'>>) => {
+    if (!allowDevelopmentFixtures) {
+        // The canonical Reservation service intentionally has no generic client
+        // mutation endpoint. Moving a stay must remain a server-side, lock-aware
+        // operation rather than a browser write to a legacy booking document.
+        throw new Error('CANONICAL_RESERVATION_CHANGE_NOT_AVAILABLE');
+    }
     const booking = state.bookings.find(b => b.id === bookingId);
     if(booking) {
         Object.assign(booking, updates);
@@ -1923,6 +2008,11 @@ export const deleteStaff = async (staffId: string) => {
 };
 
 export const addTask = async (taskData: Omit<StaffTask, 'id'>) => {
+    if (!allowDevelopmentFixtures) {
+        await createCanonicalHousekeepingTask(taskData);
+        eventBus.emit('db-update');
+        return;
+    }
     let propUnit = taskData.propertyUnitId || taskData.propertyId;
     if (!propUnit && taskData.assigneeId) {
         const staffMember = state.staff.find(s => s.id === taskData.assigneeId);
@@ -1942,6 +2032,11 @@ export const addTask = async (taskData: Omit<StaffTask, 'id'>) => {
 };
 
 export const updateTask = async (task: StaffTask) => {
+    if (!allowDevelopmentFixtures) {
+        await updateCanonicalHousekeepingTask(task);
+        eventBus.emit('db-update');
+        return;
+    }
     let propUnit = task.propertyUnitId || task.propertyId;
     if (!propUnit && task.assigneeId) {
         const staffMember = state.staff.find(s => s.id === task.assigneeId);
@@ -2302,7 +2397,7 @@ export const deleteAddOn = async (id: string) => {
     await deleteFromFirestore('addOns', id);
 };
 
-export const assignBed = async (bookingId: string, roomId: number, bedNumber: number) => {
+export const assignBed = async (bookingId: string, roomId: Room['id'], bedNumber: number) => {
     await delay(LATENCY);
     const room = state.rooms.find(r => r.id === roomId);
     const booking = state.bookings.find(b => b.id === bookingId);
@@ -2322,7 +2417,7 @@ export const assignBed = async (bookingId: string, roomId: number, bedNumber: nu
     }
 };
 
-export const updateRoomBeds = async (roomId: number, newBedCount: number) => {
+export const updateRoomBeds = async (roomId: Room['id'], newBedCount: number) => {
     await delay(LATENCY);
     const room = state.rooms.find(r => r.id === roomId);
     if(room && room.type.includes("Compartilhado")) {
@@ -2485,6 +2580,11 @@ export const startOrGetInternalChat = async (user1Id: string, user1Name: string,
 };
 
 export const handleCheckOut = async (bookingId: string) => {
+    if (!allowDevelopmentFixtures) {
+        await transitionCanonicalReservation(bookingId, 'check-out');
+        eventBus.emit('db-update');
+        return;
+    }
     await delay(LATENCY);
     const booking = state.bookings.find(b => b.id === bookingId);
     if (booking) {

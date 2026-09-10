@@ -258,7 +258,7 @@ const FinancialManagerView: React.FC<FinancialManagerViewProps> = ({ db, onAddEx
         setIsAILoading('breakeven');
         setBreakevenResult(null);
         const totalFixedCosts = db.expenses.filter(e => e.category === 'Salários' || e.category === 'Contas').reduce((sum, e) => sum + e.amount, 0);
-        const adr = db.bookings.length > 0 ? db.bookings.reduce((sum, b) => sum + b.totalPrice, 0) / db.bookings.length : 150;
+        const adr = db.bookings.length > 0 ? db.bookings.reduce((sum, b) => sum + b.totalPrice, 0) / db.bookings.length : 0;
         const result = await calculateBreakevenPoint(totalFixedCosts, adr, 25); // Using 25 as avg variable cost
         setBreakevenResult(result);
         setIsAILoading(null);
@@ -269,7 +269,7 @@ const FinancialManagerView: React.FC<FinancialManagerViewProps> = ({ db, onAddEx
         setIsAILoading('scenario');
         setScenarioResult(null);
         const totalFixedCosts = db.expenses.filter(e => e.category === 'Salários' || e.category === 'Contas').reduce((sum, e) => sum + e.amount, 0);
-        const adr = db.bookings.length > 0 ? db.bookings.reduce((sum, b) => sum + b.totalPrice, 0) / db.bookings.length : 150;
+        const adr = db.bookings.length > 0 ? db.bookings.reduce((sum, b) => sum + b.totalPrice, 0) / db.bookings.length : 0;
         const result = await runFinancialScenario(scenario, totalFixedCosts, adr, 25);
         setScenarioResult(result);
         setIsAILoading(null);

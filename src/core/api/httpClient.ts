@@ -26,13 +26,6 @@ class HttpClient {
       ...customHeaders,
     };
 
-    if (dynamicHeaders['org-id'] && !headers['X-Organization-ID']) {
-      headers['X-Organization-ID'] = dynamicHeaders['org-id'];
-    }
-    if (dynamicHeaders['property-id'] && !headers['X-Property-ID']) {
-      headers['X-Property-ID'] = dynamicHeaders['property-id'];
-    }
-
     return headers;
   }
 
@@ -109,17 +102,7 @@ export const httpClient = new HttpClient({
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
       return {};
     }
-    const orgId = localStorage.getItem('synapse_org_id') || '';
-    const propertyId = localStorage.getItem('synapse_prop_id') || '';
     const headers: Record<string, string> = {};
-    if (orgId) {
-      headers['org-id'] = orgId;
-      headers['X-Organization-ID'] = orgId;
-    }
-    if (propertyId) {
-      headers['property-id'] = propertyId;
-      headers['X-Property-ID'] = propertyId;
-    }
     try {
       const sessionRaw = localStorage.getItem('synapse_hospitality_session');
       if (sessionRaw) {

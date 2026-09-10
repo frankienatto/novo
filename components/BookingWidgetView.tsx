@@ -10,7 +10,7 @@ interface GuestData {
 }
 
 interface BookingData {
-    roomId: number;
+    roomId: Room['id'];
     checkIn: string;
     checkOut: string;
     numGuests: number;
@@ -125,7 +125,7 @@ const BookingWidgetView: React.FC<BookingWidgetViewProps> = ({ db, onBookingCrea
     }, [formData.checkIn, formData.checkOut, bookingRestrictions]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
-    const handleSelectRoom = (roomId: number) => { setSelectedRoomId(roomId); setStep(2); };
+    const handleSelectRoom = (roomId: Room['id']) => { setSelectedRoomId(roomId); setStep(2); };
     const handleSubmitDetails = (e: React.FormEvent) => { e.preventDefault(); if (!validationError) setStep(3); };
     const handleAddOnsSubmit = (e: React.FormEvent) => { e.preventDefault(); setStep(4); }
     

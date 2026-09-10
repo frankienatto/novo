@@ -28,12 +28,12 @@ export const pmsSchemas = {
     categoryId: z.string().min(1, 'ID da categoria é obrigatório'),
     unitNumber: z.string().min(1, 'Número da UH é obrigatório'),
     floor: z.string().optional(),
-    status: z.enum(['clean', 'dirty', 'maintenance', 'out_of_service', 'occupied']).optional()
+    status: z.enum(['clean', 'dirty', 'inspected', 'maintenance', 'out_of_service']).optional()
   }),
   updateUnitStatus: z.object({
     organizationId: z.string().optional(),
     propertyId: z.string().optional(),
-    status: z.enum(['clean', 'dirty', 'maintenance', 'out_of_service', 'occupied'], {
+    status: z.enum(['clean', 'dirty', 'inspected', 'maintenance', 'out_of_service'], {
       message: 'Status de UH inválido'
     })
   })
@@ -50,14 +50,12 @@ export const reservationSchemas = {
       email: z.string().email('E-mail do hóspede inválido').optional().or(z.literal('')),
       phone: z.string().optional()
     }),
-    categoryId: z.string().min(1, 'ID da categoria é obrigatório'),
-    unitId: z.string().optional(),
+    unitId: z.string().min(1, 'ID da unidade hoteleira é obrigatório'),
     checkInDate: z.string().min(1, 'Data de check-in é obrigatória'),
     checkOutDate: z.string().min(1, 'Data de check-out é obrigatória'),
-    adults: z.number().int().positive().default(1),
-    children: z.number().int().nonnegative().default(0),
-    totalAmount: z.number().nonnegative(),
-    channel: z.enum(['direct', 'ota_aloha', 'ical', 'manual']).optional().default('direct'),
+    adultsCount: z.number().int().positive().default(1),
+    childrenCount: z.number().int().nonnegative().default(0),
+    source: z.enum(['direct_website', 'front_desk', 'phone', 'whatsapp', 'ota_generic']).optional(),
     notes: z.string().optional()
   })
 };

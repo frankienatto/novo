@@ -9,7 +9,7 @@ interface ReceptionDashboardProps {
     currentUser: Staff;
     onCheckIn: (bookingId: string) => Promise<void>;
     onCheckOut: (bookingId: string) => Promise<void>;
-    onRoomStatusChange: (roomId: number, newStatus: RoomStatus) => Promise<void>;
+    onRoomStatusChange: (roomId: Room['id'], newStatus: RoomStatus) => Promise<void>;
     onAddBooking: () => void;
     onAddGuest: () => void;
 }

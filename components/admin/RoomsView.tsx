@@ -7,10 +7,10 @@ import { ResetCategoryButton } from './ResetCategoryButton';
 
 interface RoomsViewProps {
     rooms: Room[];
-    onStatusChange: (roomId: number, newStatus: RoomStatus) => Promise<void>;
+    onStatusChange: (roomId: Room['id'], newStatus: RoomStatus) => Promise<void>;
     onAddRoom: () => void;
     onEditRoom: (room: Room) => void;
-    onManageBeds: (roomId: number, newBedCount: number) => Promise<void>;
+    onManageBeds: (roomId: Room['id'], newBedCount: number) => Promise<void>;
 }
 
 export const RoomsView: React.FC<RoomsViewProps> = ({ rooms, onStatusChange, onAddRoom, onEditRoom, onManageBeds }) => {

@@ -40,7 +40,7 @@ const DynamicIcon: React.FC<{ name: string, className?: string, size?: number }>
 };
 
 
-const RoomCard: React.FC<{ room: Room, index: number, onReserve: (roomId: number) => void }> = ({ room, index, onReserve }) => (
+const RoomCard: React.FC<{ room: Room, index: number, onReserve: (roomId: Room['id']) => void }> = ({ room, index, onReserve }) => (
     <motion.div 
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}

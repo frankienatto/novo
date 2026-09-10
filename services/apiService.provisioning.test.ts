@@ -25,4 +25,10 @@ describe('apiService privileged provisioning boundary', () => {
     expect(apiServiceSource).not.toContain("setDoc(doc(firestore, collectionPath, 'main'), defaultData)");
     expect(apiServiceSource).not.toContain('deleteDoc(doc(firestore, collectionPath, item.id))');
   });
+
+  it('does not start browser Firestore operational sync or writes in production', () => {
+    expect(apiServiceSource).toContain('if (!allowDevelopmentFixtures) {\n        // Production/staging reads operational facts');
+    expect(apiServiceSource).toContain("throw new Error('CLIENT_FIRESTORE_WRITES_DISABLED')");
+    expect(apiServiceSource).toContain('return loadCanonicalPmsState');
+  });
 });

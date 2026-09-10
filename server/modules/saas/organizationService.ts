@@ -131,6 +131,13 @@ export class OrganizationService {
       throw new Error(`E-mail já cadastrado: ${email}`);
     }
 
+    for (const propertyId of propertyIds) {
+      const property = await organizationRepository.getPropertyById(propertyId);
+      if (!property || property.organizationId !== organizationId) {
+        throw new Error('A propriedade informada não pertence à organização autorizada.');
+      }
+    }
+
     const now = new Date().toISOString();
     const userId = generateUniqueId('user');
 

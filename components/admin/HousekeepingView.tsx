@@ -10,7 +10,7 @@ interface HousekeepingViewProps {
     staff: Staff[];
     staffTasks: StaffTask[];
     currentUser: Staff;
-    onRoomStatusChange: (roomId: number, newStatus: RoomStatus) => Promise<void>;
+    onRoomStatusChange: (roomId: Room['id'], newStatus: RoomStatus) => Promise<void>;
     onApproveTask: (taskId: string) => Promise<void>;
     onRejectTask: (taskId: string, comment: string) => Promise<void>;
 }
@@ -86,7 +86,7 @@ const HousekeepingView: React.FC<HousekeepingViewProps> = ({ db, rooms, staff, s
         });
     }, [staffTasks, selectedPropertyFilter, staff, rooms]);
 
-    const getAssignedCleaner = (roomId: number) => {
+    const getAssignedCleaner = (roomId: Room['id']) => {
         const task = staffTasks.find(t => t.roomId === roomId && t.status !== TaskStatus.DONE);
         if (task && task.assigneeId) {
             return staff.find(s => s.id === task.assigneeId)?.name || 'Não atribuído';

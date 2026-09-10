@@ -95,4 +95,8 @@ async function testConnection() {
     }
   }
 }
-testConnection();
+// Operational browser data is loaded through protected backend APIs in
+// staging/production. Keep this development diagnostic out of those runtimes.
+if (!import.meta.env.PROD) {
+  testConnection();
+}

@@ -14,6 +14,7 @@ import { n8nRouter } from "./server/modules/integration/n8nRouter.ts";
 import { icalRouter } from "./server/modules/integration/ical/icalRouter.ts";
 import { googleCalendarRouter } from "./server/modules/integration/gcal/googleCalendarRouter.ts";
 import { crmRouter } from "./server/modules/crm/crmRouter.ts";
+import { guestRouter } from "./server/modules/guest/guestRouter.ts";
 import { housekeepingRouter } from "./server/modules/housekeeping/housekeepingRouter.ts";
 import { receptionRouter } from "./server/modules/reception/receptionRouter.ts";
 import { maintenanceRouter } from "./server/modules/maintenance/maintenanceRouter.ts";
@@ -860,6 +861,7 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   // intended first user does not yet have a persistent tenant profile.
   app.use("/api/staging", stagingBootstrapRouter);
   app.use("/api/saas", saasRouter);
+  app.use("/api/guest", guestRouter);
 
   // External integrations with dedicated token authentication
   app.use("/api/integration/n8n", n8nRouter);

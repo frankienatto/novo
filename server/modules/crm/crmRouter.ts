@@ -4,6 +4,8 @@ import { timelineService } from './timelineService.ts';
 import { guestIntelligenceService } from './guestIntelligenceService.ts';
 import { validateRequest } from '../../middlewares/validationMiddleware.ts';
 import { crmSchemas } from '../../schemas/routeSchemas.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
+import { getAdminFirestore } from '../../config/firebaseAdmin.ts';
 
 import { CreateGuestDTO, UpdateGuestDTO, GuestQueryFilters } from './guestTypes.ts';
 import { AppendTimelineEventDTO } from './timelineTypes.ts';
@@ -24,6 +26,31 @@ const extractTenantContext = (req: Request, res: Response, next: any) => {
 };
 
 crmRouter.use(extractTenantContext);
+
+/** Guest IDs are globally addressable in Firestore, so every single-resource
+ * CRM route must re-bind that resource to the tenant established by middleware.
+ * Controllers never accept organizationId/propertyId from the client as proof. */
+const getTenantGuest = async (req: Request, guestId: string) => {
+  const guest = await crmService.getGuestById(guestId);
+  if (!guest || guest.organizationId !== req.organizationId) return null;
+  return guest;
+};
+
+/** Staff-only provisioning of a Firebase identity for an already canonical
+ * guest profile. Guests can never self-assign a CRM identity. */
+crmRouter.post('/guests/:guestId/identity', requirePermission('manage_bookings'), async (req: Request, res: Response) => {
+  try {
+    const firebaseUid = typeof req.body?.firebaseUid === 'string' ? req.body.firebaseUid.trim() : '';
+    if (!/^[A-Za-z0-9_-]{20,128}$/.test(firebaseUid)) return res.status(400).json({ error: 'Firebase UID inválido.' });
+    const guest = await getTenantGuest(req, String(req.params.guestId));
+    if (!guest || guest.organizationId !== req.organizationId) return res.status(404).json({ error: 'Hóspede não encontrado neste tenant.' });
+    const now = new Date().toISOString();
+    await getAdminFirestore().collection('guestIdentities').doc(firebaseUid).set({ firebaseUid, guestId: guest.guestId, organizationId: req.organizationId, createdAt: now, updatedAt: now }, { merge: true });
+    return res.status(200).json({ status: 'SUCCESS', data: { firebaseUid, guestId: guest.guestId } });
+  } catch (error: any) {
+    return res.status(400).json({ error: 'Não foi possível associar a identidade do hóspede.', message: error?.message });
+  }
+});
 
 /**
  * POST /api/crm/guests
@@ -98,7 +125,7 @@ crmRouter.get('/guests', async (req: Request, res: Response) => {
 crmRouter.get('/guests/:guestId', async (req: Request, res: Response) => {
   try {
     const guestId = String(req.params.guestId);
-    const guest = await crmService.getGuestById(guestId);
+    const guest = await getTenantGuest(req, guestId);
 
     if (!guest) {
       return res.status(404).json({
@@ -127,6 +154,7 @@ crmRouter.get('/guests/:guestId', async (req: Request, res: Response) => {
 crmRouter.get('/guests/:guestId/360', async (req: Request, res: Response) => {
   try {
     const guestId = String(req.params.guestId);
+    if (!await getTenantGuest(req, guestId)) return res.status(404).json({ error: 'Hóspede não encontrado neste tenant.' });
     const profile360 = await timelineService.getGuest360Profile(guestId);
 
     return res.status(200).json({
@@ -195,6 +223,7 @@ crmRouter.put('/guests/:guestId', async (req: Request, res: Response) => {
     const guestId = String(req.params.guestId);
     const dto: UpdateGuestDTO = req.body;
 
+    if (!await getTenantGuest(req, guestId)) return res.status(404).json({ error: 'Hóspede não encontrado neste tenant.' });
     const updated = await crmService.updateGuest(guestId, dto);
 
     return res.status(200).json({
@@ -218,6 +247,7 @@ crmRouter.post('/guests/:guestId/stays', async (req: Request, res: Response) => 
   try {
     const propId = (req as any).propertyId;
     const guestId = String(req.params.guestId);
+    if (!await getTenantGuest(req, guestId)) return res.status(404).json({ error: 'Hóspede não encontrado neste tenant.' });
     const { reservationId, checkInDate, checkOutDate, unitNumber, roomCategoryName, totalSpentAmount, bookingChannel, guestRating, notes } = req.body;
 
     if (!reservationId || !checkInDate || !checkOutDate) {
@@ -262,6 +292,7 @@ crmRouter.post('/guests/:guestId/timeline', async (req: Request, res: Response) 
     const orgId = (req as any).organizationId;
     const propId = (req as any).propertyId;
     const guestId = String(req.params.guestId);
+    if (!await getTenantGuest(req, guestId)) return res.status(404).json({ error: 'Hóspede não encontrado neste tenant.' });
 
     const { source, eventType, title, description, reservationId, unitId, unitNumber, metadata } = req.body;
 

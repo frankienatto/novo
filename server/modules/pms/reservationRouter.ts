@@ -3,6 +3,7 @@ import { reservationService } from './reservationService.ts';
 import { ReservationStatus } from './reservationTypes.ts';
 import { validateRequest } from '../../middlewares/validationMiddleware.ts';
 import { reservationSchemas } from '../../schemas/routeSchemas.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 
 export const reservationRouter = Router();
 
@@ -48,7 +49,7 @@ reservationRouter.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/pms/reservations
-reservationRouter.post('/', validateRequest({ body: reservationSchemas.createReservation }), async (req: Request, res: Response) => {
+reservationRouter.post('/', requirePermission('manage_bookings'), validateRequest({ body: reservationSchemas.createReservation }), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const reservation = await reservationService.createReservation(organizationId, propertyId, req.body);
@@ -59,7 +60,7 @@ reservationRouter.post('/', validateRequest({ body: reservationSchemas.createRes
 });
 
 // PATCH /api/pms/reservations/:id/check-in
-reservationRouter.patch('/:id/check-in', async (req: Request, res: Response) => {
+reservationRouter.patch('/:id/check-in', requirePermission('manage_bookings'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -71,7 +72,7 @@ reservationRouter.patch('/:id/check-in', async (req: Request, res: Response) => 
 });
 
 // PATCH /api/pms/reservations/:id/check-out
-reservationRouter.patch('/:id/check-out', async (req: Request, res: Response) => {
+reservationRouter.patch('/:id/check-out', requirePermission('manage_bookings'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -83,7 +84,7 @@ reservationRouter.patch('/:id/check-out', async (req: Request, res: Response) =>
 });
 
 // PATCH /api/pms/reservations/:id/cancel
-reservationRouter.patch('/:id/cancel', async (req: Request, res: Response) => {
+reservationRouter.patch('/:id/cancel', requirePermission('manage_bookings'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -96,7 +97,7 @@ reservationRouter.patch('/:id/cancel', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/pms/reservations/:id/no-show
-reservationRouter.patch('/:id/no-show', async (req: Request, res: Response) => {
+reservationRouter.patch('/:id/no-show', requirePermission('manage_bookings'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

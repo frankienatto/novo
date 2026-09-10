@@ -142,7 +142,7 @@ export class RoomRepository implements IRoomRepository {
   async findUnits(organizationId: string, propertyId: string, categoryId?: string, includeInactive = false): Promise<RoomUnit[]> {
     if (!organizationId || !propertyId) return [];
 
-    let query = this.db.collection('rooms')
+    let query = this.db.collection('roomUnits')
       .where('organizationId', '==', organizationId)
       .where('propertyId', '==', propertyId);
 
@@ -166,7 +166,7 @@ export class RoomRepository implements IRoomRepository {
   async findUnitById(organizationId: string, propertyId: string, unitId: string): Promise<RoomUnit | null> {
     if (!organizationId || !propertyId || !unitId) return null;
 
-    const docSnap = await this.db.collection('rooms').doc(unitId).get();
+    const docSnap = await this.db.collection('roomUnits').doc(unitId).get();
     if (!docSnap.exists) return null;
 
     const data = docSnap.data() as RoomUnit;
@@ -181,7 +181,7 @@ export class RoomRepository implements IRoomRepository {
     if (!organizationId || !propertyId || !unitNumber) return null;
     const normalizedNumber = unitNumber.trim();
 
-    const snapshot = await this.db.collection('rooms')
+    const snapshot = await this.db.collection('roomUnits')
       .where('organizationId', '==', organizationId)
       .where('propertyId', '==', propertyId)
       .get();
@@ -205,7 +205,7 @@ export class RoomRepository implements IRoomRepository {
     }
     unit.updatedAt = new Date().toISOString();
 
-    await this.db.collection('rooms').doc(unit.unitId).set(unit, { merge: true });
+    await this.db.collection('roomUnits').doc(unit.unitId).set(unit, { merge: true });
     return unit;
   }
 
@@ -239,7 +239,7 @@ export class RoomRepository implements IRoomRepository {
       updatedAt: new Date().toISOString()
     };
 
-    await this.db.collection('rooms').doc(unitId).set(updated, { merge: true });
+    await this.db.collection('roomUnits').doc(unitId).set(updated, { merge: true });
     return updated;
   }
 
@@ -251,7 +251,7 @@ export class RoomRepository implements IRoomRepository {
     const existing = await this.findUnitById(organizationId, propertyId, unitId);
     if (!existing) return false;
 
-    await this.db.collection('rooms').doc(unitId).delete();
+    await this.db.collection('roomUnits').doc(unitId).delete();
     return true;
   }
 

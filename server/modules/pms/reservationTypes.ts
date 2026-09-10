@@ -38,6 +38,14 @@ export interface Reservation {
   balance?: number;
   stripePaymentIntentId?: string;
   notes?: string;
+  /** Guest-scoped pre-arrival metadata only. Document bytes/signatures are
+   * deliberately excluded until a private upload/storage boundary exists. */
+  preArrival?: {
+    submittedAt: string;
+    arrivalTime?: string;
+    notes?: string;
+    documentUploadStatus: 'not_configured' | 'pending' | 'uploaded';
+  };
   createdAt: string;
   updatedAt: string;
 }

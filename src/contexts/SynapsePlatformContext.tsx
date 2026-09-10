@@ -19,13 +19,13 @@ interface SynapsePlatformContextType {
   setPendingApprovalsCount: (count: number) => void;
 }
 
-const defaultOrg: SynapseOrganization = {
+const demoOrg: SynapseOrganization = {
   id: 'org_dev_default',
   name: 'Forest House Hospitality Group',
   code: 'FH-GROUP',
 };
 
-const defaultProperty: SynapseProperty = {
+const demoProperty: SynapseProperty = {
   id: 'prop_dev_default',
   orgId: 'org_dev_default',
   name: 'Forest House Beach Hostel',
@@ -33,7 +33,7 @@ const defaultProperty: SynapseProperty = {
   status: 'active',
 };
 
-const defaultUser: SynapseUser = {
+const demoUser: SynapseUser = {
   id: 'usr_exec_01',
   name: 'Diretoria Executiva',
   email: 'diretoria@foresthouse.com.br',
@@ -43,26 +43,31 @@ const defaultUser: SynapseUser = {
 const SynapsePlatformContext = createContext<SynapsePlatformContextType | undefined>(undefined);
 
 export const SynapsePlatformProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeOrg, setActiveOrg] = useState<SynapseOrganization>(defaultOrg);
-  const [activeProperty, setActiveProperty] = useState<SynapseProperty>(defaultProperty);
+  const isDemoRuntime = !import.meta.env.PROD;
+  const emptyOrg: SynapseOrganization = { id: '', name: '', code: '' };
+  const emptyProperty: SynapseProperty = { id: '', orgId: '', name: '', city: '', status: 'setup' };
+  const emptyUser: SynapseUser = { id: '', name: '', email: '', role: 'operator' };
+  const [activeOrg, setActiveOrg] = useState<SynapseOrganization>(isDemoRuntime ? demoOrg : emptyOrg);
+  const [activeProperty, setActiveProperty] = useState<SynapseProperty>(isDemoRuntime ? demoProperty : emptyProperty);
   const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
   const [activeModule, setActiveModule] = useState<string>('executive');
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(3);
 
-  const organizations: SynapseOrganization[] = [
-    defaultOrg,
+  const organizations: SynapseOrganization[] = isDemoRuntime ? [
+    demoOrg,
     { id: 'org_boutique_02', name: 'Boutique Hotels Brasil', code: 'BHB' },
-  ];
+  ] : [];
 
-  const properties: SynapseProperty[] = [
-    defaultProperty,
+  const properties: SynapseProperty[] = isDemoRuntime ? [
+    demoProperty,
     { id: 'prop_mountain_02', orgId: 'org_dev_default', name: 'Forest House Mountain Lodge', city: 'Gramado, RS', status: 'active' },
-  ];
+  ] : [];
 
   useEffect(() => {
+    if (!isDemoRuntime) return;
     localStorage.setItem('synapse_org_id', activeOrg.id);
     localStorage.setItem('synapse_prop_id', activeProperty.id);
-  }, [activeOrg, activeProperty]);
+  }, [activeOrg, activeProperty, isDemoRuntime]);
 
   const setOrganization = (orgId: string) => {
     const found = organizations.find((o) => o.id === orgId);
@@ -83,7 +88,7 @@ export const SynapsePlatformProvider: React.FC<{ children: React.ReactNode }> = 
       value={{
         activeOrg,
         activeProperty,
-        user: defaultUser,
+        user: isDemoRuntime ? demoUser : emptyUser,
         organizations,
         properties,
         setOrganization,

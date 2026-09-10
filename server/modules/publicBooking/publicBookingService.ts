@@ -5,6 +5,7 @@ import {
   PublicBookingProperty,
   PublicBookingQuote,
   PublicBookingQuoteRequest,
+  PublicBookingCatalog,
   PublicBookingUnit,
 } from './publicBookingTypes.ts';
 
@@ -93,6 +94,40 @@ export class PublicBookingService {
       currency: property.currency,
       numberOfNights: nights,
       totalAmount: Number(Math.max(0, amount).toFixed(2)),
+    };
+  }
+
+  async getPublicCatalog(publicPropertyId: string): Promise<PublicBookingCatalog> {
+    const property = await this.resolveProperty(publicPropertyId);
+    const mappings = await this.catalog.listUnits(publicPropertyId);
+    const units = [] as PublicBookingCatalog['units'];
+
+    for (const mapping of mappings) {
+      if (!mapping.active) continue;
+      try {
+        const resolved = await this.resolveUnit(publicPropertyId, mapping.publicUnitId);
+        const unit = await this.rooms.findUnitById(property.organizationId, property.propertyId, resolved.unitId);
+        if (!unit) continue;
+        const category = await this.rooms.findCategoryById(property.organizationId, property.propertyId, unit.categoryId);
+        if (!category?.active) continue;
+        units.push({
+          publicUnitId: mapping.publicUnitId,
+          name: category.name || `Unidade ${unit.unitNumber}`,
+          capacity: category.capacity.totalCapacity,
+          baseNightlyAmount: category.basePrice,
+          amenities: category.amenities || [],
+        });
+      } catch {
+        // An unavailable canonical unit is intentionally omitted, never
+        // replaced by a fixture or a legacy browser record.
+      }
+    }
+
+    return {
+      publicPropertyId: property.publicPropertyId,
+      currency: property.currency,
+      ratePlans: property.ratePlans.filter((item) => item.active).map(({ ratePlanId }) => ({ ratePlanId })),
+      units,
     };
   }
 

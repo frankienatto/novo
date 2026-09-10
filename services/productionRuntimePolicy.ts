@@ -27,6 +27,13 @@ export function canRenderLegacyBooking(state: PartialState, isProduction: boolea
   );
 }
 
+/** Guest portal and pre-arrival still depend on broad legacy browser state.
+ * They must stay off in staging/live until a server-authoritative guest
+ * association boundary is introduced. */
+export function canRenderLegacyGuestExperience(isProduction: boolean): boolean {
+  return !isProduction;
+}
+
 /** A cached/stale client session never grants access when its staff record is absent. */
 export function isProvisionedInternalUser(state: PartialState, user: User | null): boolean {
   if (!user || !('role' in user)) return false;

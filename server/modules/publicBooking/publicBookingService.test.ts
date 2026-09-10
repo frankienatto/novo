@@ -18,6 +18,13 @@ function firestore() {
           },
           set: async (value: any) => { collection[id] = structuredClone(value); },
         }),
+        where: (field: string, _operator: string, value: unknown) => ({
+          get: async () => ({
+            docs: Object.values(collection)
+              .filter((item: any) => item[field] === value)
+              .map((item) => ({ data: () => structuredClone(item) })),
+          }),
+        }),
       };
     },
   };
@@ -77,6 +84,15 @@ describe('Public booking canonical foundation', () => {
     await catalog.createProperty({ ...property, publicPropertyId: 'other-property', organizationId: 'org_b', propertyId: 'prop_b' });
     await catalog.createUnit({ ...unit, publicPropertyId: 'other-property', organizationId: 'org_b', propertyId: 'prop_b', unitId: 'unit_b' });
     await expect(service.resolveUnit('other-property', 'beach-suite-1')).rejects.toThrow('unavailable');
+  });
+
+  it('projects only active canonical mappings into the public catalog', async () => {
+    await expect(service.getPublicCatalog('forest-beach')).resolves.toEqual(expect.objectContaining({
+      publicPropertyId: 'forest-beach',
+      currency: 'brl',
+      ratePlans: [{ ratePlanId: 'standard' }, { ratePlanId: 'nonref' }],
+      units: [expect.objectContaining({ publicUnitId: 'beach-suite-1', name: expect.any(String) })],
+    }));
   });
 
   it('calculates the same commercial components server-side and ignores client financial input', async () => {

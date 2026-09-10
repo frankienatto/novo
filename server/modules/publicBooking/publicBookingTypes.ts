@@ -86,3 +86,18 @@ export interface PublicBookingQuote {
   numberOfNights: number;
   totalAmount: number;
 }
+
+/** Deliberately public projection of the catalog. It never exposes tenant IDs,
+ * internal unit IDs, guest data, or administrative pricing configuration. */
+export interface PublicBookingCatalog {
+  publicPropertyId: string;
+  currency: 'brl';
+  ratePlans: Array<{ ratePlanId: string }>;
+  units: Array<{
+    publicUnitId: string;
+    name: string;
+    capacity: number;
+    baseNightlyAmount: number;
+    amenities: string[];
+  }>;
+}

@@ -4,6 +4,7 @@ import { RoomStatus } from './pmsTypes.ts';
 import { reservationRouter } from './reservationRouter.ts';
 import { validateRequest } from '../../middlewares/validationMiddleware.ts';
 import { pmsSchemas } from '../../schemas/routeSchemas.ts';
+import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 
 export const pmsRouter = Router();
 
@@ -64,7 +65,7 @@ pmsRouter.get('/categories/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/pms/categories
-pmsRouter.post('/categories', validateRequest({ body: pmsSchemas.createCategory }), async (req: Request, res: Response) => {
+pmsRouter.post('/categories', requirePermission('manage_properties'), validateRequest({ body: pmsSchemas.createCategory }), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const category = await pmsService.createCategory(organizationId, propertyId, req.body);
@@ -75,7 +76,7 @@ pmsRouter.post('/categories', validateRequest({ body: pmsSchemas.createCategory 
 });
 
 // PUT /api/pms/categories/:id
-pmsRouter.put('/categories/:id', async (req: Request, res: Response) => {
+pmsRouter.put('/categories/:id', requirePermission('manage_properties'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -87,7 +88,7 @@ pmsRouter.put('/categories/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/pms/categories/:id (Soft Delete)
-pmsRouter.delete('/categories/:id', async (req: Request, res: Response) => {
+pmsRouter.delete('/categories/:id', requirePermission('manage_properties'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -128,7 +129,7 @@ pmsRouter.get('/units/:id', async (req: Request, res: Response) => {
 });
 
 // POST /api/pms/units
-pmsRouter.post('/units', validateRequest({ body: pmsSchemas.createUnit }), async (req: Request, res: Response) => {
+pmsRouter.post('/units', requirePermission('manage_properties'), validateRequest({ body: pmsSchemas.createUnit }), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const unit = await pmsService.createUnit(organizationId, propertyId, req.body);
@@ -139,7 +140,7 @@ pmsRouter.post('/units', validateRequest({ body: pmsSchemas.createUnit }), async
 });
 
 // PUT /api/pms/units/:id
-pmsRouter.put('/units/:id', async (req: Request, res: Response) => {
+pmsRouter.put('/units/:id', requirePermission('manage_properties'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -151,7 +152,7 @@ pmsRouter.put('/units/:id', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/pms/units/:id/status
-pmsRouter.patch('/units/:id/status', validateRequest({ body: pmsSchemas.updateUnitStatus }), async (req: Request, res: Response) => {
+pmsRouter.patch('/units/:id/status', requirePermission('manage_properties'), validateRequest({ body: pmsSchemas.updateUnitStatus }), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -164,7 +165,7 @@ pmsRouter.patch('/units/:id/status', validateRequest({ body: pmsSchemas.updateUn
 });
 
 // DELETE /api/pms/units/:id (Soft Delete)
-pmsRouter.delete('/units/:id', async (req: Request, res: Response) => {
+pmsRouter.delete('/units/:id', requirePermission('manage_properties'), async (req: Request, res: Response) => {
   try {
     const { organizationId, propertyId } = getTenantContext(req);
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

@@ -12,8 +12,8 @@ const DEFAULT_QUERY_CONFIG = {
 
 export function useExecutiveKernel() {
   const { activeOrg, activeProperty } = useSynapsePlatform();
-  const orgId = activeOrg?.id || 'org_dev_default';
-  const propId = activeProperty?.id || 'prop_dev_default';
+  const orgId = activeOrg?.id || '';
+  const propId = activeProperty?.id || '';
 
   const isEnabled = Boolean(orgId && propId);
 

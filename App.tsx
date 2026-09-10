@@ -3,6 +3,8 @@ import Header from './components/Header';
 import PublicView from './components/PublicView';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { BookingView } from './components/BookingView';
+import { CanonicalPublicBookingView } from './components/CanonicalPublicBookingView';
+import { CanonicalGuestPortalView } from './components/CanonicalGuestPortalView';
 import RegisterView from './components/RegisterView';
 import LoginView from './components/LoginView';
 import { GuestPortalView } from './components/GuestPortalView';
@@ -110,6 +112,7 @@ import {
 import { generateMaintenanceSuggestion, generateEquipmentInfoSuggestion, generateTaskDependencies } from './services/geminiService';
 import {
     canRenderLegacyBooking,
+    canRenderLegacyGuestExperience,
     hasProvisionedPublicPresentation,
     isProvisionedGuestUser,
     isProvisionedInternalUser,
@@ -124,7 +127,7 @@ interface GuestData {
 }
 
 interface BookingData {
-    roomId: number;
+    roomId: Room['id'];
     checkIn: string;
     checkOut: string;
     numGuests: number;
@@ -230,9 +233,11 @@ const WidgetThemeStyles: React.FC<{ themeSettings?: ThemeSettings | null }> = ({
     return <style>{styles}</style>;
 };
 
-const ProvisioningRequired: React.FC<{ scope: 'public' | 'booking' | 'internal'; onReturnHome?: () => void }> = ({ scope, onReturnHome }) => {
+const ProvisioningRequired: React.FC<{ scope: 'public' | 'booking' | 'internal' | 'guest'; onReturnHome?: () => void }> = ({ scope, onReturnHome }) => {
     const copy = scope === 'internal'
         ? { title: 'Acesso ainda não provisionado', detail: 'Sua conta foi autenticada, mas ainda não possui uma associação válida de equipe, tenant ou propriedade.' }
+        : scope === 'guest'
+            ? { title: 'Portal do hóspede ainda não provisionado', detail: 'O acesso do hóspede precisa de uma associação canônica e autorizada com sua reserva. Nenhum dado de demonstração é exibido.' }
         : scope === 'booking'
             ? { title: 'Reservas ainda indisponíveis', detail: 'O catálogo público canônico desta propriedade ainda não foi provisionado.' }
             : { title: 'Ambiente ainda não configurado', detail: 'Nenhuma propriedade pública foi provisionada neste ambiente.' };
@@ -516,7 +521,7 @@ export const App: React.FC = () => {
         await fetchData();
     };
 
-    const updateRoomStatus = async (roomId: number, newStatus: RoomStatus) => {
+    const updateRoomStatus = async (roomId: Room['id'], newStatus: RoomStatus) => {
         await apiService.updateRoomStatus(roomId, newStatus);
     };
 
@@ -544,7 +549,7 @@ export const App: React.FC = () => {
         return updatedBooking;
     };
     
-    const updateRoomControls = async (roomId: number, controls: Partial<Pick<Room, 'lightsOn' | 'fanSpeed' | 'doNotDisturb'>>) => {
+    const updateRoomControls = async (roomId: Room['id'], controls: Partial<Pick<Room, 'lightsOn' | 'fanSpeed' | 'doNotDisturb'>>) => {
         await apiService.updateRoomControls(roomId, controls);
         await fetchData();
     };
@@ -589,7 +594,7 @@ export const App: React.FC = () => {
         onTaskStatusChange: updateTaskStatus,
         onGuestAdd: addGuest,
         onGuestUpdate: updateGuest,
-        onRoomAdd: async (roomData: Omit<Room, 'id' | 'status'>) => { await apiService.addRoom(roomData); },
+        onRoomAdd: async (roomData: Omit<Room, 'id' | 'status'>) => { await apiService.addRoom(roomData); await fetchData(); },
         onRoomUpdate: async (updatedRoom: Room) => { await apiService.updateRoom(updatedRoom); },
         onBookingAdd: async (bookingData: Omit<Booking, 'id' | 'totalPrice' | 'balance' | 'paymentStatus' | 'status'>) => { await apiService.addBooking(bookingData); },
         onBookingUpdate: async (bookingId: string, updates: Partial<Pick<Booking, 'checkIn' | 'checkOut' | 'roomId'>>) => { await apiService.updateBookingDetails(bookingId, updates); await fetchData(); },
@@ -629,8 +634,8 @@ export const App: React.FC = () => {
         onDeleteScheduledPost: async (postId: string) => { await apiService.deleteScheduledPost(postId); await fetchData(); },
         onAddOnSave: async (addOn: Omit<AddOn, 'id'> | AddOn) => { await apiService.saveAddOn(addOn); await fetchData(); },
         onAddOnDelete: async (id: string) => { await apiService.deleteAddOn(id); await fetchData(); },
-        onBedAssignment: async (bookingId: string, roomId: number, bedNumber: number) => { await apiService.assignBed(bookingId, roomId, bedNumber); await fetchData(); },
-        onUpdateRoomBeds: async (roomId: number, newBedCount: number) => { await apiService.updateRoomBeds(roomId, newBedCount); await fetchData(); },
+        onBedAssignment: async (bookingId: string, roomId: Room['id'], bedNumber: number) => { await apiService.assignBed(bookingId, roomId, bedNumber); await fetchData(); },
+        onUpdateRoomBeds: async (roomId: Room['id'], newBedCount: number) => { await apiService.updateRoomBeds(roomId, newBedCount); await fetchData(); },
         onSaveSiteContent: async (content: SiteContent) => { await apiService.saveSiteContent(content); await fetchData(); },
         onSaveThemeSettings: async (settings: ThemeSettings) => { await apiService.saveThemeSettings(settings); await fetchData(); },
         onSavePropertyEvents: async (events: PropertyEvent[]) => { await apiService.savePropertyEvents(events); await fetchData(); },
@@ -778,6 +783,12 @@ export const App: React.FC = () => {
                 if (!hasPublicPresentation) return <ProvisioningRequired scope="public" />;
                 return <PublicView setPage={setPageAndParams} db={dbState!} chatData={chatData} onStartChat={apiService.startChat} onSendMessage={apiService.sendMessage} />;
             case 'booking':
+                if (isProductionBuild) {
+                    const publicPropertyId = typeof pageParams?.publicPropertyId === 'string'
+                        ? pageParams.publicPropertyId
+                        : new URLSearchParams(window.location.search).get('publicPropertyId') || undefined;
+                    return <CanonicalPublicBookingView publicPropertyId={publicPropertyId} onReturnHome={() => setPageAndParams('home')} />;
+                }
                 if (!canUseLegacyBooking) return <ProvisioningRequired scope="booking" onReturnHome={() => setPageAndParams('home')} />;
                 return <BookingView setPage={setPageAndParams} initialParams={pageParams} db={dbState!} onBookingCreate={onBookingCreate} currentUser={currentUser as Guest | null} onAcknowledgeRules={acknowledgeRules} />;
             case 'register':
@@ -785,6 +796,10 @@ export const App: React.FC = () => {
             case 'login':
                 return <LoginView setPage={setPageAndParams} handleLogin={handleLogin} handleLoginWithGoogle={handleLoginWithGoogle} />;
             case 'guestPortal':
+                // The legacy portal reads a broad browser DB. Until the canonical
+                // guest-to-reservation boundary exists, production must fail closed
+                // rather than exposing fixture or cross-guest data.
+                if (!canRenderLegacyGuestExperience(isProductionBuild)) return <CanonicalGuestPortalView onReturnHome={() => setPageAndParams('home')} />;
                 if (currentUser && 'fullName' in currentUser && provisionedGuestUser) {
                      return <GuestPortalView
                         currentUser={currentUser}
@@ -855,6 +870,7 @@ export const App: React.FC = () => {
                     <button onClick={() => setPageAndParams('home')} className="mt-4 bg-brand-green text-white px-8 py-3 rounded-xl text-xs uppercase tracking-widest">Voltar ao Início</button>
                 </div>;
             case 'onlineCheckin':
+                if (!canRenderLegacyGuestExperience(isProductionBuild)) return <ProvisioningRequired scope="guest" onReturnHome={() => setPageAndParams('home')} />;
                 // Assuming online checkin is initiated from guest portal with booking and guest data
                 return <OnlineCheckinView booking={pageParams.booking} guest={pageParams.guest} onCheckinSubmit={apiService.submitOnlineCheckin} setPage={setPageAndParams} />;
             case 'admin':
@@ -875,6 +891,7 @@ export const App: React.FC = () => {
             case 'termsAndConditions':
                 return <TermsAndConditionsView setPage={setPageAndParams} />;
             case 'preArrivalPortal':
+                 if (!canRenderLegacyGuestExperience(isProductionBuild)) return <CanonicalGuestPortalView onReturnHome={() => setPageAndParams('home')} />;
                  if (currentUser && 'fullName' in currentUser) {
                     return <PreArrivalPortalView 
                         guest={currentUser}

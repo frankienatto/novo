@@ -13,7 +13,7 @@ export const saasRouter = Router();
  * Staging uses the separately guarded, one-time server-side route. Future SaaS
  * onboarding must be introduced through an authorised invitation flow.
  */
-saasRouter.post('/api/saas/onboarding', (_req: Request, res: Response) => {
+saasRouter.post('/onboarding', (_req: Request, res: Response) => {
   return res.status(410).json({
     error: 'SAAS_ONBOARDING_RETIRED',
     message: 'O onboarding de tenant requer fluxo server-side autorizado.'
@@ -23,10 +23,28 @@ saasRouter.post('/api/saas/onboarding', (_req: Request, res: Response) => {
 // --- Rotas Autenticadas com Resolução de Tenant ---
 const saasProtected = [authMiddleware, tenantMiddleware];
 
+/** Session projection used by the browser after Firebase sign-in. Tenant and
+ * property are derived from verified server context, never browser storage. */
+saasRouter.get('/session', saasProtected, (req: Request, res: Response) => {
+  const user = req.saasUser!;
+  return res.status(200).json({
+    success: true,
+    data: {
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      permissions: user.permissions,
+      organizationId: req.organizationId,
+      propertyId: req.propertyId,
+    },
+  });
+});
+
 /**
  * Visão Geral da Organização Ativa
  */
-saasRouter.get('/api/saas/organization', saasProtected, async (req: Request, res: Response) => {
+saasRouter.get('/organization', saasProtected, async (req: Request, res: Response) => {
   try {
     const overview = await organizationService.getOrganizationOverview(req.organizationId!);
     return res.status(200).json({
@@ -41,7 +59,7 @@ saasRouter.get('/api/saas/organization', saasProtected, async (req: Request, res
 /**
  * Gestão de Propriedades
  */
-saasRouter.get('/api/saas/properties', saasProtected, async (req: Request, res: Response) => {
+saasRouter.get('/properties', saasProtected, async (req: Request, res: Response) => {
   try {
     const overview = await organizationService.getOrganizationOverview(req.organizationId!);
     return res.status(200).json({
@@ -54,7 +72,7 @@ saasRouter.get('/api/saas/properties', saasProtected, async (req: Request, res: 
 });
 
 saasRouter.post(
-  '/api/saas/properties', 
+  '/properties',
   [...saasProtected, requirePermission('manage_properties')], 
   async (req: Request, res: Response) => {
     try {
@@ -77,7 +95,7 @@ saasRouter.post(
  * Gestão de Usuários e RBAC
  */
 saasRouter.get(
-  '/api/saas/users', 
+  '/users',
   [...saasProtected, requirePermission('manage_users')], 
   async (req: Request, res: Response) => {
     try {
@@ -93,7 +111,7 @@ saasRouter.get(
 );
 
 saasRouter.post(
-  '/api/saas/users', 
+  '/users',
   [...saasProtected, requirePermission('manage_users')], 
   async (req: Request, res: Response) => {
     try {
@@ -121,7 +139,7 @@ saasRouter.post(
 /**
  * Registro de Integrações (Armazenamento de Metadados / Status)
  */
-saasRouter.get('/api/saas/integrations', saasProtected, async (req: Request, res: Response) => {
+saasRouter.get('/integrations', saasProtected, async (req: Request, res: Response) => {
   try {
     const list = await integrationRegistry.listIntegrations(req.organizationId!);
     return res.status(200).json({
@@ -134,7 +152,7 @@ saasRouter.get('/api/saas/integrations', saasProtected, async (req: Request, res
 });
 
 saasRouter.post(
-  '/api/saas/integrations', 
+  '/integrations',
   [...saasProtected, requirePermission('manage_integrations')], 
   async (req: Request, res: Response) => {
     try {

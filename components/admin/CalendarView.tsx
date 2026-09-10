@@ -3,13 +3,10 @@ import FullCalendar from '@fullcalendar/react';
 import resourceTimelinePlugin from '@fullcalendar/resource-timeline';
 import interactionPlugin from '@fullcalendar/interaction';
 import { EventClickArg } from '@fullcalendar/core';
-import { Booking, Room, DBState, Block, RoomType } from '../../types';
-import { Calendar, Users, Wallet, X, CheckCircle, Moon, Ban, Bed, Mail, Phone, Hash, Receipt, AlertTriangle, Info, SprayCan, Loader2, Footprints, AlertCircle, RefreshCw } from 'lucide-react';
+import { Booking, DBState, Block } from '../../types';
+import { Calendar, Users, Wallet, X, CheckCircle, Moon, Ban, Bed, Mail, Phone, Hash, Receipt, AlertTriangle, Info, SprayCan, Loader2, Footprints, AlertCircle } from 'lucide-react';
 import { Section } from './shared';
 import { RoomStatus } from '../../types';
-import { syncICalForRoom } from '../../services/apiService';
-
-
 import { PropertyUnitId } from '../../types';
 import { SynapseContextBar } from '../../src/shared/ui';
 
@@ -17,12 +14,14 @@ interface CalendarViewProps {
     db: DBState;
     selectedUnit?: PropertyUnitId | 'all';
     onBookingUpdate: (bookingId: string, updates: Partial<Pick<Booking, 'checkIn' | 'checkOut' | 'roomId'>>) => Promise<void>;
-    onNewBooking: (data: { roomId: number, checkIn: string, checkOut: string }) => void;
+    onNewBooking: (data: { roomId: string, checkIn: string, checkOut: string }) => void;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', onBookingUpdate, onNewBooking }) => {
     const [filter, setFilter] = useState('all');
     const [propertyFilter, setPropertyFilter] = useState<PropertyUnitId | 'all'>(selectedUnit);
+    const isLiveRuntime = Boolean(import.meta.env.PROD);
+    const availableProperties = useMemo(() => Array.from(new Set(db.rooms.map((room) => room.propertyId).filter(Boolean))) as string[], [db.rooms]);
 
     React.useEffect(() => {
         setPropertyFilter(selectedUnit);
@@ -42,18 +41,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
                 : filter === 'private' ? !room.type.includes('Compartilhado') : room.type.includes('Compartilhado');
             const matchesProperty = propertyFilter === 'all'
                 ? true
-                : (room.propertyId || 'beach') === propertyFilter;
+                : room.propertyId === propertyFilter;
             return matchesType && matchesProperty;
         });
     }, [db.rooms, filter, propertyFilter]);
 
     const resources = useMemo(() => filteredRooms.map(room => {
-        const isSanctuary = room.propertyId === 'sanctuary';
         return {
             id: room.id.toString(),
-            title: `${isSanctuary ? '🌿' : '🏖️'} ${room.name}`,
+            title: room.name,
             type: room.type,
-            extendedProps: { status: room.status, propertyId: room.propertyId || 'beach' }
+            extendedProps: { status: room.status, propertyId: room.propertyId }
         };
     }), [filteredRooms]);
 
@@ -83,7 +81,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
             };
         });
 
-        const blockEvents = (db.blocks || []).map((block: Block) => ({
+        const blockEvents = isLiveRuntime ? [] : (db.blocks || []).map((block: Block) => ({
              id: block.id,
              resourceId: block.roomId.toString(),
              start: block.startDate,
@@ -96,7 +94,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
         
         return [...bookingEvents, ...blockEvents];
 
-    }, [db.bookings, db.guests, db.blocks]);
+    }, [db.bookings, db.guests, db.blocks, isLiveRuntime]);
 
 
     const handleEventDrop = (info: any) => {
@@ -111,7 +109,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
              await onBookingUpdate(event.id, {
                 checkIn: event.start!.toISOString().split('T')[0],
                 checkOut: event.end ? event.end.toISOString().split('T')[0] : event.start!.toISOString().split('T')[0],
-                roomId: parseInt(newResource.id, 10)
+                roomId: newResource.id
             });
             setConfirmationModal({ isOpen: false, title: '', message: '', onConfirm: () => {} });
         };
@@ -151,7 +149,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
     };
 
     const handleDateSelect = (info: any) => {
-        const roomId = parseInt(info.resource?.id || '0', 10);
+        const roomId = String(info.resource?.id || '');
         if(!roomId) return;
         onNewBooking({
             roomId,
@@ -207,8 +205,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
                     {/* Unit filter */}
                     <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 gap-1">
                         <button onClick={() => setPropertyFilter('all')} className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${propertyFilter === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>🏢 Todas</button>
-                        <button onClick={() => setPropertyFilter('beach')} className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${propertyFilter === 'beach' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>🏖️ Praia</button>
-                        <button onClick={() => setPropertyFilter('sanctuary')} className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${propertyFilter === 'sanctuary' ? 'bg-teal-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>🌿 Santuário</button>
+                        {availableProperties.map((propertyId) => <button key={propertyId} onClick={() => setPropertyFilter(propertyId as PropertyUnitId)} className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${propertyFilter === propertyId ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{propertyId}</button>)}
                     </div>
 
                     <div className="h-4 w-px bg-gray-300 mx-1 hidden sm:block"></div>
@@ -228,8 +225,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
                     initialView="resourceTimelineMonth"
                     resources={resources}
                     events={events}
-                    editable={true}
-                    selectable={true}
+                    editable={!isLiveRuntime}
+                    selectable={!isLiveRuntime}
                     eventDrop={handleEventDrop}
                     eventResize={handleEventResize}
                     select={handleDateSelect}
@@ -273,19 +270,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ db, selectedUnit = 'all', o
                             <div className="flex flex-col py-1">
                                 <div className="flex justify-between items-center">
                                     <span className="font-bold text-gray-800">{info.resource.title}</span>
-                                    {db.rooms.find(r => r.id.toString() === info.resource.id)?.icalConfig && (
-                                        <button 
-                                            title="Sincronizar iCal"
-                                            onClick={async (e) => {
-                                                e.stopPropagation();
-                                                const res = await syncICalForRoom(parseInt(info.resource.id, 10));
-                                                alert(res.message);
-                                            }}
-                                            className="text-brand-green hover:text-green-700"
-                                        >
-                                            <RefreshCw size={12} />
-                                        </button>
-                                    )}
                                 </div>
                                 <div className={`flex items-center gap-1 text-[9px] font-bold uppercase ${getStatusColor(status as RoomStatus)}`}>
                                     {getStatusIcon(status as RoomStatus)}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cloneDevelopmentFixture } from './clientProvisioningPolicy.ts';
 import {
   canRenderLegacyBooking,
+  canRenderLegacyGuestExperience,
   hasProvisionedPublicPresentation,
   isProvisionedGuestUser,
   isProvisionedInternalUser,
@@ -66,6 +67,11 @@ describe('production runtime policy', () => {
     expect(hasProvisionedPublicPresentation(fixtureShape as any)).toBe(true);
     expect(canRenderLegacyBooking(fixtureShape as any, false)).toBe(true);
     expect(canRenderLegacyBooking(fixtureShape as any, true)).toBe(false);
+  });
+
+  it('keeps legacy guest and pre-arrival browser data out of production', () => {
+    expect(canRenderLegacyGuestExperience(true)).toBe(false);
+    expect(canRenderLegacyGuestExperience(false)).toBe(true);
   });
 
   it('rejects stale or unprovisioned tenant sessions', () => {

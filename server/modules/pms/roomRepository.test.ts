@@ -6,7 +6,7 @@ import { PmsService } from './pmsService';
 // In-memory Firestore store for unit test environment
 const mockFirestoreStore: Record<string, Record<string, any>> = {
   roomCategories: {},
-  rooms: {},
+  roomUnits: {},
 };
 
 function createMockFirestore() {

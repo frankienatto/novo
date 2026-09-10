@@ -223,7 +223,8 @@ export interface IcalConfig {
 }
 
 export interface Room {
-  id: number;
+  /** Legacy fixtures use numbers; canonical PMS units preserve their server-issued textual ID. */
+  id: string | number;
   name: string;
   type: RoomType;
   capacity: number;
@@ -367,7 +368,7 @@ export interface RatePlan {
 export interface Booking {
   id: string;
   guestId: string;
-  roomId: number;
+  roomId: Room['id'];
   ratePlanId: string;
   checkIn: string;
   checkOut: string;
@@ -504,7 +505,7 @@ export interface StaffTask {
   description: string;
   status: TaskStatus;
   assigneeId?: string;
-  roomId?: number;
+  roomId?: Room['id'];
   bookingId?: string;
   propertyId?: PropertyUnitId | 'all';
   propertyUnitId?: PropertyUnitId | 'all';
@@ -612,8 +613,8 @@ export interface LocalGuideTip {
 }
 
 export interface Block {
-    id: string;
-    roomId: number;
+  id: string;
+    roomId: Room['id'];
     startDate: string;
     endDate: string;
     reason: string;

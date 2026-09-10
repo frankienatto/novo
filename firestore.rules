@@ -90,17 +90,21 @@ service cloud.firestore {
     }
 
     match /guests/{guestId} {
-      allow read: if isSignedIn() && (request.auth.uid == guestId || isStaffOfTenant(resource.data));
-      allow create: if isSignedIn() && (request.auth.uid == guestId || isAllowedTenantCreate());
-      allow update: if isSignedIn() && (request.auth.uid == guestId || isStaffOfTenant(resource.data)) && isTenantMatch();
+      // Guest portal access is API-mediated through a Firebase-UID binding;
+      // clients do not query or mutate CRM profiles directly.
+      allow read: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
       allow delete: if isStaffOfTenant(resource.data);
     }
 
+    match /guestIdentities/{identityId} { allow read, write: if false; }
+
     // --- Booking & User Transactional Data ---
     match /bookings/{bookingId} {
-      allow read: if isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.email == request.auth.token.email));
-      allow create: if isSignedIn() && ('organizationId' in request.resource.data) && isNonFinancialLegacyBookingCreate() && (isAllowedTenantCreate() || request.resource.data.guestId == request.auth.uid || request.resource.data.email == request.auth.token.email);
-      allow update: if (isStaffOfTenant(resource.data) || (isSignedIn() && (resource.data.guestId == request.auth.uid || resource.data.email == request.auth.token.email))) && isTenantMatch() && financialFieldsUnchanged();
+      allow read: if isStaffOfTenant(resource.data);
+      allow create: if isAllowedTenantCreate() && isNonFinancialLegacyBookingCreate();
+      allow update: if isStaffOfTenant(resource.data) && isTenantMatch() && financialFieldsUnchanged();
       allow delete: if isStaffOfTenant(resource.data);
     }
 
@@ -422,6 +426,13 @@ service cloud.firestore {
     match /calendarSyncConflicts/{document=**} { allow read, write: if false; }
     match /occupancyLocks/{document=**} { allow read, write: if false; }
     match /icalSyncLocks/{document=**} { allow read, write: if false; }
+    // Canonical PMS and public catalog records are resolved through the
+    // protected server APIs; the browser must not bypass tenant/RBAC checks.
+    match /roomCategories/{document=**} { allow read, write: if false; }
+    match /roomUnits/{document=**} { allow read, write: if false; }
+    match /reservations/{document=**} { allow read, write: if false; }
+    match /publicBookingProperties/{document=**} { allow read, write: if false; }
+    match /publicBookingUnits/{document=**} { allow read, write: if false; }
     match /aiRuns/{document=**} { allow read, write: if false; }
     match /stagingBootstrapAudits/{document=**} { allow read, write: if false; }
     match /checkoutCapabilities/{document=**} { allow read, write: if false; }

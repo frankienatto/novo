@@ -5,6 +5,7 @@ export interface IPublicBookingRepository {
   getProperty(publicPropertyId: string): Promise<PublicBookingProperty | null>;
   createProperty(property: PublicBookingProperty): Promise<PublicBookingProperty>;
   getUnit(publicPropertyId: string, publicUnitId: string): Promise<PublicBookingUnit | null>;
+  listUnits(publicPropertyId: string): Promise<PublicBookingUnit[]>;
   createUnit(unit: PublicBookingUnit): Promise<PublicBookingUnit>;
 }
 
@@ -42,6 +43,14 @@ export class PublicBookingRepository implements IPublicBookingRepository {
     const snapshot = await this.db.collection('publicBookingUnits')
       .doc(this.unitDocumentId(publicPropertyId, publicUnitId)).get();
     return snapshot.exists ? snapshot.data() as PublicBookingUnit : null;
+  }
+
+  async listUnits(publicPropertyId: string): Promise<PublicBookingUnit[]> {
+    if (!publicPropertyId) return [];
+    const snapshot = await this.db.collection('publicBookingUnits')
+      .where('publicPropertyId', '==', publicPropertyId)
+      .get();
+    return snapshot.docs.map((doc) => doc.data() as PublicBookingUnit);
   }
 
   async createUnit(unit: PublicBookingUnit): Promise<PublicBookingUnit> {

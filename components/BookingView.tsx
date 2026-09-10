@@ -14,7 +14,7 @@ interface GuestData {
 }
 
 interface BookingData {
-    roomId: number;
+    roomId: Room['id'];
     checkIn: string;
     checkOut: string;
     numGuests: number;
@@ -156,7 +156,7 @@ export const BookingView: React.FC<BookingViewProps> = ({ setPage, initialParams
         setStep(2); // Go to room selection (filtered by package type)
     };
 
-    const handleSelectRoom = (roomId: number) => {
+    const handleSelectRoom = (roomId: Room['id']) => {
         setSelectedRoomId(roomId);
         setStep(3);
     };
