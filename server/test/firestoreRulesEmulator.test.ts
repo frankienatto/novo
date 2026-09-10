@@ -5,7 +5,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -158,5 +158,19 @@ describeWithFirestoreEmulator('Firestore Rules Emulator: public checkout interna
   it.each(['checkoutCapabilities', 'publicReservationIdempotency', 'paymentRecords', 'stripeEvents', 'paymentWebhookEvents'])('rejects direct client writes to %s', async (collectionName) => {
     const db = testEnv.authenticatedContext('guest_a', { email: 'guest@example.test' }).firestore();
     await assertFails(setDoc(doc(db, collectionName, 'internal-record'), { reservationId: 'reservation_a', organizationId: 'org_a', propertyId: 'prop_a' }));
+  });
+});
+
+describeWithFirestoreEmulator('Firestore Rules Emulator: canonical management server-only records', () => {
+  const collections = ['posCatalogItems', 'posSales', 'financialEntries', 'projects', 'projectTasks'];
+  it.each(collections)('rejects unauthenticated direct read and write to %s', async (collectionName) => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(setDoc(doc(db, collectionName, 'record-a'), { organizationId: 'org_a', propertyId: 'prop_a' }));
+    await assertFails(getDoc(doc(db, collectionName, 'record-a')));
+  });
+  it.each(collections)('rejects authenticated and cross-tenant direct write to %s', async (collectionName) => {
+    const db = testEnv.authenticatedContext('user_a').firestore();
+    await assertFails(setDoc(doc(db, collectionName, 'record-a'), { organizationId: 'org_a', propertyId: 'prop_a' }));
+    await assertFails(setDoc(doc(db, collectionName, 'record-b'), { organizationId: 'org_b', propertyId: 'prop_b' }));
   });
 });
