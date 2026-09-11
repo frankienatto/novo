@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Header from './components/Header';
 import PublicView from './components/PublicView';
 import { AdminDashboard } from './components/admin/AdminDashboard';
@@ -277,8 +277,13 @@ export const App: React.FC = () => {
     const isProductionBuild = import.meta.env.PROD;
     const [dbState, setDbState] = useState<DBState | null>(() => import.meta.env.DEV ? localDefaultDb : null);
     const [loading, setLoading] = useState<boolean>(true);
+    const [authHydrationPending, setAuthHydrationPending] = useState(false);
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [chatData, setChatData] = useState<ChatData>({ conversations: [], messages: [] });
+    const dbLoadVersion = useRef(0);
+    const authSyncVersion = useRef(0);
+    const interactiveLoginInProgress = useRef(false);
+    const hydratedFirebaseUid = useRef<string | null>(null);
 
     const isWidgetMode = window.location.pathname.includes('/widget');
 
@@ -310,6 +315,51 @@ export const App: React.FC = () => {
         return 'guestPortal'; // Fallback for guests with past or no bookings
     };
 
+    const fetchData = useCallback(async (): Promise<DBState> => {
+        const requestVersion = ++dbLoadVersion.current;
+        const data = await apiService.getDbState();
+        // A slower pre-auth request must never overwrite a later, authenticated
+        // tenant-scoped projection.
+        if (requestVersion === dbLoadVersion.current) setDbState(data);
+        return data;
+    }, []);
+
+    const establishAuthenticatedRuntime = useCallback(async (user: User, token: string | null): Promise<boolean> => {
+        if (!('role' in user)) {
+            // Guest identity remains validated by the canonical guest boundary;
+            // it does not require the internal staff projection.
+            setSession({ user, token });
+            localStorage.setItem('synapse_hospitality_session', JSON.stringify({ user, token }));
+            return true;
+        }
+        const syncVersion = ++authSyncVersion.current;
+        setAuthHydrationPending(true);
+        try {
+            const hydratedState = await fetchData();
+            if (syncVersion !== authSyncVersion.current) {
+                return false;
+            }
+            if (!isProvisionedInternalUser(hydratedState, user)) {
+                setSession({ user: null, token: null });
+                localStorage.removeItem('synapse_hospitality_session');
+                return false;
+            }
+            setSession({ user, token });
+            hydratedFirebaseUid.current = user.id;
+            localStorage.setItem('synapse_hospitality_session', JSON.stringify({ user, token }));
+            return true;
+        } catch (error) {
+            console.warn('Authenticated canonical runtime hydration failed:', error);
+            if (syncVersion === authSyncVersion.current) {
+                setSession({ user: null, token: null });
+                localStorage.removeItem('synapse_hospitality_session');
+            }
+            return false;
+        } finally {
+            if (syncVersion === authSyncVersion.current) setAuthHydrationPending(false);
+        }
+    }, [fetchData]);
+
     useEffect(() => {
         // Handle routing from URL parameters on initial load
         const urlParams = new URLSearchParams(window.location.search);
@@ -338,50 +388,33 @@ export const App: React.FC = () => {
         const { auth } = apiService as any;
         if (!auth) return;
 
+        let active = true;
         const unsubscribe = auth.onAuthStateChanged(async (fbUser: any) => {
-            if (!fbUser && session.user) {
-                console.log("App: Firebase auth says no user, but session exists. Clearing session.");
+            if (!fbUser) {
+                authSyncVersion.current += 1;
+                dbLoadVersion.current += 1;
+                hydratedFirebaseUid.current = null;
+                setAuthHydrationPending(false);
                 setSession({ user: null, token: null });
                 localStorage.removeItem('synapse_hospitality_session');
+                setDbState(import.meta.env.DEV ? localDefaultDb : null);
                 setPage('home');
-            } else if (fbUser && (!session.user || session.user.email !== fbUser.email)) {
-                console.log("App: Firebase auth user detected, syncing session.");
-                
-                // 1. Try to find in current dbState
-                const staff = Array.isArray(dbState?.staff) ? dbState.staff : [];
-                const guests = Array.isArray(dbState?.guests) ? dbState.guests : [];
-                let matchedUser = [...staff, ...guests].find(u => u.email.toLowerCase() === fbUser.email.toLowerCase()) || null;
-                
-                // 2. If not found in local dbState (common for new registrations), try fetching directly from API/Firestore
-                if (!matchedUser) {
-                    try {
-                        console.log("App: User not in local state, performing direct lookup for", fbUser.email);
-                        matchedUser = await apiService.getUserByEmail(fbUser.email);
-                    } catch (e) {
-                        console.warn("Direct user lookup failed:", e);
-                    }
-                }
+                return;
+            }
 
-                if (matchedUser) {
-                    const idToken = await fbUser.getIdToken().catch(() => 'firebase-auth');
-                    setSession({ user: matchedUser, token: idToken });
-                } else {
-                    console.warn("App: Authenticated but could not find user document for", fbUser.email);
-                    // We might be in the middle of registration, give it a moment or show restricted access
-                }
+            // Interactive login performs this exact sequence itself so the form
+            // can await the hydrated runtime. Session restoration uses this path.
+            if (interactiveLoginInProgress.current || hydratedFirebaseUid.current === fbUser.uid || !fbUser.email) return;
+            try {
+                const matchedUser = await apiService.getUserByEmail(fbUser.email);
+                const idToken = await fbUser.getIdToken();
+                if (active && matchedUser) await establishAuthenticatedRuntime(matchedUser, idToken);
+            } catch (error) {
+                console.warn('Canonical Firebase session resolution failed:', error);
             }
         });
-        return () => unsubscribe();
-    }, [session.user, dbState]);
-
-    const fetchData = async () => {
-        try {
-            const data = await apiService.getDbState();
-            setDbState(data);
-        } catch (error) {
-            console.error("Failed to load DB state:", error);
-        }
-    };
+        return () => { active = false; unsubscribe(); };
+    }, [establishAuthenticatedRuntime]);
 
     const fetchChatData = async () => {
         try {
@@ -474,24 +507,23 @@ export const App: React.FC = () => {
     };
 
     const handleLoginWithGoogle = async () => {
-        const result = await apiService.loginWithGoogle();
-        if (result) {
-            setSession({ user: result.user, token: result.token });
-            localStorage.setItem('synapse_hospitality_session', JSON.stringify({ user: result.user, token: result.token }));
-            return true;
+        interactiveLoginInProgress.current = true;
+        try {
+            const result = await apiService.loginWithGoogle();
+            return result ? await establishAuthenticatedRuntime(result.user, result.token) : false;
+        } finally {
+            interactiveLoginInProgress.current = false;
         }
-        return false;
     };
 
     const handleLogin = async (email: string, pass: string): Promise<boolean> => {
-        const result = await apiService.login(email, pass);
-        if (result) {
-            setSession({ user: result.user, token: result.token });
-            localStorage.setItem('synapse_hospitality_session', JSON.stringify({ user: result.user, token: result.token }));
-            // Routing is now handled by the useEffect hook
-            return true;
+        interactiveLoginInProgress.current = true;
+        try {
+            const result = await apiService.login(email, pass);
+            return result ? await establishAuthenticatedRuntime(result.user, result.token) : false;
+        } finally {
+            interactiveLoginInProgress.current = false;
         }
-        return false;
     };
     
     const addGuest = async (guestData: Omit<Guest, 'id'>) => {
@@ -966,7 +998,7 @@ export const App: React.FC = () => {
     };
 
     console.log("App: rendering. Loading:", loading, "dbState:", !!dbState);
-    if (loading) {
+    if (loading || authHydrationPending) {
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-gray-100 text-gray-900 p-6 text-center">
                 <Loader2 className="animate-spin mb-6 text-brand-green" size={56} />

@@ -988,7 +988,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             
             <div aria-hidden="true" onClick={() => setIsMobileMenuOpen(false)} className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-30 md:hidden transition-opacity ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} />
             
-            <aside className={`fixed md:relative inset-y-0 left-0 z-40 bg-[var(--admin-sidebar-color)] text-[var(--admin-menu-text-color)] flex flex-col transition-all duration-500 ease-in-out shadow-2xl ${isSidebarOpen ? 'md:w-72' : 'md:w-24'} ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0 w-72'}`}>
+            <aside data-testid="canonical-admin-runtime" className={`fixed md:relative inset-y-0 left-0 z-40 bg-[var(--admin-sidebar-color)] text-[var(--admin-menu-text-color)] flex flex-col transition-all duration-500 ease-in-out shadow-2xl ${isSidebarOpen ? 'md:w-72' : 'md:w-24'} ${isMobileMenuOpen ? 'translate-x-0 w-72' : '-translate-x-full md:translate-x-0 w-72'}`}>
                 <div className="flex items-center justify-center h-24 border-b border-white/5 flex-shrink-0 px-6">
                     <div className="relative group">
                         <img 

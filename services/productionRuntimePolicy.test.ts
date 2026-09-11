@@ -79,4 +79,17 @@ describe('production runtime policy', () => {
     expect(isProvisionedGuestUser({ guests: [] } as any, { id: 'G01', fullName: 'Guest' } as any)).toBe(false);
     expect(isProvisionedInternalUser({ staff: [{ id: 'S00' }] } as any, { id: 'S00', role: 'Admin' } as any)).toBe(true);
   });
+
+  it('permits the internal runtime only after the authenticated canonical projection rehydrates staff', () => {
+    const user = { id: 'canonical-user', role: 'Super Administrador' } as any;
+    const structuralEmptyState = cloneDevelopmentFixture(fixtureShape, false) as any;
+
+    expect(isProvisionedInternalUser(structuralEmptyState, user)).toBe(false);
+
+    const canonicalHydratedState = {
+      ...structuralEmptyState,
+      staff: [{ id: 'canonical-user', role: 'Super Administrador' }],
+    };
+    expect(isProvisionedInternalUser(canonicalHydratedState, user)).toBe(true);
+  });
 });

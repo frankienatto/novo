@@ -8,7 +8,7 @@ const prohibitedTenantIds = ['org_dev_default', 'prop_dev_default'];
 test.describe('runtime autenticado e tenant canônico', () => {
   test.skip(!hasCredentials, 'AUTHENTICATED_E2E_SKIPPED_MISSING_TEST_EMAIL_OR_TEST_PASSWORD');
 
-  test('não envia autoridade demo nem recebe 401/403 interno após login', async ({ page }) => {
+  test('alcança o runtime administrativo canônico sem autoridade demo após login', async ({ page }) => {
     const violations: string[] = [];
     const internalFailures: string[] = [];
     page.on('request', request => {
@@ -32,7 +32,9 @@ test.describe('runtime autenticado e tenant canônico', () => {
     const submitButton = page.locator('button[type="submit"]').first();
     await expect(submitButton).toBeVisible();
     await submitButton.click();
-    await page.waitForTimeout(2500);
+
+    await expect(page.getByTestId('canonical-admin-runtime')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('body')).not.toContainText('Acesso ainda não provisionado');
 
     expect(violations).toEqual([]);
     expect(internalFailures).toEqual([]);
