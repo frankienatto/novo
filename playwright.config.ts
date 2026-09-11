@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30000,
@@ -10,12 +12,12 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: externalBaseUrl || 'http://127.0.0.1:4173',
     trace: 'off',
     screenshot: 'off',
     video: 'off',
   },
-  webServer: {
+  webServer: externalBaseUrl ? undefined : {
     command: 'npm run dev',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: true,
