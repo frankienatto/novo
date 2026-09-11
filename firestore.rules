@@ -150,12 +150,6 @@ service cloud.firestore {
       allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
     }
 
-    match /projects/{projectId} {
-      allow read, delete: if isStaffOfTenant(resource.data);
-      allow create: if isAllowedTenantCreate();
-      allow update: if isStaffOfTenant(resource.data) && isTenantMatch();
-    }
-
     match /shoppingLists/{listId} {
       allow read, delete: if isStaffOfTenant(resource.data);
       allow create: if isAllowedTenantCreate();
