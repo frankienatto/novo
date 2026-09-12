@@ -50,8 +50,9 @@ test.describe('runtime P1 de gestão autenticado', () => {
     });
     page.on('response', response => {
       const url = response.url();
-      const isCanonicalManagementRequest = url.includes('/api/management/') || url.includes('/api/saas/staff');
-      const isOptionalGeminiRequest = url.includes('/api/gemini/generateText');
+      const path = new URL(url).pathname;
+      const isCanonicalManagementRequest = path.startsWith('/api/management/') || path === '/api/saas/staff';
+      const isOptionalGeminiRequest = path === '/api/gemini/generateText';
       const isAuditedRequest = isCanonicalManagementRequest || isOptionalGeminiRequest;
       if (!isAuditedRequest) return;
 
