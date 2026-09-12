@@ -13,27 +13,70 @@ const modules = [
 
 const forbiddenAuthority = /(?:org_dev_default|prop_dev_default|(?:[?&=\/])(beach|sanctuary)(?:[?&=\/]|$))/i;
 
-type RuntimeAudit = { failures: string[]; consoleErrors: string[] };
+type RuntimeAudit = {
+  failures: string[];
+  pageErrors: string[];
+  consoleErrors: string[];
+  optionalProviderFailures: string[];
+  auditedNetworkStatuses: Set<number>;
+  browserNetworkConsoleNoise: Array<{ text: string; status: number }>;
+};
+
+const isBrowserNetworkConsoleNoise = (text: string) =>
+  /^Failed to load resource: the server responded with a status of (\d{3})/.exec(text);
 
 test.describe('runtime P1 de gestão autenticado', () => {
   test.skip(!hasCredentials, 'P1_E2E_SKIPPED_MISSING_TEST_EMAIL_OR_TEST_PASSWORD');
 
   const attachRuntimeAudit = (page: Page): RuntimeAudit => {
-    const audit: RuntimeAudit = { failures: [], consoleErrors: [] };
-    page.on('pageerror', error => audit.consoleErrors.push(error.message));
+    const audit: RuntimeAudit = {
+      failures: [],
+      pageErrors: [],
+      consoleErrors: [],
+      optionalProviderFailures: [],
+      auditedNetworkStatuses: new Set(),
+      browserNetworkConsoleNoise: [],
+    };
+    page.on('pageerror', error => audit.pageErrors.push(error.message));
     page.on('console', message => {
-      if (message.type() === 'error') audit.consoleErrors.push(message.text());
+      if (message.type() !== 'error') return;
+      const text = message.text();
+      const networkNoise = isBrowserNetworkConsoleNoise(text);
+      if (networkNoise) {
+        audit.browserNetworkConsoleNoise.push({ text, status: Number(networkNoise[1]) });
+        return;
+      }
+      audit.consoleErrors.push(text);
     });
     page.on('response', response => {
       const url = response.url();
       const isCanonicalManagementRequest = url.includes('/api/management/') || url.includes('/api/saas/staff');
-      if (!isCanonicalManagementRequest) return;
-      if (response.status() >= 500 || response.status() === 401 || response.status() === 403) {
-        audit.failures.push(`${response.status()} ${url}`);
+      const isOptionalGeminiRequest = url.includes('/api/gemini/generateText');
+      const isAuditedRequest = isCanonicalManagementRequest || isOptionalGeminiRequest;
+      if (!isAuditedRequest) return;
+
+      const status = response.status();
+      if (status >= 400) audit.auditedNetworkStatuses.add(status);
+
+      if (isOptionalGeminiRequest && status === 503) {
+        audit.optionalProviderFailures.push(`${status} ${url}`);
+        return;
+      }
+
+      if (status >= 500 || status === 401 || status === 403) {
+        audit.failures.push(`${status} ${url}`);
       }
       if (forbiddenAuthority.test(url)) audit.failures.push(`autoridade demo na URL: ${url}`);
     });
     return audit;
+  };
+
+  const finalizeRuntimeAudit = (audit: RuntimeAudit) => {
+    for (const networkNoise of audit.browserNetworkConsoleNoise) {
+      if (!audit.auditedNetworkStatuses.has(networkNoise.status)) {
+        audit.consoleErrors.push(networkNoise.text);
+      }
+    }
   };
 
   const login = async (page: Page) => {
@@ -70,7 +113,9 @@ test.describe('runtime P1 de gestão autenticado', () => {
       })).toBeVisible();
       await expect(page.locator('body')).not.toContainText('org_dev_default');
       await expect(page.locator('body')).not.toContainText('prop_dev_default');
+      finalizeRuntimeAudit(audit);
       expect(audit.failures).toEqual([]);
+      expect(audit.pageErrors).toEqual([]);
       expect(audit.consoleErrors).toEqual([]);
     });
   }
