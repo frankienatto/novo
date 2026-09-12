@@ -63,7 +63,11 @@ test.describe('runtime P1 de gestão autenticado', () => {
       const response = await responsePromise;
 
       expect(response.status(), `falha na leitura canônica de ${module.label}`).toBeLessThan(400);
-      await expect(page.getByRole('heading', { name: module.heading, exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', {
+        level: 2,
+        name: module.heading,
+        exact: true,
+      })).toBeVisible();
       await expect(page.locator('body')).not.toContainText('org_dev_default');
       await expect(page.locator('body')).not.toContainText('prop_dev_default');
       expect(audit.failures).toEqual([]);
