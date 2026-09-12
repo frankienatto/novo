@@ -32,6 +32,14 @@ describeE2E('FASE 4.4 — Validação E2E das Rotas Reais do Backend', () => {
       expect(data.status).toBe('ok');
     });
 
+    it('GET /api/ai/capabilities expõe somente disponibilidade pública do provider', async () => {
+      const res = await fetch(`${baseUrl}/api/ai/capabilities`);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(typeof data?.gemini?.available).toBe('boolean');
+      expect(JSON.stringify(data)).not.toMatch(/api.?key|secret|token/i);
+    });
+
     it('POST /api/gemini/agent-execute sem payload deve retornar HTTP 400 Bad Request', async () => {
       const res = await fetch(`${baseUrl}/api/gemini/agent-execute`, {
         method: 'POST',

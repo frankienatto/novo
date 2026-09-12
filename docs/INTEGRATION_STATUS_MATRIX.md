@@ -2,7 +2,7 @@
 
 | Integração | Status | Descrição Técnica | Requisitos para Produção |
 | :--- | :--- | :--- | :--- |
-| **Gemini AI** | **CONFIGURABLE** | Provider server-side com runtime tenant-scoped e adapter determinístico de testes. Produção falha fechada sem `GEMINI_API_KEY`; não retorna resposta demo como resultado operacional. | Definir `GEMINI_API_KEY` no ambiente. |
+| **Gemini AI** | **CONFIGURABLE** | Provider server-side com runtime tenant-scoped, contexto operacional mínimo e adapter determinístico de testes. `GET /api/ai/capabilities` impede autochamadas quando o provider está indisponível; produção falha fechada sem resposta demo operacional. | Definir `GEMINI_API_KEY` no ambiente. |
 | **Firebase Auth** | **REAL** | Backend implementa validação estrita de tokens JWT no `authMiddleware.ts` via `firebase-admin`. Frontend utiliza Firebase Web SDK com listeners de estado de autenticação. | Em staging/produção, fornecer a configuração pública da Firebase Web App por `VITE_FIREBASE_*` no build; `firebase-applet-config.json` é somente fallback explícito de desenvolvimento. |
 | **Firestore** | **REAL** | `firebase-admin/firestore` integrado nativamente com isolamento multi-tenant (`organizationId`/`propertyId`), coleções particionadas e mock in-memory isolado para suítes de testes determinísticas. | Garantir conexão com o Firestore Database configurado no projeto GCP e regras de segurança `firestore.rules` implantadas. |
 | **Aloha PMS** | **CONFIGURABLE** | Webhook autenticado e tenant-scoped; eventos exigem identidade externa e unidade canônica. Não é prova de pagamento. | Configurar segredo de webhook e credenciais externas válidas. |

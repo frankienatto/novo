@@ -66,6 +66,8 @@ describe('AI runtime deterministic foundation', () => {
     const actions = validateAgentProposedActions([{ type: 'CREATE_DECISION_PROPOSAL', summary: 'Abrir decisão', payload: {} }], ['view_dashboard']);
     expect(actions).toHaveLength(1);
     expect(AGENT_ACTION_ALLOWLIST.CREATE_DECISION_PROPOSAL.requiresApproval).toBe(true);
+    expect(AGENT_ACTION_ALLOWLIST.CREATE_DECISION_PROPOSAL.actionClass).toBe('APPROVAL_REQUIRED');
+    expect(AGENT_ACTION_ALLOWLIST.CREATE_RECEPTION_RECOMMENDATION.actionClass).toBe('RECOMMENDATION');
     expect(() => validateAgentProposedActions([{ type: 'CREATE_PLANNING_PROPOSAL', summary: 'Plano', payload: {} }], ['view_dashboard'])).toThrow('AI_ACTION_PERMISSION_DENIED');
     expect(() => validateAgentProposedActions([{ type: 'MARK_PAYMENT_PAID', summary: 'Fraude', payload: {} }], ['view_dashboard'])).toThrow();
   });

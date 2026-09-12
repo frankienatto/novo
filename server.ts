@@ -37,6 +37,7 @@ import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware
 import { tenantMiddleware } from "./server/modules/saas/middlewares/tenantMiddleware.ts";
 import { requirePermission } from "./server/modules/saas/middlewares/rbacMiddleware.ts";
 import { aiOrchestrator } from "./server/modules/ai/aiOrchestrator.ts";
+import { getAiCapabilities } from "./server/modules/ai/aiCapabilities.ts";
 import { getAllAgentDeclarations } from "./server/modules/ai/orchestrator/agentRegistry.ts";
 import { env } from "./server/config/environment.ts";
 import { rateLimiters } from "./server/middlewares/rateLimitMiddleware.ts";
@@ -1306,6 +1307,12 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   // the canonical Reservation + capability flow above.
   app.post("/api/create-payment-intent", async (req, res) => {
     return res.status(410).json({ error: 'Legacy payment endpoint retired. Use canonical public checkout.' });
+  });
+
+  // Deliberately public and non-sensitive. Frontends use this before automatic
+  // AI work so an optional, unconfigured provider does not generate 503 noise.
+  app.get("/api/ai/capabilities", (_req, res) => {
+    return res.status(200).json(getAiCapabilities());
   });
 
   // Mock PIX Generation (Integrável com gateways brasileiros)

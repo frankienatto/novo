@@ -26,6 +26,8 @@ export const Type = {
 
 const geminiCache: Record<string, { data: any, timestamp: number }> = {};
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
+const CAPABILITY_CACHE_TTL = 1000 * 30;
+let aiCapabilitiesCache: { data: { gemini: { available: boolean } }; timestamp: number } | null = null;
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -36,6 +38,28 @@ const authenticatedGeminiHeaders = async (): Promise<Record<string, string>> => 
     const token = await auth.currentUser?.getIdToken();
     if (!token) throw new Error('AUTHENTICATED_GEMINI_API_REQUIRED');
     return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+};
+
+/** Public runtime projection only. Failure to read it is fail-closed so the
+ * browser never starts a provider request that cannot be safely classified. */
+export const getAiCapabilities = async (): Promise<{ gemini: { available: boolean } }> => {
+    if (aiCapabilitiesCache && Date.now() - aiCapabilitiesCache.timestamp < CAPABILITY_CACHE_TTL) {
+        return aiCapabilitiesCache.data;
+    }
+    try {
+        const response = await fetch('/api/ai/capabilities');
+        if (!response.ok) return { gemini: { available: false } };
+        const data = await response.json();
+        const capabilities = { gemini: { available: data?.gemini?.available === true } };
+        aiCapabilitiesCache = { data: capabilities, timestamp: Date.now() };
+        return capabilities;
+    } catch {
+        return { gemini: { available: false } };
+    }
+};
+
+export const resetAiCapabilitiesForTests = () => {
+    aiCapabilitiesCache = null;
 };
 
 const withRetry = async <T>(fn: () => Promise<T>, retries = 3): Promise<T> => {
@@ -74,10 +98,13 @@ const callGemini = async (prompt: string, schema: any, systemInstruction?: strin
     }
 
     try {
+        const headers = await authenticatedGeminiHeaders();
+        const capabilities = await getAiCapabilities();
+        if (!capabilities.gemini.available) return null;
         const response = await withRetry(async () => {
              const result = await fetch('/api/gemini/generateText', {
                  method: 'POST',
-                 headers: await authenticatedGeminiHeaders(),
+                 headers,
                  body: JSON.stringify({ prompt, schema, systemInstruction })
              });
              
