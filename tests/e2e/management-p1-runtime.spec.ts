@@ -91,7 +91,8 @@ test.describe('runtime P1 de gestão autenticado', () => {
     const submitButton = page.locator('button[type="submit"]').first();
     await expect(submitButton).toBeVisible();
     await submitButton.click();
-    await expect(page.locator('input[type="email"]').first()).toBeHidden({ timeout: 15000 });
+    await expect(page.getByTestId('canonical-admin-runtime')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('body')).not.toContainText('Acesso ainda não provisionado');
   };
 
   for (const module of modules) {
