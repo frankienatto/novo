@@ -66,6 +66,7 @@ import EmailAutopilotView from './EmailAutopilotView';
 import MaintenanceManagerView from './MaintenanceManagerView';
 import SupplierManagerView from './SupplierManagerView';
 import { CanonicalManagementView } from './CanonicalManagementView';
+import { StagingIdentityProvisioningView } from './StagingIdentityProvisioningView';
 
 
 import UnitSelector from './UnitSelector';
@@ -285,6 +286,7 @@ const navItems: { id: AdminSection, label: string, icon: React.ElementType, cate
 
     // SaaS
     { id: 'saas_admin', label: 'SaaS Admin', icon: Building, category: 'SaaS' },
+    { id: 'staging_identities', label: 'Identidades de Staging', icon: TestTube2, category: 'SaaS' },
     { id: 'subscriptions', label: 'Assinaturas', icon: CreditCard, category: 'SaaS' },
 ];
 
@@ -502,7 +504,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         if (currentUser.role === 'Gerente' && !permissions.includes('integrations')) {
             permissions.push('integrations');
         }
-        return navItems.filter(item => permissions.includes(item.id));
+        return navItems.filter(item => item.id !== 'staging_identities' && permissions.includes(item.id));
     }, [currentUser?.permissions, currentUser?.role]);
     
     const toggleCategory = (category: string) => {
@@ -920,6 +922,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 return <SynapseAgentView chatHistory={db.synapseChatHistory} onSendCommand={props.onSendSynapseCommand} db={db} onRunSynapseOrchestrationCycle={props.onRunSynapseOrchestrationCycle} />;
             case 'saas_admin':
                  return <SaaSAdminView db={db} onAddProperty={props.onAddProperty} onUpdateProperty={props.onUpdateProperty}/>;
+            case 'staging_identities':
+                return <StagingIdentityProvisioningView />;
             case 'subscriptions':
                 return <SubscriptionManagerView db={db} onUpdateProperty={props.onUpdateProperty} onSaveSubscriptionPlan={props.onSaveSubscriptionPlan} onDeleteSubscriptionPlan={props.onDeleteSubscriptionPlan}/>;
             case 'rate_manager':

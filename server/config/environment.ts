@@ -27,6 +27,15 @@ const envSchema = z.object({
   // created by a staging operator. Disabled in every environment by default.
   STAGING_IDENTITY_PROVISIONING_ENABLED: z.string().optional().transform(value => value === 'true'),
   STAGING_IDENTITY_PROVISIONING_ORGANIZATION_ID: z.string().min(1).optional(),
+  // Non-secret, explicit staging test-identity coordinates. They are consumed
+  // only by the one-click, RBAC-protected staging provisioning operation.
+  STAGING_TEST_STAFF_UID: z.string().min(1).optional(),
+  STAGING_TEST_STAFF_EMAIL: z.string().email().optional(),
+  STAGING_TEST_STAFF_NAME: z.string().min(1).optional(),
+  STAGING_TEST_GUEST_UID: z.string().min(1).optional(),
+  STAGING_TEST_GUEST_EMAIL: z.string().email().optional(),
+  STAGING_TEST_GUEST_NAME: z.string().min(1).optional(),
+  STAGING_TEST_GUEST_PHONE: z.string().min(1).optional(),
   GOOGLE_CALENDAR_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CALENDAR_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_CALENDAR_REDIRECT_URI: z.string().url().optional(),

@@ -36,6 +36,7 @@ export const tooltipTexts: Record<AdminSection, string> = {
     property_settings: 'Configure as informações da sua propriedade, personalize a aparência do site público, painel admin e portal do hóspede.',
     my_subscription: 'Gerencie sua assinatura da plataforma Synapse, veja detalhes do seu plano e histórico de faturamento.',
     saas_admin: '(Super Admin) Gerencie todas as propriedades (clientes) cadastradas na plataforma.',
+    staging_identities: '(Super Admin) Ferramenta temporária e controlada para vincular contas Firebase de teste ao tenant de staging.',
     subscriptions: '(Super Admin) Crie e gerencie os planos de assinatura (Essencial, Crescimento, etc.) oferecidos aos clientes.',
     maintenance_manager: 'Gerencie equipamentos do hostel, agende manutenções preventivas e crie ordens de serviço para consertos.',
     supplier_manager: 'Mantenha um registro de seus fornecedores, crie e acompanhe ordens de compra e receba itens no estoque.',

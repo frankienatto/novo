@@ -757,6 +757,7 @@ export type AdminSection =
   | 'marketing_orchestrator'
   | 'management_center'
   | 'saas_admin'
+  | 'staging_identities'
   | 'subscriptions'
   | 'synapse_agent'
   | 'rate_manager'

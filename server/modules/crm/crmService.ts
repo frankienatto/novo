@@ -12,6 +12,11 @@ import { timelineService } from './timelineService.ts';
 import { contextService } from '../ai/contextService.ts';
 
 export class CrmService {
+  /** Canonical organization-scoped CRM lookup used by server-side workflows. */
+  async getGuestByEmail(organizationId: string, email: string): Promise<GuestProfile | null> {
+    return guestRepository.findByEmailOrDocument(organizationId, email);
+  }
+
   /**
    * Cria um perfil de hóspede vinculado à Organização
    */

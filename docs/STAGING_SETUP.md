@@ -96,11 +96,20 @@ Para contas criadas manualmente no Firebase Auth, use somente o vínculo server-
 ```text
 STAGING_IDENTITY_PROVISIONING_ENABLED=true
 STAGING_IDENTITY_PROVISIONING_ORGANIZATION_ID=stg_org_synapse_core
+STAGING_TEST_STAFF_UID=<UID_FIREBASE_DO_STAFF_DE_TESTE>
+STAGING_TEST_STAFF_EMAIL=<EMAIL_DO_STAFF_DE_TESTE>
+STAGING_TEST_STAFF_NAME=<NOME_DO_STAFF_DE_TESTE>
+STAGING_TEST_GUEST_UID=<UID_FIREBASE_DO_HOSPEDE_DE_TESTE>
+STAGING_TEST_GUEST_EMAIL=<EMAIL_DO_HOSPEDE_DE_TESTE>
+STAGING_TEST_GUEST_NAME=<NOME_DO_HOSPEDE_DE_TESTE>
+STAGING_TEST_GUEST_PHONE=<TELEFONE_SINTETICO_APENAS_STAGING>
 ```
 
-Após um deploy de configuração autorizado, um administrador com `manage_staff_permissions` pode chamar, com seu próprio Firebase ID token, `POST /api/staging/identities/staff` com `firebaseUid`, `email` e nome opcional. O papel é fixo em `receptionist`: `view_dashboard`, `manage_bookings`, `view_pos` e `operate_pos`; não há permissões owner/admin, financeiras, de gestão de equipe ou de mudança de papel. O backend valida UID, e-mail e conta Firebase, deriva tenant/propriedade da sessão do administrador e cria atomica e idempotentemente `users/<UID>`, `staff/<UID>` e auditoria server-only.
+Após um deploy de configuração autorizado, um administrador com `manage_staff_permissions` abre **SaaS → Identidades de Staging** e usa o único botão de provisionamento. A sessão Firebase do navegador é usada automaticamente para a chamada protegida; nenhum token, senha, UID, e-mail, `guestId`, tenant ou papel é enviado pelo navegador. O backend obtém as coordenadas não secretas exclusivamente da configuração acima, valida UID/e-mail/conta Firebase pelo Admin SDK, deriva tenant/propriedade da sessão administrativa e cria atomica e idempotentemente `users/<UID>`, `staff/<UID>` e auditoria server-only. O papel Staff é fixo em `receptionist`: `view_dashboard`, `manage_bookings`, `view_pos` e `operate_pos`; não há permissões owner/admin, financeiras, de gestão de equipe ou de mudança de papel.
 
-Para hóspede, primeiro crie ou localize o perfil CRM canônico com o mesmo e-mail. O mesmo administrador então chama `POST /api/staging/identities/guest` com `firebaseUid`, `email` e `guestId`. O backend valida a conta Firebase, o e-mail e o tenant do guest e cria somente `guestIdentities/<UID>` com auditoria server-only. Ele nunca cria `users/<UID>` ou `staff/<UID>` para hóspedes. Depois desative `STAGING_IDENTITY_PROVISIONING_ENABLED` e faça novo deploy de configuração.
+No mesmo clique, o servidor chama o CRM canônico (`crmService.createGuest`) com o e-mail configurado. Esse contrato localiza por e-mail e reutiliza o perfil já existente; se não existir, cria um perfil CRM no tenant do administrador e devolve o `guestId` real. Só então ele valida o hóspede no Firebase Admin e cria `guestIdentities/<UID>` com auditoria server-only. Ele nunca cria `users/<UID>` ou `staff/<UID>` para hóspedes. Depois desative `STAGING_IDENTITY_PROVISIONING_ENABLED` e faça novo deploy de configuração; a ferramenta volta a responder como indisponível.
+
+As rotas de baixo nível continuam disponíveis somente para recuperação administrativa controlada (`POST /api/staging/identities/staff` e `POST /api/staging/identities/guest`), mas o procedimento padrão para staging é a ferramenta autenticada. `GET /api/staging/identities/status` não retorna UID, e-mail, telefone, segredo ou token: apenas informa se a operação temporária está habilitada e completamente configurada.
 
 ## Dados demo e amostras
 

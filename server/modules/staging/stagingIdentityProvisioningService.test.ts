@@ -52,4 +52,48 @@ describe('staging identity provisioning', () => {
     const disabled = new StagingIdentityProvisioningService({ enabled: false, organizationId: 'stg-org' }, db as any, { getUser: async () => accounts.get(firebaseUid)! }, async () => null);
     await expect(disabled.provisionStaff(actor, { firebaseUid, email: 'staff.synapse@gmail.com' })).rejects.toThrow('STAGING_IDENTITY_PROVISIONING_DISABLED');
   });
+
+  it('uses only declared server configuration to create/reuse the CRM guest and bind both test identities', async () => {
+    let createdGuests = 0;
+    const configured = new StagingIdentityProvisioningService(
+      {
+        enabled: true,
+        organizationId: 'stg-org',
+        testStaffUid: firebaseUid,
+        testStaffEmail: 'staff.synapse@gmail.com',
+        testStaffName: 'Staff Synapse',
+        testGuestUid: guestUid,
+        testGuestEmail: 'hospede.synapse@gmail.com',
+        testGuestName: 'Hóspede Synapse',
+        testGuestPhone: '+5500000000000',
+      },
+      db as any,
+      { getUser: async (uid: string) => accounts.get(uid)! },
+      async (guestId: string) => guestId === 'guest-canonical' ? { guestId, organizationId: 'stg-org', email: 'hospede.synapse@gmail.com' } : null,
+      async (organizationId, input) => {
+        createdGuests += 1;
+        expect(organizationId).toBe('stg-org');
+        expect(input).toEqual({ fullName: 'Hóspede Synapse', email: 'hospede.synapse@gmail.com', phone: '+5500000000000' });
+        return { guestId: 'guest-canonical', organizationId, email: input.email };
+      },
+    );
+    expect(configured.getStatus()).toEqual({ enabled: true, configured: true });
+    await expect(configured.provisionConfiguredTestIdentities(actor)).resolves.toMatchObject({
+      staff: { kind: 'staff', status: 'created' }, guest: { kind: 'guest', status: 'created', guestId: 'guest-canonical' },
+    });
+    await expect(configured.provisionConfiguredTestIdentities(actor)).resolves.toMatchObject({
+      staff: { status: 'already_provisioned' }, guest: { status: 'already_provisioned' },
+    });
+    // The CRM service itself reuses same-email profiles; this callback models
+    // that canonical get-or-create contract on both controlled executions.
+    expect(createdGuests).toBe(2);
+    expect(store.has(`users/${guestUid}`)).toBe(false);
+    expect(store.has(`staff/${guestUid}`)).toBe(false);
+  });
+
+  it('does not expose the one-click operation when its non-secret staging coordinates are incomplete', async () => {
+    const incomplete = new StagingIdentityProvisioningService({ enabled: true, organizationId: 'stg-org' }, db as any, { getUser: async () => accounts.get(firebaseUid)! }, async () => null);
+    expect(incomplete.getStatus()).toEqual({ enabled: true, configured: false });
+    await expect(incomplete.provisionConfiguredTestIdentities(actor)).rejects.toThrow('STAGING_IDENTITY_PROVISIONING_CONFIGURATION_REQUIRED');
+  });
 });

@@ -3,6 +3,13 @@ import { ROLE_PERMISSIONS, type SaaSUser } from '../saas/saasTypes.ts';
 export type StagingIdentityProvisioningConfig = {
   enabled: boolean;
   organizationId?: string;
+  testStaffUid?: string;
+  testStaffEmail?: string;
+  testStaffName?: string;
+  testGuestUid?: string;
+  testGuestEmail?: string;
+  testGuestName?: string;
+  testGuestPhone?: string;
 };
 
 type FirebaseAccount = { uid: string; email?: string; disabled?: boolean };
@@ -12,9 +19,11 @@ type Transaction = { get: (reference: DocumentReference) => Promise<DocumentSnap
 type Firestore = { collection: (name: string) => { doc: (id: string) => DocumentReference }; runTransaction: <T>(callback: (transaction: Transaction) => Promise<T>) => Promise<T> };
 type FirebaseAuth = { getUser: (uid: string) => Promise<FirebaseAccount> };
 type GuestLookup = { guestId: string; organizationId: string; email: string };
+type EnsureGuest = (organizationId: string, input: { fullName: string; email: string; phone: string }) => Promise<GuestLookup>;
 
 export type ProvisioningActor = Pick<SaaSUser, 'userId' | 'organizationId' | 'propertyIds' | 'role' | 'permissions'>;
 export type ProvisionedIdentity = { status: 'created' | 'already_provisioned'; firebaseUid: string; kind: 'staff' | 'guest'; organizationId: string; propertyId: string; guestId?: string };
+export type ProvisionedTestIdentities = { staff: ProvisionedIdentity; guest: ProvisionedIdentity };
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 const validUid = (uid: string) => /^[A-Za-z0-9_-]{20,128}$/.test(uid);
@@ -27,7 +36,16 @@ export class StagingIdentityProvisioningService {
     private readonly db: Firestore,
     private readonly auth: FirebaseAuth,
     private readonly findGuestById: (guestId: string) => Promise<GuestLookup | null>,
+    private readonly ensureGuest?: EnsureGuest,
   ) {}
+
+  getStatus() {
+    const configured = Boolean(
+      this.config.testStaffUid && this.config.testStaffEmail && this.config.testStaffName
+      && this.config.testGuestUid && this.config.testGuestEmail && this.config.testGuestName && this.config.testGuestPhone,
+    );
+    return { enabled: this.config.enabled, configured };
+  }
 
   private assertStagingActor(actor: ProvisioningActor) {
     if (!this.config.enabled) throw new Error('STAGING_IDENTITY_PROVISIONING_DISABLED');
@@ -95,5 +113,22 @@ export class StagingIdentityProvisioningService {
       transaction.create(auditRef, { action: 'STAGING_GUEST_IDENTITY_PROVISIONED', actorUserId: actor.userId, firebaseUid: account.uid, guestId: guest.guestId, organizationId: actor.organizationId, propertyId, createdAt: now });
       return { status: 'created', firebaseUid: account.uid, kind: 'guest', organizationId: actor.organizationId, propertyId, guestId: guest.guestId };
     });
+  }
+
+  /**
+   * Controlled convenience operation for the two declared staging accounts.
+   * The browser supplies no UID, e-mail, role, tenant or guestId; all input
+   * comes from server-only runtime configuration and the canonical CRM service.
+   */
+  async provisionConfiguredTestIdentities(actor: ProvisioningActor): Promise<ProvisionedTestIdentities> {
+    this.assertStagingActor(actor);
+    const { testStaffUid, testStaffEmail, testStaffName, testGuestUid, testGuestEmail, testGuestName, testGuestPhone } = this.config;
+    if (!testStaffUid || !testStaffEmail || !testStaffName || !testGuestUid || !testGuestEmail || !testGuestName || !testGuestPhone || !this.ensureGuest) {
+      throw new Error('STAGING_IDENTITY_PROVISIONING_CONFIGURATION_REQUIRED');
+    }
+    const staff = await this.provisionStaff(actor, { firebaseUid: testStaffUid, email: testStaffEmail, name: testStaffName });
+    const guest = await this.ensureGuest(actor.organizationId, { fullName: testGuestName, email: testGuestEmail, phone: testGuestPhone });
+    const guestIdentity = await this.provisionGuest(actor, { firebaseUid: testGuestUid, email: testGuestEmail, guestId: guest.guestId });
+    return { staff, guest: guestIdentity };
   }
 }
