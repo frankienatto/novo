@@ -398,7 +398,8 @@ export const App: React.FC = () => {
                 setSession({ user: null, token: null });
                 localStorage.removeItem('synapse_hospitality_session');
                 setDbState(import.meta.env.DEV ? localDefaultDb : null);
-                setPage('home');
+                const requestedPage = new URLSearchParams(window.location.search).get('page');
+                if (!requestedPage) setPage('home');
                 return;
             }
 
