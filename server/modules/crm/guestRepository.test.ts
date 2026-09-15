@@ -9,6 +9,14 @@ const mockFirestoreStore: Record<string, Record<string, any>> = {
   guest_timeline: {},
 };
 
+const containsUndefined = (value: unknown): boolean => {
+  if (value === undefined) return true;
+  if (value === null || typeof value !== 'object') return false;
+  return Array.isArray(value)
+    ? value.some(containsUndefined)
+    : Object.values(value).some(containsUndefined);
+};
+
 function createMockFirestore() {
   return {
     collection: (collectionName: string) => {
@@ -47,6 +55,9 @@ function createMockFirestore() {
             data: () => (col[docId] ? JSON.parse(JSON.stringify(col[docId])) : undefined),
           }),
           set: async (data: any, options?: { merge?: boolean }) => {
+            if (containsUndefined(data)) {
+              throw new Error('Firestore cannot persist undefined values');
+            }
             if (options?.merge && col[docId]) {
               col[docId] = JSON.parse(JSON.stringify({ ...col[docId], ...data }));
             } else {
@@ -130,6 +141,23 @@ describe('GuestRepository - Firestore Persistence Tests', () => {
     expect(saved.fullName).toBe('Beatriz Vasconcelos');
     expect(saved.classification).toBe('vip');
     expect(saved.preferences.pillowType).toBe('Plumas');
+  });
+
+  it('omits absent CRM optional fields recursively before Firestore persistence', async () => {
+    const crmService = new CrmService();
+    const created = await crmService.createGuest(orgA, {
+      fullName: 'Hóspede Synapse',
+      email: `hospede.synapse.${Date.now()}@example.test`,
+      phone: '+5500000000000',
+      documents: [{ type: 'passport', number: 'STAGING-TEST', issuingCountry: undefined, expirationDate: undefined }],
+      preferences: { generalNotes: undefined, quietRoomRequested: true },
+    });
+    expect('secondaryPhone' in created).toBe(false);
+    expect(created.documents[0]).not.toHaveProperty('issuingCountry');
+    expect(created.documents[0]).not.toHaveProperty('expirationDate');
+    expect(created.preferences).not.toHaveProperty('generalNotes');
+    expect(containsUndefined(created)).toBe(false);
+    await repo.delete(created.guestId);
   });
 
   // 2. Recuperar Hóspede por ID

@@ -96,4 +96,23 @@ describe('staging identity provisioning', () => {
     expect(incomplete.getStatus()).toEqual({ enabled: true, configured: false });
     await expect(incomplete.provisionConfiguredTestIdentities(actor)).rejects.toThrow('STAGING_IDENTITY_PROVISIONING_CONFIGURATION_REQUIRED');
   });
+
+  it('completes the guest binding idempotently after an earlier attempt already created staff', async () => {
+    const config = {
+      enabled: true, organizationId: 'stg-org',
+      testStaffUid: firebaseUid, testStaffEmail: 'staff.synapse@gmail.com', testStaffName: 'Staff Synapse',
+      testGuestUid: guestUid, testGuestEmail: 'hospede.synapse@gmail.com', testGuestName: 'Hóspede Synapse', testGuestPhone: '+5500000000000',
+    };
+    const configured = new StagingIdentityProvisioningService(
+      config, db as any, { getUser: async (uid: string) => accounts.get(uid)! },
+      async guestId => guestId === 'guest-canonical' ? { guestId, organizationId: 'stg-org', email: 'hospede.synapse@gmail.com' } : null,
+      async (organizationId, input) => ({ guestId: 'guest-canonical', organizationId, email: input.email }),
+    );
+    await configured.provisionStaff(actor, { firebaseUid, email: 'staff.synapse@gmail.com', name: 'Staff Synapse' });
+    await expect(configured.provisionConfiguredTestIdentities(actor)).resolves.toMatchObject({
+      staff: { status: 'already_provisioned' }, guest: { status: 'created', guestId: 'guest-canonical' },
+    });
+    expect(store.has(`users/${guestUid}`)).toBe(false);
+    expect(store.has(`staff/${guestUid}`)).toBe(false);
+  });
 });

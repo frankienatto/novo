@@ -1,6 +1,26 @@
 import { GuestProfile, GuestQueryFilters, GuestStayRecord } from './guestTypes.ts';
 import { getAdminFirestore } from '../../config/firebaseAdmin.ts';
 
+/**
+ * Firestore rejects `undefined` at every depth. Keep this explicit at the
+ * repository boundary instead of changing global SDK behavior: optional CRM
+ * fields are absent from persisted documents, never silently coerced.
+ */
+export function omitUndefinedFirestoreValues<T>(value: T): T {
+  if (value === undefined || value === null || typeof value !== 'object') return value;
+  if (value instanceof Date) return value;
+  if (Array.isArray(value)) {
+    return value.filter(item => item !== undefined).map(item => omitUndefinedFirestoreValues(item)) as T;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([, entry]) => entry !== undefined)
+      .map(([key, entry]) => [key, omitUndefinedFirestoreValues(entry)]),
+  ) as T;
+}
+
 export interface IGuestRepository {
   save(guest: GuestProfile): Promise<GuestProfile>;
   createGuest?(guest: GuestProfile): Promise<GuestProfile>;
@@ -45,8 +65,9 @@ export class GuestRepository implements IGuestRepository {
         : (guest.totalSpentAmount || 0)
     };
 
-    await this.db.collection('guests').doc(guest.guestId).set(profileToSave, { merge: true });
-    return profileToSave;
+    const persistedProfile = omitUndefinedFirestoreValues(profileToSave);
+    await this.db.collection('guests').doc(guest.guestId).set(persistedProfile, { merge: true });
+    return persistedProfile;
   }
 
   /**
@@ -189,8 +210,9 @@ export class GuestRepository implements IGuestRepository {
       updatedAt
     };
 
-    await this.db.collection('guests').doc(guestId).set(updated, { merge: true });
-    return updated;
+    const persistedGuest = omitUndefinedFirestoreValues(updated);
+    await this.db.collection('guests').doc(guestId).set(persistedGuest, { merge: true });
+    return persistedGuest;
   }
 
   /**
@@ -215,8 +237,9 @@ export class GuestRepository implements IGuestRepository {
       updatedAt: new Date().toISOString()
     };
 
-    await this.db.collection('guests').doc(guestId).set(updated, { merge: true });
-    return updated;
+    const persistedGuest = omitUndefinedFirestoreValues(updated);
+    await this.db.collection('guests').doc(guestId).set(persistedGuest, { merge: true });
+    return persistedGuest;
   }
 
   /**
