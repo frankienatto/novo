@@ -568,9 +568,9 @@ export const createNotification = async (notification: Omit<AppNotification, 'id
 
 
 // --- DB State & Getters ---
-export const getDbState = async (): Promise<DBState> => {
+export const getDbState = async (authenticatedSession?: import('./canonicalPmsRuntime').CanonicalSession): Promise<DBState> => {
     if (!allowDevelopmentFixtures) {
-        return loadCanonicalPmsState(JSON.parse(JSON.stringify(state)));
+        return loadCanonicalPmsState(JSON.parse(JSON.stringify(state)), authenticatedSession);
     }
     return JSON.parse(JSON.stringify(state)); 
 };

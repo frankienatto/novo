@@ -18,6 +18,7 @@ import {
     updateCanonicalHousekeepingTask,
     updateCanonicalRoomStatus,
     getCanonicalSession,
+    type CanonicalSession,
 } from './services/canonicalPmsRuntime';
 import { restoreCanonicalInternalRuntime } from './services/authenticatedRuntime';
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -317,9 +318,9 @@ export const App: React.FC = () => {
         return 'guestPortal'; // Fallback for guests with past or no bookings
     };
 
-    const fetchData = useCallback(async (): Promise<DBState> => {
+    const fetchData = useCallback(async (authenticatedSession?: CanonicalSession): Promise<DBState> => {
         const requestVersion = ++dbLoadVersion.current;
-        const data = await apiService.getDbState();
+        const data = await apiService.getDbState(authenticatedSession);
         // A slower pre-auth request must never overwrite a later, authenticated
         // tenant-scoped projection.
         if (requestVersion === dbLoadVersion.current) setDbState(data);
@@ -412,7 +413,7 @@ export const App: React.FC = () => {
                 const idToken = await fbUser.getIdToken();
                 const restored = await restoreCanonicalInternalRuntime(
                     getCanonicalSession,
-                    fetchData,
+                    (session) => fetchData(session),
                 );
                 if (active) await establishAuthenticatedRuntime(restored.user, idToken, restored.state);
             } catch (error) {

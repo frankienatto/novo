@@ -15,11 +15,11 @@ export type CanonicalInternalRuntime = {
  */
 export async function restoreCanonicalInternalRuntime(
   getSession: () => Promise<CanonicalSession>,
-  loadState: () => Promise<DBState>,
+  loadState: (session: CanonicalSession) => Promise<DBState>,
 ): Promise<CanonicalInternalRuntime> {
   const session = await getSession();
   const user = adaptCanonicalSession(session);
-  const state = await loadState();
+  const state = await loadState(session);
 
   if (!isProvisionedInternalUser(state, user)) {
     throw new Error('CANONICAL_INTERNAL_RUNTIME_UNPROVISIONED');

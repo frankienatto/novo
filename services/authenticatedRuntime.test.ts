@@ -18,7 +18,7 @@ describe('canonical authenticated runtime restoration', () => {
     expect(restored.user.propertyId).toBe('stg_prop_synapse_core');
     expect(restored.session.organizationId).toBe('stg_org_synapse_core');
     expect(getSession).toHaveBeenCalledOnce();
-    expect(loadState).toHaveBeenCalledOnce();
+    expect(loadState).toHaveBeenCalledWith(session);
   });
 
   it('fails closed when a valid session cannot hydrate its canonical staff projection', async () => {

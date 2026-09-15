@@ -93,27 +93,38 @@ export async function getCanonicalGuestSession(): Promise<Guest> {
 
 /** Returns only server-authoritative PMS data over a structurally safe empty
  * state. It deliberately never mixes local fixture records into production. */
-export async function loadCanonicalPmsState(emptyState: DBState): Promise<DBState> {
+export async function loadCanonicalPmsState(emptyState: DBState, authenticatedSession?: CanonicalSession): Promise<DBState> {
   if (!auth.currentUser) return emptyState;
-  const [session, categoriesResult, unitsResult, reservationsResult, guestsResult, tasksResult] = await Promise.all([
-    getCanonicalSession(),
+  // Session/provisioning is authoritative and must not be coupled to optional
+  // dashboard projections. A transient PMS/CRM/housekeeping failure must never
+  // turn a verified tenant session into an "unprovisioned" browser session.
+  const session = authenticatedSession ?? await getCanonicalSession();
+  const [categoriesResult, unitsResult, reservationsResult, guestsResult, tasksResult] = await Promise.allSettled([
     canonicalRequest<ApiEnvelope<CanonicalRoomCategory[]>>('/api/pms/categories'),
     canonicalRequest<ApiEnvelope<CanonicalRoomUnit[]>>('/api/pms/units'),
     canonicalRequest<ApiEnvelope<CanonicalReservation[]>>('/api/pms/reservations'),
     canonicalRequest<ApiEnvelope<CanonicalCrmGuest[]>>('/api/crm/guests'),
     canonicalRequest<ApiEnvelope<CanonicalHousekeepingTask[]>>('/api/housekeeping/tasks'),
   ]);
-  const categories = new Map(categoriesResult.data.map((category) => [category.categoryId, category]));
-  const rooms = unitsResult.data.map((unit) => adaptCanonicalRoomUnit(unit, categories.get(unit.categoryId)));
-  const bookings = reservationsResult.data.map(adaptCanonicalReservation);
+  const dataOrEmpty = <T>(result: PromiseSettledResult<ApiEnvelope<T[]>>): T[] => (
+    result.status === 'fulfilled' && Array.isArray(result.value.data) ? result.value.data : []
+  );
+  const categoriesData = dataOrEmpty(categoriesResult);
+  const unitsData = dataOrEmpty(unitsResult);
+  const reservationsData = dataOrEmpty(reservationsResult);
+  const guestsData = dataOrEmpty(guestsResult);
+  const tasksData = dataOrEmpty(tasksResult);
+  const categories = new Map(categoriesData.map((category) => [category.categoryId, category]));
+  const rooms = unitsData.map((unit) => adaptCanonicalRoomUnit(unit, categories.get(unit.categoryId)));
+  const bookings = reservationsData.map(adaptCanonicalReservation);
   return {
     ...emptyState,
     rooms,
     bookings,
-    guests: Array.isArray(guestsResult.data) ? guestsResult.data.map(adaptCanonicalGuest) : [],
-    staffTasks: Array.isArray(tasksResult.data) ? tasksResult.data.map(adaptCanonicalHousekeepingTask) : [],
+    guests: guestsData.map(adaptCanonicalGuest),
+    staffTasks: tasksData.map(adaptCanonicalHousekeepingTask),
     staff: [adaptCanonicalSession(session)],
-    currentPropertyId: unitsResult.data[0]?.propertyId || emptyState.currentPropertyId,
+    currentPropertyId: unitsData[0]?.propertyId || session.propertyId,
   };
 }
 
