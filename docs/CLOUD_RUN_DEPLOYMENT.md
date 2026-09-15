@@ -8,6 +8,7 @@ O `Dockerfile` compila frontend e backend em estágio separado e a imagem final 
 export PROJECT_ID=<GCP_STAGING_PROJECT_ID>
 export REGION=<GCP_REGION>
 export REPOSITORY=synapse
+export FIRESTORE_DATABASE_ID=<FIRESTORE_STAGING_DATABASE_ID>
 export IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/synapse:${GIT_SHA}"
 gcloud artifacts repositories create "$REPOSITORY" --repository-format=docker --location="$REGION" --description="Synapse staging images"
 gcloud auth configure-docker "${REGION}-docker.pkg.dev"
@@ -40,7 +41,7 @@ gcloud run deploy synapse-staging \
   --allow-unauthenticated \
   --port=8080 \
   --cpu=1 --memory=512Mi --min-instances=0 --max-instances=3 \
-  --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=${PROJECT_ID}" \
+  --set-env-vars="NODE_ENV=production,FIREBASE_PROJECT_ID=${PROJECT_ID},FIRESTORE_DATABASE_ID=${FIRESTORE_DATABASE_ID}" \
   --set-secrets="JWT_SECRET=JWT_SECRET:latest"
 ```
 

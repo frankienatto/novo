@@ -17,7 +17,9 @@ import {
     transitionCanonicalReservation,
     updateCanonicalHousekeepingTask,
     updateCanonicalRoomStatus,
+    getCanonicalSession,
 } from './services/canonicalPmsRuntime';
+import { restoreCanonicalInternalRuntime } from './services/authenticatedRuntime';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { db as localDefaultDb } from './database';
 import BookingWidgetView from './components/BookingWidgetView';
@@ -324,7 +326,7 @@ export const App: React.FC = () => {
         return data;
     }, []);
 
-    const establishAuthenticatedRuntime = useCallback(async (user: User, token: string | null): Promise<boolean> => {
+    const establishAuthenticatedRuntime = useCallback(async (user: User, token: string | null, preloadedState?: DBState): Promise<boolean> => {
         if (!('role' in user)) {
             // Guest identity remains validated by the canonical guest boundary;
             // it does not require the internal staff projection.
@@ -335,7 +337,7 @@ export const App: React.FC = () => {
         const syncVersion = ++authSyncVersion.current;
         setAuthHydrationPending(true);
         try {
-            const hydratedState = await fetchData();
+            const hydratedState = preloadedState || await fetchData();
             if (syncVersion !== authSyncVersion.current) {
                 return false;
             }
@@ -405,17 +407,25 @@ export const App: React.FC = () => {
 
             // Interactive login performs this exact sequence itself so the form
             // can await the hydrated runtime. Session restoration uses this path.
-            if (interactiveLoginInProgress.current || hydratedFirebaseUid.current === fbUser.uid || !fbUser.email) return;
+            if (interactiveLoginInProgress.current || hydratedFirebaseUid.current === fbUser.uid) return;
             try {
-                const matchedUser = await apiService.getUserByEmail(fbUser.email);
                 const idToken = await fbUser.getIdToken();
-                if (active && matchedUser) await establishAuthenticatedRuntime(matchedUser, idToken);
+                const restored = await restoreCanonicalInternalRuntime(
+                    getCanonicalSession,
+                    fetchData,
+                );
+                if (active) await establishAuthenticatedRuntime(restored.user, idToken, restored.state);
             } catch (error) {
                 console.warn('Canonical Firebase session resolution failed:', error);
+                if (active) {
+                    setSession({ user: null, token: null });
+                    localStorage.removeItem('synapse_hospitality_session');
+                    setDbState(null);
+                }
             }
         });
         return () => { active = false; unsubscribe(); };
-    }, [establishAuthenticatedRuntime]);
+    }, [establishAuthenticatedRuntime, fetchData]);
 
     const fetchChatData = async () => {
         try {

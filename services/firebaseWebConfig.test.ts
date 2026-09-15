@@ -16,11 +16,11 @@ describe('firebase web configuration', () => {
       VITE_FIREBASE_AUTH_DOMAIN: 'staging.firebaseapp.com',
       VITE_FIREBASE_PROJECT_ID: 'staging-project',
       VITE_FIREBASE_APP_ID: 'staging-app-id',
-      VITE_FIRESTORE_DATABASE_ID: '(default)',
+      VITE_FIRESTORE_DATABASE_ID: 'synapse-staging',
     }, developmentFallback);
 
     expect(config.projectId).toBe('staging-project');
-    expect(config.firestoreDatabaseId).toBe('(default)');
+    expect(config.firestoreDatabaseId).toBe('synapse-staging');
   });
 
   it('fails closed in production instead of using development Firebase configuration', () => {
