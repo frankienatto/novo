@@ -23,6 +23,10 @@ const envSchema = z.object({
   // deliberately separate from normal SaaS onboarding.
   STAGING_BOOTSTRAP_ENABLED: z.string().optional().transform(value => value === 'true'),
   STAGING_BOOTSTRAP_UID: z.string().min(1).optional(),
+  // Explicitly opt-in server-only binding for Firebase accounts already
+  // created by a staging operator. Disabled in every environment by default.
+  STAGING_IDENTITY_PROVISIONING_ENABLED: z.string().optional().transform(value => value === 'true'),
+  STAGING_IDENTITY_PROVISIONING_ORGANIZATION_ID: z.string().min(1).optional(),
   GOOGLE_CALENDAR_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CALENDAR_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_CALENDAR_REDIRECT_URI: z.string().url().optional(),

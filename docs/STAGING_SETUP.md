@@ -87,6 +87,21 @@ curl --fail-with-body --request POST "$STAGING_SERVICE_URL/api/staging/bootstrap
 
 O bootstrap cria `organizations`, `properties`, `users`, o perfil `staff` associado ao UID, uma categoria PMS, duas unidades, `publicBookingProperties`, `publicBookingUnits` e um audit server-only. Não cria reserva, pagamento, integração ou dado de produção. Para verificar: faça login, confirme a resolução do perfil `users/<UID>` para a propriedade staging e solicite cotação pública usando o `publicPropertyId` e um dos `publicUnitId` retornados.
 
+## Identidades permanentes de teste
+
+O administrador já provisionado é reconhecido por `GET /api/saas/session`: o Firebase ID token é validado e o backend resolve `users/<UID>`, organização, propriedade, papel e permissões. Não recrie ou altere esse perfil.
+
+Para contas criadas manualmente no Firebase Auth, use somente o vínculo server-side temporário abaixo. Ele não cria contas Firebase, não recebe senha e fica invisível enquanto desativado:
+
+```text
+STAGING_IDENTITY_PROVISIONING_ENABLED=true
+STAGING_IDENTITY_PROVISIONING_ORGANIZATION_ID=stg_org_synapse_core
+```
+
+Após um deploy de configuração autorizado, um administrador com `manage_staff_permissions` pode chamar, com seu próprio Firebase ID token, `POST /api/staging/identities/staff` com `firebaseUid`, `email` e nome opcional. O papel é fixo em `receptionist`: `view_dashboard`, `manage_bookings`, `view_pos` e `operate_pos`; não há permissões owner/admin, financeiras, de gestão de equipe ou de mudança de papel. O backend valida UID, e-mail e conta Firebase, deriva tenant/propriedade da sessão do administrador e cria atomica e idempotentemente `users/<UID>`, `staff/<UID>` e auditoria server-only.
+
+Para hóspede, primeiro crie ou localize o perfil CRM canônico com o mesmo e-mail. O mesmo administrador então chama `POST /api/staging/identities/guest` com `firebaseUid`, `email` e `guestId`. O backend valida a conta Firebase, o e-mail e o tenant do guest e cria somente `guestIdentities/<UID>` com auditoria server-only. Ele nunca cria `users/<UID>` ou `staff/<UID>` para hóspedes. Depois desative `STAGING_IDENTITY_PROVISIONING_ENABLED` e faça novo deploy de configuração.
+
 ## Dados demo e amostras
 
 Fixtures, mocks e exemplos existentes continuam no repositório para demonstração, preview, onboarding, desenvolvimento e testes. Eles não são autoridade de produção e não são carregados automaticamente quando Firestore está vazio. O bootstrap de staging não reutiliza seus IDs nem seu inventário. Uma futura ação administrativa de **carregar/limpar dados de amostra** deverá ser server-side, explicitamente identificada como `sample`/`demo`, escopada por tenant e incapaz de alterar registros canônicos; ela não é implementada por este bootstrap.

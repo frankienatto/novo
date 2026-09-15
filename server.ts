@@ -31,6 +31,7 @@ import { planningRouter } from "./server/modules/planning/planningRouter.ts";
 import { executionRouter } from "./server/modules/execution/executionRouter.ts";
 import { publicBookingAdminRouter } from "./server/modules/publicBooking/publicBookingAdminRouter.ts";
 import { stagingBootstrapRouter } from "./server/modules/staging/stagingBootstrapRouter.ts";
+import { stagingIdentityProvisioningRouter } from "./server/modules/staging/stagingIdentityProvisioningRouter.ts";
 import { managementRouter } from "./server/modules/management/managementRouter.ts";
 import { publicCheckoutRouter, stripeWebhookHandler, mercadoPagoWebhookHandler, picPayWebhookHandler } from "./server/modules/publicBooking/publicCheckoutRouter.ts";
 import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware.ts";
@@ -861,7 +862,9 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   // Módulos SaaS, PMS, n8n, iCal Universal, Google Calendar, CRM & Housekeeping
   // This route independently verifies the Firebase identity because the
   // intended first user does not yet have a persistent tenant profile.
+  const saasProtected = [authMiddleware, tenantMiddleware];
   app.use("/api/staging", stagingBootstrapRouter);
+  app.use("/api/staging/identities", saasProtected, requirePermission('manage_staff_permissions'), stagingIdentityProvisioningRouter);
   app.use("/api/saas", saasRouter);
   app.use("/api/guest", guestRouter);
 
@@ -869,7 +872,6 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   app.use("/api/integration/n8n", n8nRouter);
 
   // Protected Operational Modules (Multi-Tenant Hardened)
-  const saasProtected = [authMiddleware, tenantMiddleware];
   app.use("/api/management", saasProtected, managementRouter);
   app.use("/api/integration/ical", saasProtected, icalRouter);
   app.use("/api/integration/google-calendar", saasProtected, googleCalendarRouter);
