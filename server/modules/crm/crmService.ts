@@ -182,6 +182,15 @@ export class CrmService {
   /**
    * Busca perfil por ID
    */
+  /**
+   * Busca perfil de hóspede por e-mail na organização
+   */
+  async getGuestByEmail(organizationId: string, email: string): Promise<GuestProfile | null> {
+    const guests = await guestRepository.listByOrganization(organizationId, { search: email });
+    const exact = guests.find(g => g.email.toLowerCase() === email.toLowerCase());
+    return exact || null;
+  }
+
   async getGuestById(guestId: string): Promise<GuestProfile | null> {
     return guestRepository.findById(guestId);
   }

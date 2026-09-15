@@ -21,6 +21,9 @@ export default defineConfig(({ mode }) => {
         },
       },
       plugins: [react(), tailwindcss()],
+      test: {
+        exclude: ['**/node_modules/**', '**/dist/**', '**/tests/e2e/**', '**/.{idea,git,cache,output,temp}/**'],
+      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),

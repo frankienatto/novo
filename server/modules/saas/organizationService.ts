@@ -5,7 +5,8 @@ import {
   Property, 
   SaaSUser, 
   ROLE_PERMISSIONS,
-  UserRole
+  UserRole,
+  Permission
 } from './saasTypes';
 import { organizationRepository } from './organizationRepository';
 
@@ -117,6 +118,72 @@ export class OrganizationService {
     };
 
     return await organizationRepository.saveProperty(property);
+  }
+
+  async updateOperationalUser(
+    actor: SaaSUser,
+    targetUserId: string,
+    organizationId: string,
+    updates: {
+      role?: UserRole;
+      permissions?: Permission[];
+      propertyIds?: string[];
+      name?: string;
+      status?: 'active' | 'inactive';
+    },
+    enforceAntiEscalation = true
+  ): Promise<SaaSUser> {
+    const target = await organizationRepository.getUserById(targetUserId);
+    if (!target || target.organizationId !== organizationId) {
+      throw new Error('USER_NOT_FOUND');
+    }
+
+    if (enforceAntiEscalation) {
+      // 1. Rejeita auto-promoção (usuário alterando a si mesmo)
+      if (actor.userId === targetUserId) {
+        if (updates.role && updates.role !== target.role) {
+          throw new Error('SELF_PERMISSION_ESCALATION_DENIED');
+        }
+        if (updates.permissions) {
+          const hasNewPermissions = updates.permissions.some(p => !target.permissions.includes(p));
+          if (hasNewPermissions) {
+            throw new Error('SELF_PERMISSION_ESCALATION_DENIED');
+          }
+        }
+      }
+
+      // 2. Não pode conceder permissão que o próprio ator não possui
+      if (updates.permissions) {
+        const actorPerms = actor.role === 'owner' ? ROLE_PERMISSIONS.owner : (actor.permissions || []);
+        for (const p of updates.permissions) {
+          if (!actorPerms.includes(p)) {
+            throw new Error('CANNOT_GRANT_UNHELD_PERMISSION');
+          }
+        }
+      }
+
+      // 3. Propriedades devem pertencer à mesma organização
+      if (updates.propertyIds) {
+        for (const pid of updates.propertyIds) {
+          const prop = await organizationRepository.getPropertyById(pid);
+          if (!prop || prop.organizationId !== organizationId) {
+            throw new Error('FOREIGN_PROPERTY_DENIED');
+          }
+        }
+      }
+    }
+
+    const updatedUser: SaaSUser = {
+      ...target,
+      ...(updates.name ? { name: updates.name } : {}),
+      ...(updates.role ? { role: updates.role } : {}),
+      ...(updates.permissions ? { permissions: updates.permissions } : {}),
+      ...(updates.propertyIds ? { propertyIds: updates.propertyIds } : {}),
+      ...(updates.status ? { status: updates.status } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+
+    return await organizationRepository.saveUser(updatedUser);
   }
 
   async addUser(

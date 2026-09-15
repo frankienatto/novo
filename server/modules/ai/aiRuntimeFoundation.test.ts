@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, afterAll } from 'vitest';
 import { DeterministicFakeAiProvider, GeminiAiProvider, getAiProvider, setAiProviderForTests } from './aiProvider.ts';
 import { AGENT_ACTION_ALLOWLIST, validateAgentProposedActions } from './agentActions.ts';
 import { buildContextForAgent, getAgentContextBlocks } from './contextPolicy.ts';
@@ -15,6 +15,14 @@ const sourceContext: OperationalContext = {
 };
 
 describe('AI runtime deterministic foundation', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  beforeEach(() => {
+    process.env.NODE_ENV = 'test';
+  });
+  afterAll(() => {
+    if (originalNodeEnv) process.env.NODE_ENV = originalNodeEnv;
+    else delete process.env.NODE_ENV;
+  });
   afterEach(() => { setAiProviderForTests(); aiAuditRepository.clearForTests(); });
 
   it('uses deterministic fake provider in tests and never needs Gemini credentials', async () => {
