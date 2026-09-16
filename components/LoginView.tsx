@@ -40,11 +40,17 @@ const LoginView: React.FC<LoginViewProps> = ({ setPage, handleLogin, handleLogin
                 setError('As credenciais informadas não correspondem a nenhum usuário ou a senha está incorreta.');
             }
         } catch (err: any) {
-            console.error("Login component error:", err);
-            let msg = err.message || 'Ocorreu um erro ao entrar.';
-            if (err.code === 'auth/user-not-found') msg = "Usuário não encontrado.";
-            if (err.code === 'auth/wrong-password') msg = "Senha incorreta.";
-            if (err.code === 'auth/invalid-credential') msg = "Credenciais inválidas. Verifique seu e-mail e senha.";
+            console.warn("Login attempt notice:", err?.code || err?.message);
+            let msg = 'Ocorreu um erro ao entrar.';
+            if (err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-credential') {
+                msg = "Credenciais inválidas. Verifique seu e-mail e senha.";
+            } else if (err?.code === 'auth/wrong-password') {
+                msg = "Senha incorreta.";
+            } else if (err?.code === 'auth/too-many-requests') {
+                msg = "Muitas tentativas sem sucesso. Aguarde alguns instantes e tente novamente.";
+            } else if (err?.message) {
+                msg = err.message;
+            }
             setError(msg);
         } finally {
             setIsLoading(false);
@@ -177,7 +183,43 @@ const LoginView: React.FC<LoginViewProps> = ({ setPage, handleLogin, handleLogin
                         </motion.button>
                     </form>
 
-                    <p className="text-center text-sm font-bold text-gray-400 mt-12 uppercase tracking-widest">
+                    {/* Demo / Testing Access Helper */}
+                    <div className="mt-8 pt-6 border-t border-gray-100">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3 text-center">
+                            Acesso Rápido para Demonstração / Teste
+                        </p>
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => { setEmail('frankienatto@gmail.com'); setPassword('admin'); setError(''); }}
+                                className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-left transition-all group"
+                                title="Preencher como Super Admin"
+                            >
+                                <span className="font-bold text-gray-800 block text-xs truncate group-hover:text-brand-green">👑 Admin</span>
+                                <span className="text-[9px] text-gray-400 block truncate font-mono">frankienatto...</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setEmail('camila.c@hostel.com'); setPassword('admin'); setError(''); }}
+                                className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-left transition-all group"
+                                title="Preencher como Gerente"
+                            >
+                                <span className="font-bold text-gray-800 block text-xs truncate group-hover:text-brand-green">🏨 Gerente</span>
+                                <span className="text-[9px] text-gray-400 block truncate font-mono">camila.c...</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setEmail('ana.silva@example.com'); setPassword('password123'); setError(''); }}
+                                className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl text-left transition-all group"
+                                title="Preencher como Hóspede"
+                            >
+                                <span className="font-bold text-gray-800 block text-xs truncate group-hover:text-brand-green">🧳 Hóspede</span>
+                                <span className="text-[9px] text-gray-400 block truncate font-mono">ana.silva...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <p className="text-center text-sm font-bold text-gray-400 mt-8 uppercase tracking-widest">
                         Não tem conta?{' '}
                         <button onClick={() => setPage('register')} className="text-brand-green hover:text-brand-green-light transition-colors ml-2">
                             Criar Agora

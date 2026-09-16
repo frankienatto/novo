@@ -23,10 +23,12 @@ const SocialButton: React.FC<{ provider: string, children: React.ReactNode }> = 
 const RegisterView: React.FC<RegisterViewProps> = ({ setPage, onRegister }) => {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
     
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsLoading(true);
+        setError('');
         const formData = new FormData(e.currentTarget);
         const guestData = {
             fullName: formData.get('fullName') as string,
@@ -38,13 +40,13 @@ const RegisterView: React.FC<RegisterViewProps> = ({ setPage, onRegister }) => {
         try {
             await onRegister(guestData);
             setIsSubmitted(true);
-        } catch (error: any) {
-            console.error("Registration failed", error);
+        } catch (err: any) {
+            console.warn("Registration notice:", err?.code || err?.message);
             let msg = "Ocorreu um erro no cadastro. Tente novamente.";
-            if (error.code === 'auth/email-already-in-use') msg = "Este e-mail já está em uso por outro usuário.";
-            if (error.code === 'auth/weak-password') msg = "A senha é muito fraca. Use pelo menos 6 caracteres.";
-            if (error.code === 'auth/invalid-email') msg = "O e-mail informado não é válido.";
-            alert(msg);
+            if (err?.code === 'auth/email-already-in-use') msg = "Este e-mail já está em uso por outro usuário.";
+            if (err?.code === 'auth/weak-password') msg = "A senha é muito fraca. Use pelo menos 6 caracteres.";
+            if (err?.code === 'auth/invalid-email') msg = "O e-mail informado não é válido.";
+            setError(msg);
         } finally {
             setIsLoading(false);
         }
@@ -127,6 +129,13 @@ const RegisterView: React.FC<RegisterViewProps> = ({ setPage, onRegister }) => {
                                     <input type="password" name="password" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-4 focus:ring-brand-green/10 focus:border-brand-green outline-none transition-all font-bold text-gray-700" required placeholder="No mínimo 6 caracteres" />
                                 </div>
                                 
+                                {error && (
+                                    <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold border border-red-100 flex items-center gap-2">
+                                        <span>⚠️</span>
+                                        <span>{error}</span>
+                                    </div>
+                                )}
+
                                 <div className="pt-2">
                                     <motion.button 
                                         whileHover={{ scale: 1.01 }}

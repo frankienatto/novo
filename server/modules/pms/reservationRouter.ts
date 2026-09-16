@@ -1,4 +1,3 @@
-import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 import { Router, Request, Response } from 'express';
 import { reservationService } from './reservationService.ts';
 import { ReservationStatus } from './reservationTypes.ts';

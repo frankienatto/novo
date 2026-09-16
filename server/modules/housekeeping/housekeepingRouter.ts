@@ -1,4 +1,3 @@
-import { requirePermission } from '../saas/middlewares/rbacMiddleware.ts';
 import { Router, Request, Response } from 'express';
 import { housekeepingService } from './housekeepingService.ts';
 import { CleaningStatus, InspectionStatus, TaskPriority } from './housekeepingTypes.ts';

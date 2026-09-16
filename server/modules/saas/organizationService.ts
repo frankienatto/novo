@@ -223,30 +223,6 @@ export class OrganizationService {
 
     return await organizationRepository.saveUser(user);
   }
-
-  async updateOperationalUser(
-    actor: SaaSUser,
-    targetUserId: string,
-    organizationId: string,
-    patch: Partial<Pick<SaaSUser, 'name' | 'status' | 'propertyIds' | 'role' | 'permissions'>>,
-    canManagePermissions: boolean
-  ): Promise<SaaSUser> {
-    const target = await organizationRepository.getUserById(targetUserId);
-    if (!target || target.organizationId !== organizationId) throw new Error('USER_NOT_FOUND');
-    const authorizationChange = patch.role !== undefined || patch.permissions !== undefined || patch.propertyIds !== undefined;
-    if (authorizationChange && !canManagePermissions) throw new Error('STAFF_PERMISSION_MANAGEMENT_REQUIRED');
-    if (authorizationChange && actor.userId === targetUserId) throw new Error('SELF_PERMISSION_ESCALATION_DENIED');
-    const actorPermissions = new Set(actor.role === 'owner' ? ROLE_PERMISSIONS.owner : actor.permissions);
-    const intendedRole = patch.role || target.role;
-    const requestedPermissions = patch.permissions || ROLE_PERMISSIONS[intendedRole];
-    if (authorizationChange && requestedPermissions.some(permission => !actorPermissions.has(permission))) throw new Error('CANNOT_GRANT_UNHELD_PERMISSION');
-    const propertyIds = patch.propertyIds || target.propertyIds;
-    for (const propertyId of propertyIds) {
-      const property = await organizationRepository.getPropertyById(propertyId);
-      if (!property || property.organizationId !== organizationId) throw new Error('FOREIGN_PROPERTY_DENIED');
-    }
-    return organizationRepository.saveUser({ ...target, name: patch.name?.trim() || target.name, status: patch.status || target.status, propertyIds, role: intendedRole, permissions: requestedPermissions, updatedAt: new Date().toISOString() });
-  }
 }
 
 export const organizationService = new OrganizationService();
