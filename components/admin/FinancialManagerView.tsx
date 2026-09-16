@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Section } from './shared';
 import { DBState, Expense, AIMenuPriceAnalysis, Product, PropertyUnitId } from '../../types';
@@ -32,15 +32,22 @@ const ChartContainer: React.FC<{ title: string, children: React.ReactElement }> 
 
 interface FinancialManagerViewProps { 
     db: DBState;
+    selectedUnit?: PropertyUnitId | 'all';
     onAddExpense: (data: Omit<Expense, 'id'>) => Promise<void>;
     onDeleteExpense: (id: string) => Promise<void>;
     onProductAdd: (productData: Omit<Product, 'id'>) => Promise<void>;
     onProductUpdate: (product: Product) => Promise<void>;
 }
 
-const FinancialManagerView: React.FC<FinancialManagerViewProps> = ({ db, onAddExpense, onDeleteExpense, onProductAdd, onProductUpdate }) => {
+const FinancialManagerView: React.FC<FinancialManagerViewProps> = ({ db, selectedUnit = 'all', onAddExpense, onDeleteExpense, onProductAdd, onProductUpdate }) => {
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<PropertyUnitId | 'all'>('all');
+    const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<PropertyUnitId | 'all'>(selectedUnit);
+
+    useEffect(() => {
+        if (selectedUnit) {
+            setSelectedPropertyFilter(selectedUnit);
+        }
+    }, [selectedUnit]);
     const today = new Date();
     const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
     const [startDate, setStartDate] = useState(lastMonth.toISOString().split('T')[0]);

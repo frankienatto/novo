@@ -1909,19 +1909,39 @@ export const addTaskAttachment = async (taskId: string, fileName: string, url: s
 
 // --- Admin-only actions ---
 export const addRoom = async (roomData: Omit<Room, 'id' | 'status'>) => {
+    const targetPropertyId = roomData.propertyId || 'beach';
     if (!allowDevelopmentFixtures) {
-        const unit = await createCanonicalRoom({ name: roomData.name, type: roomData.type });
-        return { ...roomData, id: unit.unitId, status: RoomStatus.AVAILABLE, propertyId: unit.propertyId } as Room;
+        try {
+            const unit = await createCanonicalRoom({ name: roomData.name, type: roomData.type });
+            const newRoom: Room = {
+                ...roomData,
+                id: (unit as any)?.unitId || (unit as any)?.id || `room-${Date.now()}`,
+                status: RoomStatus.AVAILABLE,
+                propertyId: (unit as any)?.propertyId || targetPropertyId
+            } as Room;
+            state.rooms = [...(state.rooms || []), newRoom];
+            eventBus.emit('db-update');
+            return newRoom;
+        } catch (err) {
+            console.warn('Canonical createRoom fallback:', err);
+        }
     }
     const numericRoomIds = state.rooms.map((room) => room.id).filter((id): id is number => typeof id === 'number');
     const newRoom: Room = {
         ...roomData,
         id: (numericRoomIds.length ? Math.max(...numericRoomIds) : 0) + 1,
         status: RoomStatus.AVAILABLE,
+        propertyId: targetPropertyId,
+        imageUrl: roomData.imageUrl || 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80'
     };
-    state.rooms.push(newRoom);
-    await saveToFirestore('rooms', newRoom.id.toString(), newRoom);
+    state.rooms = [...(state.rooms || []), newRoom];
+    try {
+        await saveToFirestore('rooms', newRoom.id.toString(), newRoom);
+    } catch (e) {
+        console.warn('Firestore save room fallback:', e);
+    }
     eventBus.emit('db-update');
+    return newRoom;
 };
 
 export const updateRoom = async (updatedRoom: Room) => {
@@ -3514,8 +3534,25 @@ export const addDeliveryOrder = async (order: Omit<DeliveryOrder, 'id'>) => {
     state.deliveryOrders = [...(state.deliveryOrders || []), newOrder];
     state.transactions = [...(state.transactions || []), newTransaction];
 
-    await saveToFirestore('deliveryOrders', newOrder.id, newOrder);
-    await saveToFirestore('transactions', newTransaction.id, newTransaction);
+    try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+            await fetch('/api/delivery/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(newOrder)
+            });
+        }
+    } catch (err) {
+        console.warn('Canonical delivery POST warning:', err);
+    }
+
+    try {
+        await saveToFirestore('deliveryOrders', newOrder.id, newOrder);
+        await saveToFirestore('transactions', newTransaction.id, newTransaction);
+    } catch (e) {
+        console.warn('Firestore client fallback for delivery order:', e);
+    }
     eventBus.emit('db-update');
 };
 
@@ -3543,8 +3580,26 @@ export const updateDeliveryOrder = async (orderId: string, updates: Partial<Deli
     }) || [];
 
     const order = state.deliveryOrders?.find(o => o.id === orderId);
-    if (order) await saveToFirestore('deliveryOrders', order.id, order);
-    if (updatedTransaction) await saveToFirestore('transactions', (updatedTransaction as Transaction).id, updatedTransaction);
+
+    try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token && updates.status) {
+            await fetch(`/api/delivery/orders/${orderId}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ status: updates.status })
+            });
+        }
+    } catch (err) {
+        console.warn('Canonical delivery PATCH warning:', err);
+    }
+
+    try {
+        if (order) await saveToFirestore('deliveryOrders', order.id, order);
+        if (updatedTransaction) await saveToFirestore('transactions', (updatedTransaction as Transaction).id, updatedTransaction);
+    } catch (e) {
+        console.warn('Firestore client fallback for update delivery order:', e);
+    }
     eventBus.emit('db-update');
 };
 

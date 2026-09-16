@@ -118,6 +118,7 @@ const DigitalMenuView: React.FC<{
 
 interface POSViewProps {
     db: DBState;
+    selectedUnit?: PropertyUnitId | 'all';
     onSale: (transactionData: Omit<Transaction, 'id' | 'timestamp'>, paymentDetails?: PaymentDetails | { method: 'PIX' }) => Promise<void>;
     onProductModalOpen: (type: 'addProduct' | 'editProduct', data?: Product) => void;
     onProductDelete: (productId: string) => Promise<void>;
@@ -132,8 +133,14 @@ interface POSViewProps {
 import { ResetCategoryButton } from './ResetCategoryButton';
 
 export const POSView: React.FC<POSViewProps> = (props) => {
-    const { db, onSale, onProductModalOpen, onProductDelete, onGetDrinkPairingSuggestion, onGenerateAndSaveDigitalMenu, onUpdateTableItems, onAddTable, onDeleteTable, onGetPOSSuggestions } = props;
-    const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<PropertyUnitId | 'all'>('all');
+    const { db, selectedUnit = 'all', onSale, onProductModalOpen, onProductDelete, onGetDrinkPairingSuggestion, onGenerateAndSaveDigitalMenu, onUpdateTableItems, onAddTable, onDeleteTable, onGetPOSSuggestions } = props;
+    const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<PropertyUnitId | 'all'>(selectedUnit);
+
+    useEffect(() => {
+        if (selectedUnit) {
+            setSelectedPropertyFilter(selectedUnit);
+        }
+    }, [selectedUnit]);
     const [viewMode, setViewMode] = useState<'sale' | 'products' | 'digitalMenu' | 'tables'>('tables');
     const [activeTableId, setActiveTableId] = useState<string | null>(null);
     const [cart, setCart] = useState<SaleItem[]>([]);

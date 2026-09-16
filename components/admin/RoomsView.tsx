@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Room, RoomStatus, PropertyUnitId } from '../../types';
 import { Section } from './shared';
 import { Bed as BedIcon, Edit, PlusCircle, Users, Loader2, SprayCan, Building2, Trees, Waves } from 'lucide-react';
@@ -7,18 +7,25 @@ import { ResetCategoryButton } from './ResetCategoryButton';
 
 interface RoomsViewProps {
     rooms: Room[];
+    selectedUnit?: PropertyUnitId | 'all';
     onStatusChange: (roomId: Room['id'], newStatus: RoomStatus) => Promise<void>;
     onAddRoom: () => void;
     onEditRoom: (room: Room) => void;
     onManageBeds: (roomId: Room['id'], newBedCount: number) => Promise<void>;
 }
 
-export const RoomsView: React.FC<RoomsViewProps> = ({ rooms, onStatusChange, onAddRoom, onEditRoom, onManageBeds }) => {
+export const RoomsView: React.FC<RoomsViewProps> = ({ rooms, selectedUnit = 'all', onStatusChange, onAddRoom, onEditRoom, onManageBeds }) => {
     const [isBedsModalOpen, setIsBedsModalOpen] = useState(false);
     const [selectedRoomForBeds, setSelectedRoomForBeds] = useState<Room | null>(null);
     const [newBedCount, setNewBedCount] = useState<number | string>('');
     const [isSavingBeds, setIsSavingBeds] = useState(false);
-    const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<PropertyUnitId | 'all'>('all');
+    const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<PropertyUnitId | 'all'>(selectedUnit);
+
+    useEffect(() => {
+        if (selectedUnit) {
+            setSelectedPropertyFilter(selectedUnit);
+        }
+    }, [selectedUnit]);
 
     const statusColors = {
         [RoomStatus.AVAILABLE]: "bg-green-100 text-green-800",

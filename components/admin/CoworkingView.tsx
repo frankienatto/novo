@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DBState,
   CoworkingCheckIn,
@@ -13,6 +13,7 @@ import { eventBus } from "../../services/apiService";
 
 interface CoworkingViewProps {
   db: DBState;
+  selectedUnit?: PropertyUnitId | 'all';
   onAddCoworkingCheckIn?: (checkIn: any) => Promise<void>;
   onUpdateCoworkingCheckIn?: (checkInId: string, updates: any) => Promise<void>;
   onSaveCoworkingPlan?: (plan: Omit<CoworkingPlan, 'id'> | CoworkingPlan) => Promise<void>;
@@ -25,13 +26,20 @@ interface CoworkingViewProps {
 
 export const CoworkingView: React.FC<CoworkingViewProps> = ({
   db,
+  selectedUnit = 'all',
   onAddCoworkingCheckIn,
   onUpdateCoworkingCheckIn,
   onSaveCoworkingPlan,
   onDeleteCoworkingPlan,
   onSale,
 }) => {
-  const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<PropertyUnitId | 'all'>('all');
+  const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<PropertyUnitId | 'all'>(selectedUnit);
+
+  useEffect(() => {
+    if (selectedUnit) {
+      setSelectedPropertyFilter(selectedUnit);
+    }
+  }, [selectedUnit]);
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [selectedDeskId, setSelectedDeskId] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");

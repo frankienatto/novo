@@ -1,21 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DBState, DeliveryOrder, PropertyUnitId, SaleItem } from '../../types';
-import { Package, Bike, FileText, Plus, X, Building2, Store, DollarSign, CheckCircle2, Clock, AlertCircle, ShoppingBag, Phone, MapPin, ExternalLink, RefreshCw } from 'lucide-react';
+import { Package, Bike, FileText, Plus, X, Building2, Store, DollarSign, CheckCircle2, Clock, AlertCircle, ShoppingBag, Phone, MapPin, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 import { Section } from './shared';
 import { eventBus } from '../../services/apiService';
 import Modal from './Modal';
 
 interface DeliveryOrdersViewProps {
     db: DBState;
+    selectedUnit?: PropertyUnitId | 'all';
     onSale?: (transactionData: Omit<import('../../types').Transaction, 'id' | 'timestamp'>, paymentDetails?: any) => Promise<void>;
     onAddDeliveryOrder?: (order: any) => Promise<void>;
     onUpdateDeliveryOrder?: (orderId: string, updates: any) => Promise<void>;
 }
 
-export const DeliveryOrdersView: React.FC<DeliveryOrdersViewProps> = ({ db, onSale, onAddDeliveryOrder, onUpdateDeliveryOrder }) => {
-    const [selectedUnitFilter, setSelectedUnitFilter] = useState<PropertyUnitId | 'all'>('all');
+export const DeliveryOrdersView: React.FC<DeliveryOrdersViewProps> = ({ db, selectedUnit = 'all', onSale, onAddDeliveryOrder, onUpdateDeliveryOrder }) => {
+    const [selectedUnitFilter, setSelectedUnitFilter] = useState<PropertyUnitId | 'all'>(selectedUnit);
     const [selectedSourceFilter, setSelectedSourceFilter] = useState<string>('all');
     const [selectedOrderDetails, setSelectedOrderDetails] = useState<DeliveryOrder | null>(null);
+    const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (selectedUnit) {
+            setSelectedUnitFilter(selectedUnit);
+        }
+    }, [selectedUnit]);
 
     // iFood Integration State
     const [isStoreOpen, setIsStoreOpen] = useState(true);
@@ -140,9 +148,16 @@ export const DeliveryOrdersView: React.FC<DeliveryOrdersViewProps> = ({ db, onSa
     };
 
     const handleUpdateStatus = async (orderId: string, status: any) => {
-        if (onUpdateDeliveryOrder) {
+        if (!onUpdateDeliveryOrder) return;
+        try {
+            setUpdatingOrderId(orderId);
             await onUpdateDeliveryOrder(orderId, { status });
             eventBus.emit('new-toast', { type: 'success', title: 'Status Atualizado', message: `Status do pedido alterado para ${status}.` });
+        } catch (err: any) {
+            console.error('Erro ao atualizar status do pedido delivery:', err);
+            eventBus.emit('new-toast', { type: 'error', title: 'Erro ao Atualizar', message: err?.message || 'Falha ao atualizar status.' });
+        } finally {
+            setUpdatingOrderId(null);
         }
     };
 
@@ -430,12 +445,47 @@ export const DeliveryOrdersView: React.FC<DeliveryOrdersViewProps> = ({ db, onSa
                                             <span className="text-lg font-black text-brand-dark">R$ {(order.total || 0).toFixed(2)}</span>
                                         </div>
 
-                                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                                            {/* Quick Action Button */}
+                                            {order.status === 'Pending' && (
+                                                <button
+                                                    disabled={updatingOrderId === order.id}
+                                                    onClick={() => handleUpdateStatus(order.id, 'Dispatched')}
+                                                    className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                                                    title="Clique para Despachar Entrega Imediatamente"
+                                                >
+                                                    {updatingOrderId === order.id ? <Loader2 size={13} className="animate-spin" /> : <Bike size={13} />}
+                                                    <span>Despachar</span>
+                                                </button>
+                                            )}
+                                            {order.status === 'Preparing' && (
+                                                <button
+                                                    disabled={updatingOrderId === order.id}
+                                                    onClick={() => handleUpdateStatus(order.id, 'Dispatched')}
+                                                    className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                                                    title="Marcar como Despachado"
+                                                >
+                                                    {updatingOrderId === order.id ? <Loader2 size={13} className="animate-spin" /> : <Bike size={13} />}
+                                                    <span>Despachar</span>
+                                                </button>
+                                            )}
+                                            {order.status === 'Dispatched' && (
+                                                <button
+                                                    disabled={updatingOrderId === order.id}
+                                                    onClick={() => handleUpdateStatus(order.id, 'Delivered')}
+                                                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                                                    title="Marcar como Entregue"
+                                                >
+                                                    {updatingOrderId === order.id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                                                    <span>Entregar</span>
+                                                </button>
+                                            )}
+
                                             {/* Status Dropdown */}
                                             <select 
                                                 value={order.status} 
                                                 onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
-                                                className="input-base text-xs font-bold py-1 px-2 border-gray-300 rounded-lg"
+                                                className="input-base text-xs font-bold py-1.5 px-2 border-gray-300 rounded-lg"
                                             >
                                                 <option value="Pending">🕒 Pendente</option>
                                                 <option value="Preparing">👨‍🍳 Preparando</option>
@@ -448,7 +498,7 @@ export const DeliveryOrdersView: React.FC<DeliveryOrdersViewProps> = ({ db, onSa
                                             <select 
                                                 value={unit} 
                                                 onChange={(e) => handleUpdateUnit(order.id, e.target.value as PropertyUnitId)}
-                                                className="input-base text-xs font-bold py-1 px-2 border-gray-300 rounded-lg bg-amber-50"
+                                                className="input-base text-xs font-bold py-1.5 px-2 border-gray-300 rounded-lg bg-amber-50"
                                             >
                                                 <option value="beach">🏖️ Beach</option>
                                                 <option value="sanctuary">🌿 Santuário</option>

@@ -295,7 +295,12 @@ const RoomForm: React.FC<{
     onSave: (data: Omit<Room, 'id' | 'status'> | Room) => void;
     onClose: () => void;
 }> = ({ initialData, onSave, onClose }) => {
-    const [formData, setFormData] = useState(initialData);
+    const [formData, setFormData] = useState({
+        ...initialData,
+        propertyId: (initialData as any).propertyId || 'beach',
+        imageUrl: initialData.imageUrl || 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80'
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -315,9 +320,19 @@ const RoomForm: React.FC<{
         }));
     };
     
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData);
+        try {
+            setIsSubmitting(true);
+            const finalData = {
+                ...formData,
+                imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=800&q=80',
+                propertyId: formData.propertyId || 'beach'
+            };
+            await onSave(finalData);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -330,17 +345,20 @@ const RoomForm: React.FC<{
                         <option value="sanctuary">🌿 Forest House Santuário (A 3km da Praia)</option>
                     </select>
                 </div>
-                <div><label>Nome do Quarto</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" required /></div>
+                <div><label>Nome do Quarto</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="input-base" placeholder="Ex: Suíte Panorâmica 101" required /></div>
                 <div><label>Tipo</label><select name="type" value={formData.type} onChange={handleChange} className="input-base">{Object.values(RoomType).map(rt => <option key={rt} value={rt}>{rt}</option>)}</select></div>
-                <div><label>Capacidade</label><input type="number" name="capacity" value={formData.capacity} onChange={handleChange} className="input-base" required /></div>
-                <div><label>Preço Base (R$)</label><input type="number" name="basePrice" value={formData.basePrice} onChange={handleChange} className="input-base" required /></div>
-                <div><label>URL da Imagem</label><input type="text" name="imageUrl" value={formData.imageUrl} onChange={handleChange} className="input-base" required /></div>
+                <div><label>Capacidade (Pessoas)</label><input type="number" name="capacity" min={1} value={formData.capacity} onChange={handleChange} className="input-base" required /></div>
+                <div><label>Preço Base Diária (R$)</label><input type="number" name="basePrice" min={0} value={formData.basePrice} onChange={handleChange} className="input-base" required /></div>
+                <div><label>URL da Imagem</label><input type="text" name="imageUrl" value={formData.imageUrl} onChange={handleChange} className="input-base" placeholder="https://..." /></div>
                 <div><label>Amenidades (separadas por vírgula)</label><input type="text" name="amenities" value={Array.isArray(formData.amenities) ? formData.amenities.join(', ') : ''} onChange={handleAmenitiesChange} className="input-base"/></div>
                 <div><label>URL iCal (Sincronização)</label><input type="text" name="icalUrl" value={formData.icalConfig && formData.icalConfig.length > 0 ? formData.icalConfig[0].url : ''} onChange={handleIcalChange} className="input-base" placeholder="https://..." /></div>
             </div>
             <div className="flex-shrink-0 flex justify-end gap-2 border-t pt-4 mt-4">
-                 <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
-                 <button type="submit" className="btn-primary">Salvar</button>
+                 <button type="button" onClick={onClose} disabled={isSubmitting} className="btn-secondary">Cancelar</button>
+                 <button type="submit" disabled={isSubmitting} className="btn-primary flex items-center gap-2">
+                    {isSubmitting && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                    <span>Salvar Quarto</span>
+                 </button>
             </div>
         </form>
     );
@@ -358,9 +376,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
     const isLiveRuntime = import.meta.env.PROD;
     const { currentUser, db, onLogout, notifications, onMarkNotificationAsRead, onMarkAllNotificationsAsRead, chatData } = props;
     const [activeSection, setActiveSection] = useState<AdminSection>(currentUser.role === 'Diretor de Marketing' ? 'marketing_dashboard' : 'dashboard');
-    const [selectedUnit, setSelectedUnit] = useState<PropertyUnitId | 'all'>(
-        currentUser.propertyId && currentUser.propertyId !== 'all' ? currentUser.propertyId : 'all'
-    );
+    const [selectedUnit, setSelectedUnit] = useState<PropertyUnitId | 'all'>(() => {
+        try {
+            const saved = localStorage.getItem('synapse_selected_unit');
+            if (saved === 'beach' || saved === 'sanctuary' || saved === 'all') {
+                return saved as PropertyUnitId | 'all';
+            }
+        } catch {}
+        return currentUser.propertyId && currentUser.propertyId !== 'all' ? currentUser.propertyId : 'all';
+    });
+
+    const handleUnitChange = (unit: PropertyUnitId | 'all') => {
+        setSelectedUnit(unit);
+        try {
+            localStorage.setItem('synapse_selected_unit', unit);
+        } catch {}
+    };
+
     const [viewingGuestProfileId, setViewingGuestProfileId] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -573,7 +605,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         setDrawerState({
             isOpen: true,
             content: room ? 'editRoom' : 'addRoom',
-            data: room || { name: '', type: RoomType.PRIVATE_SINGLE, capacity: 1, basePrice: 100, amenities: ['Wi-Fi'], imageUrl: '' },
+            data: room || { 
+                name: '', 
+                type: RoomType.PRIVATE_SINGLE, 
+                capacity: 1, 
+                basePrice: 100, 
+                amenities: ['Wi-Fi'], 
+                imageUrl: '',
+                propertyId: selectedUnit !== 'all' ? selectedUnit : 'beach'
+            },
         });
     };
 
@@ -585,13 +625,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         try {
             if ('id' in roomData) {
                 await props.onRoomUpdate(roomData);
+                eventBus.emit('new-toast', { type: 'success', title: 'Quarto Atualizado', message: 'As alterações do quarto foram salvas com sucesso.' });
             } else {
                 await props.onRoomAdd(roomData as Omit<Room, 'id' | 'status'>);
+                eventBus.emit('new-toast', { type: 'success', title: 'Quarto Criado', message: 'Novo quarto criado com sucesso e adicionado ao mapa de unidades.' });
             }
             handleCloseDrawer();
-            alert("Quarto salvo com sucesso!");
         } catch (e: any) {
-            alert("Erro ao salvar quarto: " + e.message);
+            eventBus.emit('new-toast', { type: 'error', title: 'Erro ao Salvar Quarto', message: e?.message || 'Falha ao salvar quarto.' });
         }
     };
     
@@ -631,9 +672,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         try {
             await props.onBookingAdd({...newBookingForm, source: 'Walk-in'});
             setIsBookingModalOpen(false);
-            alert("Reserva criada com sucesso!");
+            eventBus.emit('new-toast', { type: 'success', title: 'Reserva Criada', message: 'Reserva cadastrada com sucesso!' });
         } catch (e: any) {
-            alert("Erro ao criar reserva: " + e.message);
+            eventBus.emit('new-toast', { type: 'error', title: 'Erro ao Criar Reserva', message: e?.message || 'Falha ao salvar reserva.' });
         }
     };
     
@@ -647,21 +688,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
         try {
             await props.onGuestAdd(newGuestForm);
             setIsGuestModalOpen(false);
-            alert("Hóspede cadastrado com sucesso!");
+            eventBus.emit('new-toast', { type: 'success', title: 'Hóspede Cadastrado', message: 'Hóspede cadastrado com sucesso!' });
         } catch (e: any) {
-            alert("Erro ao cadastrar hóspede: " + e.message);
+            eventBus.emit('new-toast', { type: 'error', title: 'Erro ao Cadastrar Hóspede', message: e?.message || 'Falha ao salvar hóspede.' });
         }
     };
 
     const handleSaveProduct = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingProduct) return;
-        if ('id' in editingProduct) {
-            await props.onProductUpdate(editingProduct);
-        } else {
-            await props.onProductAdd(editingProduct as Omit<Product, 'id'>);
+        try {
+            if ('id' in editingProduct) {
+                await props.onProductUpdate(editingProduct);
+                eventBus.emit('new-toast', { type: 'success', title: 'Produto Atualizado', message: 'Produto atualizado com sucesso!' });
+            } else {
+                await props.onProductAdd(editingProduct as Omit<Product, 'id'>);
+                eventBus.emit('new-toast', { type: 'success', title: 'Produto Criado', message: 'Produto adicionado com sucesso!' });
+            }
+            setIsProductModalOpen(false);
+        } catch (e: any) {
+            eventBus.emit('new-toast', { type: 'error', title: 'Erro ao Salvar Produto', message: e?.message || 'Falha ao salvar produto.' });
         }
-        setIsProductModalOpen(false);
     };
 
     // Handlers for AI Strategy Consultant
@@ -761,7 +808,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             case 'calendar':
                 return <CalendarView db={db} selectedUnit={selectedUnit} onBookingUpdate={props.onBookingUpdate} onNewBooking={handleOpenBookingModal} />;
             case 'rooms':
-                return <RoomsView rooms={db.rooms} onStatusChange={props.onRoomStatusChange} onAddRoom={() => handleOpenRoomDrawer(null)} onEditRoom={handleOpenRoomDrawer} onManageBeds={props.onUpdateRoomBeds}/>;
+                return <RoomsView rooms={db.rooms} selectedUnit={selectedUnit} onStatusChange={props.onRoomStatusChange} onAddRoom={() => handleOpenRoomDrawer(null)} onEditRoom={handleOpenRoomDrawer} onManageBeds={props.onUpdateRoomBeds}/>;
             case 'housekeeping':
                 return <HousekeepingView 
                     db={db}
@@ -800,6 +847,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
             case 'coworking':
                 return <CoworkingView 
                     db={db} 
+                    selectedUnit={selectedUnit}
                     onAddCoworkingCheckIn={props.onAddCoworkingCheckIn} 
                     onUpdateCoworkingCheckIn={props.onUpdateCoworkingCheckIn}
                     onSaveCoworkingPlan={props.onSaveCoworkingPlan}
@@ -807,11 +855,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                     onSale={props.onSale}
                 />;
             case 'delivery_orders':
-                return <DeliveryOrdersView db={db} onSale={props.onSale} onAddDeliveryOrder={props.onAddDeliveryOrder} onUpdateDeliveryOrder={props.onUpdateDeliveryOrder} />;
+                return <DeliveryOrdersView db={db} selectedUnit={selectedUnit} onSale={props.onSale} onAddDeliveryOrder={props.onAddDeliveryOrder} onUpdateDeliveryOrder={props.onUpdateDeliveryOrder} />;
             case 'pos':
                 if (isLiveRuntime) return <CanonicalManagementView mode="pos" />;
                 return <POSView 
                     db={db} 
+                    selectedUnit={selectedUnit}
                     onSale={props.onSale} 
                     onProductModalOpen={handleOpenProductModal} 
                     onProductDelete={props.onProductDelete} 
@@ -826,6 +875,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                 if (isLiveRuntime) return <CanonicalManagementView mode="finance" />;
                 return <FinancialManagerView 
                             db={db} 
+                            selectedUnit={selectedUnit}
                             onAddExpense={props.onAddExpense} 
                             onDeleteExpense={props.onDeleteExpense}
                             onProductAdd={props.onProductAdd}
@@ -1063,7 +1113,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = (props) => {
                             </div>
                         </div>
                         <div className="flex items-center gap-3 lg:gap-6">
-                            <UnitSelector selectedUnit={selectedUnit} onUnitChange={setSelectedUnit} />
+                            <UnitSelector selectedUnit={selectedUnit} onUnitChange={handleUnitChange} />
                             
                              <div className="hidden xl:flex items-center bg-gray-100 rounded-2xl px-4 py-2 border border-black/5 group focus-within:ring-2 focus-within:ring-[var(--admin-primary-color)]/20 transition-all">
                                 <Search size={18} className="text-gray-400" />

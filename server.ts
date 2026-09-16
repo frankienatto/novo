@@ -33,6 +33,11 @@ import { publicBookingAdminRouter } from "./server/modules/publicBooking/publicB
 import { stagingBootstrapRouter } from "./server/modules/staging/stagingBootstrapRouter.ts";
 import { stagingIdentityProvisioningRouter } from "./server/modules/staging/stagingIdentityProvisioningRouter.ts";
 import { managementRouter } from "./server/modules/management/managementRouter.ts";
+import { inventoryRouter } from "./server/modules/inventory/inventoryRouter.ts";
+import { procurementRouter } from "./server/modules/procurement/procurementRouter.ts";
+import { suppliersRouter } from "./server/modules/suppliers/suppliersRouter.ts";
+import { coworkingRouter } from "./server/modules/coworking/coworkingRouter.ts";
+import { deliveryRouter } from "./server/modules/delivery/deliveryRouter.ts";
 import { publicCheckoutRouter, stripeWebhookHandler, mercadoPagoWebhookHandler, picPayWebhookHandler } from "./server/modules/publicBooking/publicCheckoutRouter.ts";
 import { authMiddleware } from "./server/modules/saas/middlewares/authMiddleware.ts";
 import { tenantMiddleware } from "./server/modules/saas/middlewares/tenantMiddleware.ts";
@@ -891,6 +896,11 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   app.use("/api/approval", saasProtected, approvalRouter);
   app.use("/api/planning", saasProtected, planningRouter);
   app.use("/api/execution", saasProtected, executionRouter);
+  app.use("/api/inventory", saasProtected, inventoryRouter);
+  app.use("/api/procurement", saasProtected, procurementRouter);
+  app.use("/api/suppliers", saasProtected, suppliersRouter);
+  app.use("/api/coworking", saasProtected, coworkingRouter);
+  app.use("/api/delivery", saasProtected, deliveryRouter);
   app.use("/api/public-booking/catalog", saasProtected, publicBookingAdminRouter);
   app.use("/api/public-booking", publicCheckoutRouter);
 
