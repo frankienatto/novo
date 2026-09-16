@@ -901,8 +901,12 @@ async function runGeminiCoreExecution(params: GeminiCoreParams): Promise<GeminiC
   app.use("/api/suppliers", saasProtected, suppliersRouter);
   app.use("/api/coworking", saasProtected, coworkingRouter);
   app.use("/api/delivery", saasProtected, deliveryRouter);
-  app.use("/api/public-booking/catalog", saasProtected, publicBookingAdminRouter);
+  // Public Booking: rotas administrativas de provisionamento do catálogo (protegidas por Auth + Tenant + RBAC)
+  app.use("/api/public-booking/admin", saasProtected, publicBookingAdminRouter);
+  // Public Booking: superfícies públicas de catálogo, cotação e checkout (sem autenticação)
   app.use("/api/public-booking", publicCheckoutRouter);
+  // Compatibilidade para provisionamento administrativo sob /api/public-booking/catalog (protegido por Auth + Tenant + RBAC)
+  app.use("/api/public-booking/catalog", saasProtected, publicBookingAdminRouter);
 
   // Legacy Endpoint - Redirecionado internamente para o Pipeline Unificado de IA (Milestone 1)
   app.post("/api/gemini/generateText", async (req, res) => {
