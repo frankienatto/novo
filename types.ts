@@ -556,6 +556,7 @@ export interface PaymentGatewaySettings {
 
 export interface PropertyInfo {
     id: string;
+    publicPropertyId?: string;
     name: string;
     address: string;
     cnpj: string;

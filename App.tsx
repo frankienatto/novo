@@ -125,6 +125,10 @@ import {
     isProvisionedGuestUser,
     isProvisionedInternalUser,
 } from './services/productionRuntimePolicy';
+import {
+    resolvePublicBookingInitialRoute,
+    resolvePublicPropertyId,
+} from './services/publicBookingResolver';
 
 interface GuestData {
     fullName: string;
@@ -263,8 +267,24 @@ const ProvisioningRequired: React.FC<{ scope: 'public' | 'booking' | 'internal' 
 };
 
 export const App: React.FC = () => {
-    const [page, setPage] = useState<Page>('home');
-    const [pageParams, setPageParams] = useState<any>(null);
+    const [page, setPage] = useState<Page>(() => {
+        if (typeof window !== 'undefined') {
+            const bookingRoute = resolvePublicBookingInitialRoute(window.location.pathname, window.location.search);
+            if (bookingRoute) return bookingRoute.page;
+            const urlParams = new URLSearchParams(window.location.search);
+            const pageParam = urlParams.get('page');
+            if (pageParam === 'digitalMenu') return 'digitalMenu';
+            if (pageParam === 'login') return 'login';
+        }
+        return 'home';
+    });
+    const [pageParams, setPageParams] = useState<any>(() => {
+        if (typeof window !== 'undefined') {
+            const bookingRoute = resolvePublicBookingInitialRoute(window.location.pathname, window.location.search);
+            if (bookingRoute?.params) return bookingRoute.params;
+        }
+        return null;
+    });
     const [session, setSession] = useState<AppSession>(() => {
         try {
             const savedSession = localStorage.getItem('synapse_hospitality_session');
@@ -365,6 +385,15 @@ export const App: React.FC = () => {
 
     useEffect(() => {
         // Handle routing from URL parameters on initial load
+        const bookingRoute = resolvePublicBookingInitialRoute(window.location.pathname, window.location.search);
+        if (bookingRoute) {
+            setPage(bookingRoute.page);
+            if (bookingRoute.params) {
+                setPageParams(bookingRoute.params);
+            }
+            return;
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         const pageParam = urlParams.get('page');
 
@@ -853,6 +882,13 @@ export const App: React.FC = () => {
         await fetchData();
     };
 
+    const activePublicPropertyId = resolvePublicPropertyId({
+        pageParams,
+        pathname: typeof window !== 'undefined' ? window.location.pathname : undefined,
+        search: typeof window !== 'undefined' ? window.location.search : undefined,
+        dbState,
+    });
+
     const renderPage = () => {
         const hasPublicPresentation = hasProvisionedPublicPresentation(dbState);
         const canUseLegacyBooking = canRenderLegacyBooking(dbState, isProductionBuild);
@@ -862,13 +898,10 @@ export const App: React.FC = () => {
         switch (page) {
             case 'home':
                 if (!hasPublicPresentation) return <ProvisioningRequired scope="public" />;
-                return <PublicView setPage={setPageAndParams} db={dbState!} chatData={chatData} onStartChat={apiService.startChat} onSendMessage={apiService.sendMessage} />;
+                return <PublicView setPage={setPageAndParams} db={dbState!} chatData={chatData} onStartChat={apiService.startChat} onSendMessage={apiService.sendMessage} publicPropertyId={activePublicPropertyId} />;
             case 'booking':
-                if (isProductionBuild) {
-                    const publicPropertyId = typeof pageParams?.publicPropertyId === 'string'
-                        ? pageParams.publicPropertyId
-                        : new URLSearchParams(window.location.search).get('publicPropertyId') || undefined;
-                    return <CanonicalPublicBookingView publicPropertyId={publicPropertyId} onReturnHome={() => setPageAndParams('home')} />;
+                if (isProductionBuild || activePublicPropertyId) {
+                    return <CanonicalPublicBookingView publicPropertyId={activePublicPropertyId} onReturnHome={() => setPageAndParams('home')} />;
                 }
                 if (!canUseLegacyBooking) return <ProvisioningRequired scope="booking" onReturnHome={() => setPageAndParams('home')} />;
                 return <BookingView setPage={setPageAndParams} initialParams={pageParams} db={dbState!} onBookingCreate={onBookingCreate} currentUser={currentUser as Guest | null} onAcknowledgeRules={acknowledgeRules} />;
@@ -1058,7 +1091,7 @@ export const App: React.FC = () => {
         <>
             {dbState && <ThemeStyles themeSettings={dbState.themeSettings} />}
             <div className="font-sans">
-                {shouldShowHeader() && dbState && <Header page={page} setPage={setPageAndParams} currentUser={currentUser} logout={logout} themeSettings={dbState.themeSettings}/>}
+                {shouldShowHeader() && dbState && <Header page={page} setPage={setPageAndParams} currentUser={currentUser} logout={logout} themeSettings={dbState.themeSettings} publicPropertyId={activePublicPropertyId}/>}
                 <main>
                     {renderPage()}
                 </main>

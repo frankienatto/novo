@@ -5,10 +5,11 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface HeaderProps {
     page: Page;
-    setPage: (page: Page) => void;
+    setPage: (page: Page, params?: any) => void;
     currentUser: UserType | null;
     logout: () => void;
     themeSettings?: ThemeSettings | null;
+    publicPropertyId?: string;
 }
 
 const defaultPublicSite = {
@@ -17,7 +18,7 @@ const defaultPublicSite = {
     logoUrl: 'https://i.imgur.com/uEFOBeo.png'
 };
 
-const Header: React.FC<HeaderProps> = ({ page, setPage, currentUser, logout, themeSettings }) => {
+const Header: React.FC<HeaderProps> = ({ page, setPage, currentUser, logout, themeSettings, publicPropertyId }) => {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [isScrolled, setIsScrolled] = React.useState(false);
     const publicSite = themeSettings?.publicSite || defaultPublicSite;
@@ -123,7 +124,7 @@ const Header: React.FC<HeaderProps> = ({ page, setPage, currentUser, logout, the
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => setPage('booking')}
+                        onClick={() => setPage('booking', publicPropertyId ? { publicPropertyId } : undefined)}
                         className="bg-brand-green text-white font-bold py-2.5 px-6 text-xs uppercase tracking-[0.2em] shadow-xl shadow-brand-green/20"
                         style={{ borderRadius: 'var(--ps-button-radius)' }}
                     >
@@ -139,7 +140,7 @@ const Header: React.FC<HeaderProps> = ({ page, setPage, currentUser, logout, the
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setPage('booking')}
+                    onClick={() => setPage('booking', publicPropertyId ? { publicPropertyId } : undefined)}
                     className="bg-brand-green text-white font-bold py-2.5 px-8 text-xs uppercase tracking-[0.2em] shadow-xl shadow-brand-green/20"
                     style={{ borderRadius: 'var(--ps-button-radius)' }}
                 >
@@ -229,7 +230,7 @@ const Header: React.FC<HeaderProps> = ({ page, setPage, currentUser, logout, the
                             )}
                             </div>
                             <button 
-                                onClick={() => { setPage('booking'); setIsMenuOpen(false); }} 
+                                onClick={() => { setPage('booking', publicPropertyId ? { publicPropertyId } : undefined); setIsMenuOpen(false); }} 
                                 className="bg-brand-green-light text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-brand-green/20 w-full uppercase tracking-[0.2em] text-xs mt-2"
                             >
                                 Reservar Agora

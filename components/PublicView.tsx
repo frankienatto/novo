@@ -130,15 +130,17 @@ interface PublicViewProps {
     chatData: { conversations: ChatConversation[]; messages: ChatMessage[] };
     onStartChat: (name: string, firstMessage: string) => Promise<{ conversation: ChatConversation; message: ChatMessage }>;
     onSendMessage: (conversationId: string, text: string, senderId: string, senderName: string) => Promise<ChatMessage>;
+    publicPropertyId?: string;
 }
 
-const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartChat, onSendMessage }) => {
+const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartChat, onSendMessage, publicPropertyId }) => {
     
     const [selectedFacility, setSelectedFacility] = React.useState<Facility | null>(null);
     const properties = Array.isArray(db?.properties) ? db.properties : [];
     const reviews = Array.isArray(db?.reviews) ? db.reviews : [];
     const rooms = Array.isArray(db?.rooms) ? db.rooms : [];
     const activeProperty = React.useMemo(() => properties.find(p => p.id === db?.currentPropertyId), [properties, db?.currentPropertyId]);
+    const effectivePublicPropertyId = publicPropertyId || (activeProperty as any)?.publicPropertyId;
 
     if (!activeProperty || !db?.siteContent?.hero || !db?.themeSettings?.publicSite) {
         return <div className="min-h-[60vh] flex items-center justify-center p-10 text-center text-gray-600">Conteúdo público ainda não configurado para esta propriedade.</div>
@@ -154,6 +156,7 @@ const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartC
             checkIn: formData.get('checkin'),
             checkOut: formData.get('checkout'),
             guests: formData.get('guests'),
+            ...(effectivePublicPropertyId ? { publicPropertyId: effectivePublicPropertyId } : {}),
         };
         setPage('booking', searchParams);
     };
@@ -461,7 +464,7 @@ const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartC
                             </div>
                             <motion.button 
                                 whileHover={{ x: 5 }}
-                                onClick={() => setPage('booking')} 
+                                onClick={() => setPage('booking', effectivePublicPropertyId ? { publicPropertyId: effectivePublicPropertyId } : undefined)} 
                                 className="flex items-center gap-2 text-brand-green font-bold uppercase tracking-[0.2em] text-[10px] group border-b border-transparent hover:border-brand-green transition-all pb-1 w-fit"
                             >
                                 Ver Todas <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
@@ -469,7 +472,7 @@ const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartC
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
                             {rooms.slice(0, 3).map((room, index) => (
-                                <RoomCard key={room.id} room={room} index={index} onReserve={(roomId) => setPage('booking', { roomId })} />
+                                <RoomCard key={room.id} room={room} index={index} onReserve={(roomId) => setPage('booking', { roomId, ...(effectivePublicPropertyId ? { publicPropertyId: effectivePublicPropertyId } : {}) })} />
                             ))}
                         </div>
                     </div>
@@ -534,7 +537,7 @@ const PublicView: React.FC<PublicViewProps> = ({ setPage, db, chatData, onStartC
                     <div className="container mx-auto px-6 py-16 sm:py-20 text-center text-white">
                          <h2 className="text-3xl sm:text-4xl font-bold mb-4">{siteContent.cta.title}</h2>
                          <p className="max-w-xl mx-auto mb-8">{siteContent.cta.subtitle}</p>
-                         <button onClick={() => setPage('booking')} className="bg-white text-[var(--ps-primary)] font-bold py-3 px-8 text-lg hover:bg-gray-200 transition-all transform hover:scale-105" style={{borderRadius: 'var(--ps-button-radius)'}}>
+                         <button onClick={() => setPage('booking', effectivePublicPropertyId ? { publicPropertyId: effectivePublicPropertyId } : undefined)} className="bg-white text-[var(--ps-primary)] font-bold py-3 px-8 text-lg hover:bg-gray-200 transition-all transform hover:scale-105" style={{borderRadius: 'var(--ps-button-radius)'}}>
                             {siteContent.cta.buttonText}
                         </button>
                     </div>
