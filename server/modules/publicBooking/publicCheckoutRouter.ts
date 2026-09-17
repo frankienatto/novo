@@ -68,29 +68,106 @@ publicCheckoutRouter.post('/reservations/:reservationId/payment-intent', async (
   }
 });
 
+export function deriveErrorCode(rawMessage: string, explicitCode?: unknown): string {
+  if (typeof explicitCode === 'string' && explicitCode.trim().length > 0) {
+    return explicitCode.trim();
+  }
+  if (rawMessage.startsWith('PAYMENT_')) return rawMessage;
+  if (rawMessage.includes('capability')) return 'CHECKOUT_CAPABILITY_INVALID_OR_EXPIRED';
+  if (rawMessage.includes('unavailable for checkout')) return 'RESERVATION_UNAVAILABLE_FOR_CHECKOUT';
+  if (rawMessage.includes('idempotency key')) return 'IDEMPOTENCY_KEY_REQUIRED';
+  if (rawMessage.includes('already paid')) return 'RESERVATION_ALREADY_PAID';
+  if (rawMessage.includes('no payable balance')) return 'RESERVATION_NO_BALANCE';
+  if (rawMessage.includes('active payment attempt')) return 'ACTIVE_PAYMENT_EXISTS';
+  if (rawMessage.includes('payment idempotency')) return 'PAYMENT_IDEMPOTENCY_FAILED';
+  if (rawMessage.includes('FAILED_PRECONDITION') || rawMessage.includes('requires an index')) return 'FIRESTORE_INDEX_REQUIRED';
+  return 'PAYMENT_PROCESSING_ERROR';
+}
+
+export function sanitizeErrorMessage(message: unknown): string {
+  if (typeof message !== 'string') return 'Unknown error occurred.';
+  return message
+    .replace(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/g, '[EMAIL_REDACTED]')
+    .replace(/(?:bearer\s+|token[:=]\s*)[a-zA-Z0-9_.-]+/gi, 'Bearer [REDACTED]')
+    .replace(/([0-9a-fA-F]{32,64})/g, '[HASH_REDACTED]')
+    .replace(/cpf[:=]\s*\d+/gi, 'cpf:[REDACTED]')
+    .slice(0, 300);
+}
+
 /** Preferred provider-neutral public checkout boundary. The request contains
  * provider/method presentation input only; the reservation owns all money,
  * currency, tenant and final status facts. */
 publicCheckoutRouter.post('/reservations/:reservationId/payments', async (req: Request, res: Response) => {
+  const reservationId = Array.isArray(req.params.reservationId) ? req.params.reservationId[0] : req.params.reservationId;
+  const { provider, method, providerData } = req.body || {};
+  const safeProvider = typeof provider === 'string' && provider ? provider : 'mercadopago';
+  const safeMethod = typeof method === 'string' && method ? method : 'pix';
+
   try {
     const capability = req.headers['x-checkout-capability'];
     if (typeof capability !== 'string') return res.status(401).json({ error: 'Checkout capability is required.' });
     const idempotencyKey = req.headers['idempotency-key'];
-    if (typeof idempotencyKey !== 'string') return res.status(400).json({ error: 'An idempotency key is required.' });
-    const reservationId = Array.isArray(req.params.reservationId) ? req.params.reservationId[0] : req.params.reservationId;
-    const { provider, method, providerData } = req.body || {};
+    if (typeof idempotencyKey !== 'string') {
+      console.error(JSON.stringify({
+        module: 'PublicCheckoutPayments',
+        event: 'public_booking_payment_failed',
+        stage: 'request_validation',
+        provider: safeProvider,
+        method: safeMethod,
+        reservationId,
+        errorCode: 'IDEMPOTENCY_KEY_REQUIRED',
+        errorMessage: 'An idempotency key is required.',
+      }));
+      return res.status(400).json({ error: 'An idempotency key is required.' });
+    }
     if (!['stripe', 'mercadopago', 'picpay'].includes(provider) || !['card', 'pix'].includes(method)) {
+      console.error(JSON.stringify({
+        module: 'PublicCheckoutPayments',
+        event: 'public_booking_payment_failed',
+        stage: 'request_validation',
+        provider: safeProvider,
+        method: safeMethod,
+        reservationId,
+        errorCode: 'UNSUPPORTED_PROVIDER_OR_METHOD',
+        errorMessage: 'Unsupported payment provider or method.',
+      }));
       return res.status(400).json({ error: 'Unsupported payment provider or method.' });
     }
+
+    console.log(JSON.stringify({
+      module: 'PublicCheckoutPayments',
+      event: 'payment_request_validated',
+      provider,
+      method,
+      reservationId,
+    }));
+
     const result = await publicCheckoutService.createPayment(reservationId, capability, { provider, method, providerData } as CreateCanonicalPaymentRequest, idempotencyKey);
     return res.status(201).json({
       paymentId: result.paymentId, provider: result.provider, method: result.paymentMethod,
       status: result.status, presentation: result.presentation,
     });
   } catch (error: any) {
-    const message = error?.message || 'Unable to create payment.';
-    const status = message === 'PAYMENT_PROVIDER_NOT_CONFIGURED' ? 503 : 400;
-    return res.status(status).json({ error: message });
+    const rawMessage = error?.message || 'Unable to create payment.';
+    const stage = error?.stage || 'unknown';
+    const paymentId = error?.paymentId;
+    const errorCode = deriveErrorCode(rawMessage, error?.code);
+    const errorMessage = sanitizeErrorMessage(rawMessage);
+
+    console.error(JSON.stringify({
+      module: 'PublicCheckoutPayments',
+      event: 'public_booking_payment_failed',
+      stage,
+      provider: safeProvider,
+      method: safeMethod,
+      reservationId,
+      ...(paymentId ? { paymentId } : {}),
+      errorCode,
+      errorMessage,
+    }));
+
+    const status = rawMessage === 'PAYMENT_PROVIDER_NOT_CONFIGURED' ? 503 : 400;
+    return res.status(status).json({ error: rawMessage });
   }
 });
 

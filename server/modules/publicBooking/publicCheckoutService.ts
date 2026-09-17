@@ -78,44 +78,92 @@ export class PublicCheckoutService {
   /** Provider-neutral payment creation. Financial facts are always derived from
    * the canonical reservation, never the browser's request. */
   async createPayment(reservationId: string, capability: string, request: CreateCanonicalPaymentRequest, idempotencyKey: string) {
-    const reservation = await this.authorizeCheckout(reservationId, capability);
-    if (!idempotencyKey || idempotencyKey.length < 16) throw new Error('An idempotency key is required.');
-    if (reservation.paymentStatus === 'paid' || reservation.balance === 0) throw new Error('Reservation is already paid.');
-    const amount = reservation.balance ?? reservation.totalAmount;
-    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Reservation has no payable balance.');
-    const existing = await this.checkout.getPayment(reservationId);
-    if (existing && ['pending', 'processing'].includes(existing.status)) {
-      if (existing.provider !== request.provider || existing.paymentMethod !== request.method) throw new Error('An active payment attempt already exists for this reservation.');
-      return existing;
-    }
-    const provider = this.providers[request.provider];
-    if (!provider || !provider.supports(request.method)) throw new Error('PAYMENT_METHOD_UNSUPPORTED');
-    if (!provider.isConfigured()) throw new Error('PAYMENT_PROVIDER_NOT_CONFIGURED');
-    const now = new Date().toISOString();
-    // A key represents one payment attempt. Retrying the same network request
-    // reuses this record; a failed/expired attempt can be retried with a new
-    // key without reusing a provider-side charge reference.
-    const idempotencyKeyHash = sha256(`${reservation.organizationId}:${reservation.propertyId}:${idempotencyKey}`);
-    const digest = sha256(`${reservation.reservationId}:${request.provider}:${request.method}:${amount}:${reservation.currency || 'brl'}:${idempotencyKeyHash}`);
-    const paymentId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
-    const sameAttempt = await this.checkout.getPaymentById(paymentId);
-    if (sameAttempt) return sameAttempt;
-    const pending: PaymentRecord = { paymentId, reservationId, organizationId: reservation.organizationId, propertyId: reservation.propertyId, provider: request.provider, paymentMethod: request.method, providerPaymentId: paymentId, providerReference: paymentId, idempotencyKeyHash, amount, currency: reservation.currency || 'brl', status: 'processing', createdAt: now, updatedAt: now };
+    let currentStage = 'capability_authorization';
+    let paymentId: string | undefined;
+
     try {
-      await this.checkout.createPaymentAttempt(pending);
-    } catch {
-      const raced = await this.checkout.getPaymentById(paymentId);
-      if (raced) return raced;
-      throw new Error('Unable to establish payment idempotency.');
-    }
-    try {
-      const result = await provider.createPayment({ paymentId, amount, currency: reservation.currency || 'brl', reservation, method: request.method, providerData: request.providerData });
+      const reservation = await this.authorizeCheckout(reservationId, capability);
+      console.log(JSON.stringify({
+        module: 'PublicCheckoutPayments',
+        event: 'payment_reservation_loaded',
+        provider: request.provider,
+        method: request.method,
+        reservationId: reservation.reservationId,
+      }));
+
+      currentStage = 'reservation_state_validation';
+      if (!idempotencyKey || idempotencyKey.length < 16) throw new Error('An idempotency key is required.');
+      if (reservation.paymentStatus === 'paid' || reservation.balance === 0) throw new Error('Reservation is already paid.');
+      const amount = reservation.balance ?? reservation.totalAmount;
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error('Reservation has no payable balance.');
+
+      currentStage = 'active_payment_check';
+      const existing = await this.checkout.getPayment(reservationId);
+      if (existing && ['pending', 'processing'].includes(existing.status)) {
+        if (existing.provider !== request.provider || existing.paymentMethod !== request.method) throw new Error('An active payment attempt already exists for this reservation.');
+        return existing;
+      }
+
+      currentStage = 'provider_selection';
+      const provider = this.providers[request.provider];
+      if (!provider || !provider.supports(request.method)) throw new Error('PAYMENT_METHOD_UNSUPPORTED');
+      if (!provider.isConfigured()) throw new Error('PAYMENT_PROVIDER_NOT_CONFIGURED');
+
+      console.log(JSON.stringify({
+        module: 'PublicCheckoutPayments',
+        event: 'payment_provider_selected',
+        provider: request.provider,
+        method: request.method,
+        reservationId: reservation.reservationId,
+      }));
+
+      currentStage = 'payment_attempt_creation';
+      const now = new Date().toISOString();
+      // A key represents one payment attempt. Retrying the same network request
+      // reuses this record; a failed/expired attempt can be retried with a new
+      // key without reusing a provider-side charge reference.
+      const idempotencyKeyHash = sha256(`${reservation.organizationId}:${reservation.propertyId}:${idempotencyKey}`);
+      const digest = sha256(`${reservation.reservationId}:${request.provider}:${request.method}:${amount}:${reservation.currency || 'brl'}:${idempotencyKeyHash}`);
+      paymentId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
+      const sameAttempt = await this.checkout.getPaymentById(paymentId);
+      if (sameAttempt) return sameAttempt;
+      const pending: PaymentRecord = { paymentId, reservationId, organizationId: reservation.organizationId, propertyId: reservation.propertyId, provider: request.provider, paymentMethod: request.method, providerPaymentId: paymentId, providerReference: paymentId, idempotencyKeyHash, amount, currency: reservation.currency || 'brl', status: 'processing', createdAt: now, updatedAt: now };
+      try {
+        await this.checkout.createPaymentAttempt(pending);
+      } catch {
+        const raced = await this.checkout.getPaymentById(paymentId);
+        if (raced) return raced;
+        throw new Error('Unable to establish payment idempotency.');
+      }
+
+      currentStage = 'provider_call';
+      console.log(JSON.stringify({
+        module: 'PublicCheckoutPayments',
+        event: 'payment_provider_call_started',
+        provider: request.provider,
+        method: request.method,
+        reservationId: reservation.reservationId,
+        paymentId,
+      }));
+
+      let result;
+      try {
+        result = await provider.createPayment({ paymentId, amount, currency: reservation.currency || 'brl', reservation, method: request.method, providerData: request.providerData });
+      } catch (error) {
+        await this.checkout.savePayment({ ...pending, status: 'failed', updatedAt: new Date().toISOString() });
+        throw error;
+      }
+
+      currentStage = 'payment_persistence';
       const payment: PaymentRecord = { ...pending, providerPaymentId: result.providerPaymentId, providerReference: result.providerReference, providerStatus: result.providerStatus, presentation: result.presentation, status: 'pending', updatedAt: new Date().toISOString(), ...(request.provider === 'stripe' ? { stripePaymentIntentId: result.providerPaymentId } : {}) };
       await this.checkout.savePayment(payment);
       if (request.provider === 'stripe') await this.reservations.updateReservation(reservation.organizationId, reservation.propertyId, reservationId, { stripePaymentIntentId: result.providerPaymentId });
       return payment;
-    } catch (error) {
-      await this.checkout.savePayment({ ...pending, status: 'failed', updatedAt: new Date().toISOString() });
+    } catch (error: any) {
+      if (error && typeof error === 'object') {
+        if (!error.stage) error.stage = currentStage;
+        if (paymentId && !error.paymentId) error.paymentId = paymentId;
+      }
       throw error;
     }
   }
