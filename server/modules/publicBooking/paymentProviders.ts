@@ -104,31 +104,133 @@ export class MercadoPagoPaymentProvider implements PaymentProviderAdapter {
   async createPayment(input: ProviderPaymentInput): Promise<ProviderPaymentResult> {
     if (!this.supports(input.method)) throw new Error('PAYMENT_METHOD_UNSUPPORTED');
     const payer = input.providerData?.payer as Record<string, unknown> | undefined;
+    const guestFullName = (input.reservation.guest.fullName || '').trim();
+    const nameParts = guestFullName.length > 0 ? guestFullName.split(/\s+/) : ['Hospede', 'Synapse'];
+    const firstName = (typeof payer?.first_name === 'string' && payer.first_name) ? payer.first_name : nameParts[0];
+    const lastName = (typeof payer?.last_name === 'string' && payer.last_name) ? payer.last_name : (nameParts.slice(1).join(' ') || firstName);
+
+    const payerPayload: Record<string, unknown> = {
+      email: input.reservation.guest.email,
+      first_name: firstName,
+      last_name: lastName,
+      ...(payer?.identification ? { identification: payer.identification } : {}),
+    };
+
     const payload: Record<string, unknown> = {
-      transaction_amount: input.amount,
+      type: 'online',
+      processing_mode: 'automatic',
+      total_amount: input.amount,
       description: `Synapse reservation ${input.reservation.reservationId}`,
       external_reference: input.paymentId,
       notification_url: `${this.publicBaseUrl}/api/payments/mercadopago/webhook`,
-      payer: { ...(payer || {}), email: input.reservation.guest.email },
-      payment_method_id: input.method === 'pix' ? 'pix' : undefined,
+      payer: payerPayload,
     };
-    if (input.method === 'card') {
+
+    if (input.method === 'pix') {
+      payload.transactions = {
+        payments: [
+          {
+            amount: input.amount,
+            payment_method: {
+              id: 'pix',
+              type: 'bank_transfer',
+            },
+          },
+        ],
+      };
+    } else if (input.method === 'card') {
       const token = typeof input.providerData?.token === 'string' ? input.providerData.token : undefined;
       if (!token) throw new Error('PAYMENT_TOKEN_REQUIRED');
-      payload.token = token;
-      payload.installments = typeof input.providerData?.installments === 'number' ? input.providerData.installments : 1;
+      payload.transactions = {
+        payments: [
+          {
+            amount: input.amount,
+            token,
+            installments: typeof input.providerData?.installments === 'number' ? input.providerData.installments : 1,
+            payment_method: {
+              id: (input.providerData?.payment_method_id as string) || 'credit_card',
+              type: 'credit_card',
+            },
+          },
+        ],
+      };
     }
-    const response = await fetchJson('https://api.mercadopago.com/v1/payments', { method: 'POST', headers: this.headers(input.paymentId), body: JSON.stringify(payload) });
-    const tx = response.point_of_interaction?.transaction_data || {};
+
+    const response = await fetchJson('https://api.mercadopago.com/v1/orders', {
+      method: 'POST',
+      headers: this.headers(input.paymentId),
+      body: JSON.stringify(payload),
+    });
+
+    const transactions = Array.isArray(response.transactions?.payments)
+      ? response.transactions.payments
+      : Array.isArray(response.transactions)
+        ? response.transactions
+        : [];
+    const firstTx = transactions[0] || response.transactions || response;
+    const txData = firstTx.point_of_interaction?.transaction_data
+      || firstTx.payment_method_details?.transaction_data
+      || response.point_of_interaction?.transaction_data
+      || firstTx;
+
+    const qrCode = (typeof txData.qr_code === 'string' && txData.qr_code)
+      || (typeof response.qr_code === 'string' && response.qr_code)
+      || undefined;
+    const qrCodeBase64 = (typeof txData.qr_code_base64 === 'string' && txData.qr_code_base64)
+      || (typeof response.qr_code_base64 === 'string' && response.qr_code_base64)
+      || undefined;
+    const expiresAt = firstTx.date_of_expiration || response.expiration_time || response.date_of_expiration || undefined;
+
+    if (input.method === 'pix' && !qrCode) {
+      throw new Error('PAYMENT_PROVIDER_INVALID_PIX_RESPONSE');
+    }
+
+    const orderId = String(response.id || '');
+    if (!orderId) {
+      throw new Error('PAYMENT_PROVIDER_INVALID_RESPONSE');
+    }
+    const orderStatus = String(response.order_status || response.status || 'pending');
+
     return {
-      providerPaymentId: String(response.id), providerReference: String(response.id), providerStatus: String(response.status || 'pending'),
-      presentation: input.method === 'pix' ? { qrCode: tx.qr_code, qrCodeBase64: tx.qr_code_base64, expiresAt: response.date_of_expiration } : undefined,
+      providerPaymentId: orderId,
+      providerReference: orderId,
+      providerStatus: orderStatus,
+      presentation: input.method === 'pix' ? { qrCode, qrCodeBase64, expiresAt } : undefined,
     };
   }
   async getPaymentStatus(reference: string): Promise<ProviderStatusResult> {
-    const response = await fetchJson(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(reference)}`, { headers: this.headers() });
-    const status = String(response.status || 'pending');
-    return { providerPaymentId: String(response.id), providerReference: String(response.id), providerStatus: status, amount: Number(response.transaction_amount), currency: String(response.currency_id || '').toLowerCase(), paid: status === 'approved', failed: status === 'rejected', cancelled: status === 'cancelled', refunded: status === 'refunded' };
+    const response = await fetchJson(`https://api.mercadopago.com/v1/orders/${encodeURIComponent(reference)}`, { headers: this.headers() });
+    const orderId = String(response.id);
+    const orderStatus = String(response.order_status || response.status || 'pending').toLowerCase();
+    const transactions = Array.isArray(response.transactions?.payments)
+      ? response.transactions.payments
+      : Array.isArray(response.transactions)
+        ? response.transactions
+        : [];
+    const anyApproved = transactions.some((p: any) => String(p.status).toLowerCase() === 'approved');
+    const anyRefunded = transactions.some((p: any) => String(p.status).toLowerCase() === 'refunded');
+    const allRejected = transactions.length > 0 && transactions.every((p: any) => ['rejected', 'failed'].includes(String(p.status).toLowerCase()));
+    const allCancelled = transactions.length > 0 && transactions.every((p: any) => ['canceled', 'cancelled'].includes(String(p.status).toLowerCase()));
+
+    const paid = orderStatus === 'processed' || orderStatus === 'paid' || anyApproved;
+    const failed = orderStatus === 'failed' || orderStatus === 'rejected' || allRejected;
+    const cancelled = orderStatus === 'canceled' || orderStatus === 'cancelled' || allCancelled;
+    const refunded = orderStatus === 'refunded' || anyRefunded;
+
+    const amount = Number(response.total_amount || response.transaction_amount || transactions[0]?.amount || 0);
+    const currency = String(response.currency_id || response.currency || 'brl').toLowerCase();
+
+    return {
+      providerPaymentId: orderId,
+      providerReference: orderId,
+      providerStatus: orderStatus,
+      amount,
+      currency,
+      paid,
+      failed,
+      cancelled,
+      refunded,
+    };
   }
   verifyWebhook(headers: Record<string, string | undefined>, dataId: string) {
     if (!this.webhookSecret || !dataId) return false;

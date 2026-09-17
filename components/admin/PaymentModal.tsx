@@ -103,20 +103,27 @@ const StripeForm = ({ amount, bookingId, checkoutCapability, onSuccess }: any) =
 const PixSection = ({ bookingId, checkoutCapability, provider }: { bookingId: string; checkoutCapability: string; provider: 'mercadopago' | 'picpay' }) => {
   const [pixData, setPixData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    const initPix = async () => {
-      setIsLoading(true);
-      try {
-        const data = await createCanonicalPayment(bookingId, checkoutCapability, provider, 'pix');
-        setPixData(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
+  const initPix = async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    setPixData(null);
+    try {
+      const data = await createCanonicalPayment(bookingId, checkoutCapability, provider, 'pix');
+      if (!data?.presentation?.qrCode || data.presentation.qrCode.trim() === '') {
+        throw new Error('Código Pix não retornado pelo provedor.');
       }
-    };
+      setPixData(data);
+    } catch {
+      setErrorMessage('Não foi possível gerar a cobrança Pix no momento.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     initPix();
   }, [bookingId, checkoutCapability, provider]);
 
@@ -128,23 +135,49 @@ const PixSection = ({ bookingId, checkoutCapability, provider }: { bookingId: st
     }
   };
 
-  if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-brand-primary" /></div>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-primary" />
+        <p className="text-sm text-gray-500">Gerando cobrança Pix...</p>
+      </div>
+    );
+  }
+
+  if (errorMessage || !pixData?.presentation?.qrCode) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 space-y-4 text-center">
+        <div className="flex items-center gap-2 p-3 text-sm text-red-700 bg-red-50 rounded-lg max-w-md w-full">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <span>{errorMessage || 'Não foi possível gerar a cobrança Pix no momento.'}</span>
+        </div>
+        <button
+          type="button"
+          onClick={initPix}
+          className="py-2.5 px-5 bg-brand-primary text-white rounded-lg font-medium hover:bg-brand-secondary transition-colors flex items-center gap-2 text-sm shadow-sm"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center space-y-6 text-center">
       <div className="p-4 bg-white rounded-xl shadow-inner border-2 border-gray-100">
-        <QRCodeSVG value={pixData?.presentation?.qrCode || ''} size={200} />
+        <QRCodeSVG value={pixData.presentation.qrCode} size={200} />
       </div>
 
       <div className="w-full space-y-3">
         <p className="text-sm text-gray-600">Escaneie o QR Code ou use o código abaixo:</p>
         <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
           <code className="text-xs text-gray-700 truncate flex-1 text-left">
-            {pixData?.presentation?.qrCode}
+            {pixData.presentation.qrCode}
           </code>
           <button 
             onClick={copyToClipboard}
             className="p-2 hover:bg-white rounded-md transition-colors"
+            title="Copiar código Pix"
           >
             {copied ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-500" />}
           </button>
@@ -155,7 +188,9 @@ const PixSection = ({ bookingId, checkoutCapability, provider }: { bookingId: st
         <div className="mt-1"><AlertCircle className="w-4 h-4" /></div>
         <p>Pagamento pendente. A reserva só será confirmada após a validação do provedor pelo servidor.</p>
       </div>
-      {pixData?.presentation?.expiresAt && <p className="text-xs text-gray-500">Expira em: {new Date(pixData.presentation.expiresAt).toLocaleString('pt-BR')}</p>}
+      {pixData.presentation.expiresAt && (
+        <p className="text-xs text-gray-500">Expira em: {new Date(pixData.presentation.expiresAt).toLocaleString('pt-BR')}</p>
+      )}
     </div>
   );
 };

@@ -112,7 +112,8 @@ export async function mercadoPagoWebhookHandler(req: Request, res: Response) {
   try {
     const provider = new MercadoPagoPaymentProvider();
     const dataId = typeof req.body?.data?.id === 'string' || typeof req.body?.data?.id === 'number'
-      ? String(req.body.data.id) : '';
+      ? String(req.body.data.id)
+      : (typeof req.body?.resource === 'string' ? req.body.resource.split('/').pop() || '' : '');
     const headers = {
       'x-signature': typeof req.headers['x-signature'] === 'string' ? req.headers['x-signature'] : undefined,
       'x-request-id': typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'] : undefined,
@@ -120,7 +121,7 @@ export async function mercadoPagoWebhookHandler(req: Request, res: Response) {
     if (!provider.isConfigured()) return res.status(503).json({ error: 'Webhook is not configured.' });
     if (!provider.verifyWebhook(headers, dataId)) return res.status(401).json({ error: 'Invalid Mercado Pago notification.' });
     const eventId = typeof req.body?.id === 'string' || typeof req.body?.id === 'number'
-      ? String(req.body.id) : `payment:${dataId}:${req.headers['x-request-id'] || ''}`;
+      ? String(req.body.id) : `order:${dataId}:${req.headers['x-request-id'] || ''}`;
     await publicCheckoutService.processProviderWebhook('mercadopago', eventId, dataId);
     return res.status(200).json({ received: true });
   } catch {
