@@ -48,6 +48,49 @@ const fetchJson = async (url: string, init: RequestInit) => {
   return payload as Record<string, any>;
 };
 
+export function sanitizeMercadoPagoError(body: unknown): Record<string, unknown> {
+  if (!body || typeof body !== 'object') {
+    return { raw: typeof body === 'string' ? body.slice(0, 500) : String(body) };
+  }
+  const raw = body as Record<string, any>;
+  const sanitized: Record<string, unknown> = {};
+
+  if (raw.message) sanitized.message = String(raw.message);
+  if (raw.error) sanitized.error = String(raw.error);
+  if (raw.status !== undefined) sanitized.status = raw.status;
+  if (raw.code !== undefined) sanitized.code = raw.code;
+
+  if (Array.isArray(raw.cause)) {
+    sanitized.cause = raw.cause.map((item: any) => {
+      if (item && typeof item === 'object') {
+        const entry: Record<string, unknown> = {};
+        if (item.code !== undefined) entry.code = String(item.code);
+        if (item.description !== undefined) entry.description = String(item.description);
+        if (item.message !== undefined) entry.message = String(item.message);
+        return Object.keys(entry).length > 0 ? entry : { description: JSON.stringify(item).slice(0, 200) };
+      }
+      return String(item);
+    });
+  } else if (raw.cause && typeof raw.cause === 'object') {
+    const entry: Record<string, unknown> = {};
+    if (raw.cause.code !== undefined) entry.code = String(raw.cause.code);
+    if (raw.cause.description !== undefined) entry.description = String(raw.cause.description);
+    if (raw.cause.message !== undefined) entry.message = String(raw.cause.message);
+    sanitized.cause = Object.keys(entry).length > 0 ? entry : { description: JSON.stringify(raw.cause).slice(0, 200) };
+  } else if (raw.cause !== undefined) {
+    sanitized.cause = String(raw.cause);
+  }
+
+  if (raw.api_response && typeof raw.api_response === 'object') {
+    sanitized.api_response = {
+      status: raw.api_response.status,
+      message: raw.api_response.message,
+    };
+  }
+
+  return sanitized;
+}
+
 const cents = (amount: number) => Math.round(amount * 100);
 const safeEqual = (left: string, right: string) => {
   const a = Buffer.from(left);
@@ -156,11 +199,28 @@ export class MercadoPagoPaymentProvider implements PaymentProviderAdapter {
       };
     }
 
-    const response = await fetchJson('https://api.mercadopago.com/v1/orders', {
+    const mpResponse = await fetch('https://api.mercadopago.com/v1/orders', {
       method: 'POST',
       headers: this.headers(input.paymentId),
       body: JSON.stringify(payload),
     });
+
+    const response = await mpResponse.json().catch(() => ({}));
+
+    if (!mpResponse.ok) {
+      const sanitizedError = sanitizeMercadoPagoError(response);
+      console.error(JSON.stringify({
+        module: 'MercadoPagoPaymentProvider',
+        event: 'mercadopago_orders_create_failed',
+        provider: 'mercadopago',
+        providerApi: 'orders',
+        httpStatus: mpResponse.status,
+        providerError: sanitizedError,
+        paymentId: input.paymentId,
+        reservationId: input.reservation.reservationId,
+      }));
+      throw new Error(`PAYMENT_PROVIDER_HTTP_${mpResponse.status}`);
+    }
 
     const transactions = Array.isArray(response.transactions?.payments)
       ? response.transactions.payments

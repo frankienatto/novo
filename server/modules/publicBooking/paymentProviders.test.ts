@@ -139,4 +139,69 @@ describe('canonical payment provider adapters', () => {
     expect(new MercadoPagoPaymentProvider(undefined, undefined, undefined).isConfigured()).toBe(false);
     expect(new PicPayPixPaymentProvider(undefined, undefined, undefined).isConfigured()).toBe(false);
   });
+
+  it('logs structured sanitized error and throws controlled error on Mercado Pago Orders API 4xx failure', async () => {
+    const errorLogs: string[] = [];
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      errorLogs.push(args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '));
+    });
+
+    const fakeAccessToken = 'TEST_MP_ACCESS_TOKEN_12345';
+    const fakeWebhookSecret = 'TEST_MP_WEBHOOK_SECRET_67890';
+    const fakeCardToken = 'TEST_CARD_TOKEN_ABCDEF';
+
+    vi.stubGlobal('fetch', async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        message: 'Invalid transaction amount or payment method',
+        error: 'bad_request',
+        status: 400,
+        cause: [
+          { code: '3001', description: 'Invalid total amount', message: 'Amount must be positive' },
+        ],
+      }),
+    }));
+
+    const provider = new MercadoPagoPaymentProvider(fakeAccessToken, fakeWebhookSecret, 'https://staging.example.test');
+
+    await expect(provider.createPayment({
+      paymentId: 'pay_err_test_001',
+      amount: 150,
+      currency: 'brl',
+      reservation,
+      method: 'pix',
+    })).rejects.toThrow('PAYMENT_PROVIDER_HTTP_400');
+
+    expect(errorLogs.length).toBe(1);
+    const parsedLog = JSON.parse(errorLogs[0]);
+
+    expect(parsedLog).toMatchObject({
+      module: 'MercadoPagoPaymentProvider',
+      event: 'mercadopago_orders_create_failed',
+      provider: 'mercadopago',
+      providerApi: 'orders',
+      httpStatus: 400,
+      paymentId: 'pay_err_test_001',
+      reservationId: 'res_payment_test',
+      providerError: {
+        message: 'Invalid transaction amount or payment method',
+        error: 'bad_request',
+        status: 400,
+        cause: [
+          { code: '3001', description: 'Invalid total amount', message: 'Amount must be positive' },
+        ],
+      },
+    });
+
+    // Validar que NENHUM secret, access token, webhook secret ou card token está presente no log
+    const fullLogString = errorLogs[0];
+    expect(fullLogString).not.toContain(fakeAccessToken);
+    expect(fullLogString).not.toContain(fakeWebhookSecret);
+    expect(fullLogString).not.toContain(fakeCardToken);
+    expect(fullLogString).not.toContain('Authorization');
+    expect(fullLogString).not.toContain('Bearer');
+
+    consoleSpy.mockRestore();
+  });
 });
