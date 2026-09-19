@@ -68,7 +68,7 @@ describe('provider-neutral payment HTTP boundaries', () => {
     const server = app();
     const response = await new Promise<Response>((resolve) => { const http = server.listen(0, async () => { const port = (http.address() as any).port; resolve(await fetch(`http://127.0.0.1:${port}/api/payments/mercadopago/webhook?data.id=${encodeURIComponent(queryDataId)}&type=order`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-request-id': requestId, 'x-signature': `ts=${ts},v1=${signature}` }, body: JSON.stringify({ action: 'order.processed', type: 'order' }) })); http.close(); }); });
     expect(response.status).toBe(200);
-    expect(mocks.processProviderWebhook).toHaveBeenCalledWith('mercadopago', `order:${signedDataId}:${requestId}`, signedDataId);
+    expect(mocks.processProviderWebhook).toHaveBeenCalledWith('mercadopago', `order:${queryDataId}:${requestId}`, queryDataId);
   });
 
   it('creates an authorized provider-neutral payment and accepts a verified PicPay callback', async () => {

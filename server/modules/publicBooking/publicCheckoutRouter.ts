@@ -190,23 +190,24 @@ export async function mercadoPagoWebhookHandler(req: Request, res: Response) {
     const provider = new MercadoPagoPaymentProvider();
     const bodyDataId = req.body?.data?.id;
     const queryDataId = req.query['data.id'];
-    const rawDataId = typeof bodyDataId === 'string' || typeof bodyDataId === 'number'
-      ? String(bodyDataId)
-      : (typeof queryDataId === 'string'
-          ? queryDataId
+    const rawDataId = typeof queryDataId === 'string'
+      ? queryDataId
+      : (typeof bodyDataId === 'string' || typeof bodyDataId === 'number'
+          ? String(bodyDataId)
           : (typeof req.body?.resource === 'string' ? req.body.resource.split('/').pop() || '' : ''));
-    // Mercado Pago sends Order identifiers in the data.id query parameter.
-    // Alphanumeric data.id values must be normalized to lowercase for HMAC validation.
-    const dataId = rawDataId.trim().toLowerCase();
+    // Mercado Pago signs Order identifiers from the data.id query parameter.
+    // Lowercase is required only for HMAC validation; reconciliation keeps the original provider ID.
+    const providerDataId = rawDataId.trim();
+    const signatureDataId = providerDataId.toLowerCase();
     const headers = {
       'x-signature': typeof req.headers['x-signature'] === 'string' ? req.headers['x-signature'] : undefined,
       'x-request-id': typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'] : undefined,
     };
     if (!provider.isConfigured()) return res.status(503).json({ error: 'Webhook is not configured.' });
-    if (!provider.verifyWebhook(headers, dataId)) return res.status(401).json({ error: 'Invalid Mercado Pago notification.' });
+    if (!provider.verifyWebhook(headers, signatureDataId)) return res.status(401).json({ error: 'Invalid Mercado Pago notification.' });
     const eventId = typeof req.body?.id === 'string' || typeof req.body?.id === 'number'
-      ? String(req.body.id) : `order:${dataId}:${req.headers['x-request-id'] || ''}`;
-    await publicCheckoutService.processProviderWebhook('mercadopago', eventId, dataId);
+      ? String(req.body.id) : `order:${providerDataId}:${req.headers['x-request-id'] || ''}`;
+    await publicCheckoutService.processProviderWebhook('mercadopago', eventId, providerDataId);
     return res.status(200).json({ received: true });
   } catch {
     return res.status(400).json({ error: 'Mercado Pago webhook verification failed.' });
