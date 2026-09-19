@@ -232,10 +232,16 @@ export class MercadoPagoPaymentProvider implements PaymentProviderAdapter {
       || response.point_of_interaction?.transaction_data
       || firstTx;
 
-    const qrCode = (typeof txData.qr_code === 'string' && txData.qr_code)
+    const paymentMethod = firstTx.payment_method && typeof firstTx.payment_method === 'object'
+      ? firstTx.payment_method
+      : {};
+
+    const qrCode = (typeof paymentMethod.qr_code === 'string' && paymentMethod.qr_code)
+      || (typeof txData.qr_code === 'string' && txData.qr_code)
       || (typeof response.qr_code === 'string' && response.qr_code)
       || undefined;
-    const qrCodeBase64 = (typeof txData.qr_code_base64 === 'string' && txData.qr_code_base64)
+    const qrCodeBase64 = (typeof paymentMethod.qr_code_base64 === 'string' && paymentMethod.qr_code_base64)
+      || (typeof txData.qr_code_base64 === 'string' && txData.qr_code_base64)
       || (typeof response.qr_code_base64 === 'string' && response.qr_code_base64)
       || undefined;
     const expiresAt = firstTx.date_of_expiration || response.expiration_time || response.date_of_expiration || undefined;

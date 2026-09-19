@@ -64,6 +64,49 @@ describe('canonical payment provider adapters', () => {
     expect(pix.presentation).toMatchObject({ qrCode: 'pix-code-orders', qrCodeBase64: 'base64-orders' });
   });
 
+  it('reads Pix QR data from Mercado Pago Orders payment_method response', async () => {
+    vi.stubGlobal('fetch', async () => ({
+      ok: true,
+      json: async () => ({
+        id: 'ORDTST_PIX_PAYMENT_METHOD',
+        order_status: 'action_required',
+        transactions: {
+          payments: [{
+            status: 'pending',
+            amount: '123.45',
+            payment_method: {
+              id: 'pix',
+              type: 'bank_transfer',
+              qr_code: 'pix-code-payment-method',
+              qr_code_base64: 'base64-payment-method',
+              ticket_url: 'https://example.test/pix-ticket'
+            }
+          }]
+        }
+      }),
+    }));
+
+    const provider = new MercadoPagoPaymentProvider(
+      'access',
+      'webhook',
+      'https://staging.example.test'
+    );
+
+    const pix = await provider.createPayment({
+      paymentId: 'payment_pix_payment_method',
+      amount: 123.45,
+      currency: 'brl',
+      reservation,
+      method: 'pix'
+    });
+
+    expect(pix.providerPaymentId).toBe('ORDTST_PIX_PAYMENT_METHOD');
+    expect(pix.presentation).toMatchObject({
+      qrCode: 'pix-code-payment-method',
+      qrCodeBase64: 'base64-payment-method'
+    });
+  });
+
   it('fails safely when Mercado Pago does not return valid Pix QR data', async () => {
     vi.stubGlobal('fetch', async () => ({
       ok: true,
