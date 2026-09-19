@@ -188,9 +188,16 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
 export async function mercadoPagoWebhookHandler(req: Request, res: Response) {
   try {
     const provider = new MercadoPagoPaymentProvider();
-    const dataId = typeof req.body?.data?.id === 'string' || typeof req.body?.data?.id === 'number'
-      ? String(req.body.data.id)
-      : (typeof req.body?.resource === 'string' ? req.body.resource.split('/').pop() || '' : '');
+    const bodyDataId = req.body?.data?.id;
+    const queryDataId = req.query['data.id'];
+    const rawDataId = typeof bodyDataId === 'string' || typeof bodyDataId === 'number'
+      ? String(bodyDataId)
+      : (typeof queryDataId === 'string'
+          ? queryDataId
+          : (typeof req.body?.resource === 'string' ? req.body.resource.split('/').pop() || '' : ''));
+    // Mercado Pago sends Order identifiers in the data.id query parameter.
+    // Alphanumeric data.id values must be normalized to lowercase for HMAC validation.
+    const dataId = rawDataId.trim().toLowerCase();
     const headers = {
       'x-signature': typeof req.headers['x-signature'] === 'string' ? req.headers['x-signature'] : undefined,
       'x-request-id': typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'] : undefined,

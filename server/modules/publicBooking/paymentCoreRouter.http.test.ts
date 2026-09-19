@@ -60,6 +60,17 @@ describe('provider-neutral payment HTTP boundaries', () => {
     expect(mocks.processProviderWebhook).toHaveBeenCalledWith('mercadopago', 'event-1', dataId);
   });
 
+  it('validates Mercado Pago Order HMAC using query data.id and lowercase normalization', async () => {
+    process.env.MERCADOPAGO_ACCESS_TOKEN = 'token'; process.env.MERCADOPAGO_WEBHOOK_SECRET = 'secret'; process.env.PAYMENTS_PUBLIC_BASE_URL = 'https://staging.example.test';
+    const queryDataId = 'ORDTST01ABC123'; const signedDataId = queryDataId.toLowerCase(); const requestId = 'request-order-1'; const ts = '1700000000';
+    const signature = createHmac('sha256', 'secret').update(`id:${signedDataId};request-id:${requestId};ts:${ts};`).digest('hex');
+    mocks.processProviderWebhook.mockResolvedValue({ replay: false });
+    const server = app();
+    const response = await new Promise<Response>((resolve) => { const http = server.listen(0, async () => { const port = (http.address() as any).port; resolve(await fetch(`http://127.0.0.1:${port}/api/payments/mercadopago/webhook?data.id=${encodeURIComponent(queryDataId)}&type=order`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-request-id': requestId, 'x-signature': `ts=${ts},v1=${signature}` }, body: JSON.stringify({ action: 'order.processed', type: 'order' }) })); http.close(); }); });
+    expect(response.status).toBe(200);
+    expect(mocks.processProviderWebhook).toHaveBeenCalledWith('mercadopago', `order:${signedDataId}:${requestId}`, signedDataId);
+  });
+
   it('creates an authorized provider-neutral payment and accepts a verified PicPay callback', async () => {
     mocks.createPayment.mockResolvedValue({ paymentId: 'pay_2', provider: 'picpay', paymentMethod: 'pix', status: 'pending', presentation: { qrCode: 'pix' } });
     mocks.processProviderWebhook.mockResolvedValueOnce({ replay: false }).mockResolvedValueOnce({ replay: true });
