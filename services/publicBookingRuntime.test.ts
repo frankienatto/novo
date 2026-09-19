@@ -9,6 +9,18 @@ describe('public booking runtime resolution', () => {
     })).toBe('stg-public-synapse-core');
   });
 
+  it('uses the explicit staging mapping only on the Synapse staging Cloud Run hostname', () => {
+    expect(resolvePublicBookingPropertyId({
+      hostname: 'synapse-staging-846906671197.southamerica-east1.run.app',
+    })).toBe('stg-public-synapse-core');
+  });
+
+  it('keeps production hosts fail-closed when no public mapping is supplied', () => {
+    expect(resolvePublicBookingPropertyId({
+      hostname: 'synapse.example.com',
+    })).toBeUndefined();
+  });
+
   it('allows an explicit public URL to select a public mapping without exposing tenant identifiers', () => {
     expect(resolvePublicBookingPropertyId({
       search: '?page=booking&publicPropertyId=public-property-b',

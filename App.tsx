@@ -890,21 +890,21 @@ export const App: React.FC = () => {
         search: typeof window !== 'undefined' ? window.location.search : undefined,
         dbState,
     });
+    const resolvedPublicPropertyId = activePublicPropertyId ?? resolvePublicBookingPropertyId({
+        pageParams,
+        search: window.location.search,
+        configuredPublicPropertyId,
+        hostname: window.location.hostname,
+    });
 
     const renderPage = () => {
         const hasPublicPresentation = hasProvisionedPublicPresentation(dbState);
         const canUseLegacyBooking = canRenderLegacyBooking(dbState, isProductionBuild);
         const provisionedInternalUser = isProvisionedInternalUser(dbState, currentUser);
         const provisionedGuestUser = isProvisionedGuestUser(dbState, currentUser);
-        const publicPropertyId = resolvePublicBookingPropertyId({
-            pageParams,
-            search: window.location.search,
-            configuredPublicPropertyId,
-        });
         // URL/page parameters remain the most explicit public entry point.
         // The deployment-level public property is the fail-closed fallback for
         // a bare staging hostname, where no browser DB is authoritative.
-        const resolvedPublicPropertyId = activePublicPropertyId ?? publicPropertyId;
 
         switch (page) {
             case 'home':
@@ -1111,7 +1111,7 @@ export const App: React.FC = () => {
         <>
             {dbState && <ThemeStyles themeSettings={dbState.themeSettings} />}
             <div className="font-sans">
-                {shouldShowHeader() && dbState && <Header page={page} setPage={setPageAndParams} currentUser={currentUser} logout={logout} themeSettings={dbState.themeSettings} publicPropertyId={activePublicPropertyId}/>}
+                {shouldShowHeader() && dbState && <Header page={page} setPage={setPageAndParams} currentUser={currentUser} logout={logout} themeSettings={dbState.themeSettings} publicPropertyId={resolvedPublicPropertyId}/>}
                 <main>
                     {renderPage()}
                 </main>
