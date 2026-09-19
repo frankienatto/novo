@@ -54,10 +54,10 @@ describe('canonical payment provider adapters', () => {
     expect(requests[1]).toMatchObject({
       type: 'online',
       processing_mode: 'automatic',
-      total_amount: 123.45,
+      total_amount: '123.45',
       external_reference: 'payment_pix',
       transactions: {
-        payments: [{ amount: 123.45, payment_method: { id: 'pix', type: 'bank_transfer' } }],
+        payments: [{ amount: '123.45', payment_method: { id: 'pix', type: 'bank_transfer' } }],
       },
     });
     expect(pix.providerPaymentId).toBe('123456');

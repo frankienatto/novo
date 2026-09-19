@@ -162,10 +162,9 @@ export class MercadoPagoPaymentProvider implements PaymentProviderAdapter {
     const payload: Record<string, unknown> = {
       type: 'online',
       processing_mode: 'automatic',
-      total_amount: input.amount,
+      total_amount: input.method === 'pix' ? input.amount.toFixed(2) : input.amount,
       description: `Synapse reservation ${input.reservation.reservationId}`,
       external_reference: input.paymentId,
-      notification_url: `${this.publicBaseUrl}/api/payments/mercadopago/webhook`,
       payer: payerPayload,
     };
 
@@ -173,7 +172,7 @@ export class MercadoPagoPaymentProvider implements PaymentProviderAdapter {
       payload.transactions = {
         payments: [
           {
-            amount: input.amount,
+            amount: input.amount.toFixed(2),
             payment_method: {
               id: 'pix',
               type: 'bank_transfer',
