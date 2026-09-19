@@ -55,6 +55,7 @@ export function sanitizeMercadoPagoError(body: unknown): Record<string, unknown>
   const raw = body as Record<string, any>;
   const sanitized: Record<string, unknown> = {};
 
+  if (typeof raw.raw === 'string') sanitized.raw = raw.raw.slice(0, 1000);
   if (raw.message) sanitized.message = String(raw.message);
   if (raw.error) sanitized.error = String(raw.error);
   if (raw.status !== undefined) sanitized.status = raw.status;
@@ -204,7 +205,14 @@ export class MercadoPagoPaymentProvider implements PaymentProviderAdapter {
       body: JSON.stringify(payload),
     });
 
-    const response = await mpResponse.json().catch(() => ({}));
+    const rawBody = await mpResponse.text().catch(() => '');
+    const response = (() => {
+      try {
+        return rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        return { raw: rawBody.slice(0, 1000) };
+      }
+    })();
 
     if (!mpResponse.ok) {
       const sanitizedError = sanitizeMercadoPagoError(response);

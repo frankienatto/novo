@@ -7,6 +7,12 @@ const reservation: any = {
   guest: { fullName: 'Guest Test', email: 'guest@example.test' },
 };
 
+const ordersResponse = (body: unknown, ok = true, status = 200) => ({
+  ok,
+  status,
+  text: async () => JSON.stringify(body),
+});
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('canonical payment provider adapters', () => {
@@ -16,9 +22,7 @@ describe('canonical payment provider adapters', () => {
     vi.stubGlobal('fetch', async (url: string, init: any) => {
       urls.push(url);
       requests.push(JSON.parse(init.body));
-      return {
-        ok: true,
-        json: async () => ({
+      return ordersResponse({
           id: 123456,
           status: 'action_required',
           order_status: 'action_required',
@@ -33,8 +37,7 @@ describe('canonical payment provider adapters', () => {
               },
             ],
           },
-        }),
-      };
+      });
     });
     const provider = new MercadoPagoPaymentProvider('access', 'webhook', 'https://staging.example.test');
     await provider.createPayment({ paymentId: 'payment_card', amount: 123.45, currency: 'brl', reservation, method: 'card', providerData: { token: 'tokenized-card' } });
@@ -65,9 +68,7 @@ describe('canonical payment provider adapters', () => {
   });
 
   it('reads Pix QR data from Mercado Pago Orders payment_method response', async () => {
-    vi.stubGlobal('fetch', async () => ({
-      ok: true,
-      json: async () => ({
+    vi.stubGlobal('fetch', async () => ordersResponse({
         id: 'ORDTST_PIX_PAYMENT_METHOD',
         order_status: 'action_required',
         transactions: {
@@ -83,7 +84,6 @@ describe('canonical payment provider adapters', () => {
             }
           }]
         }
-      }),
     }));
 
     const provider = new MercadoPagoPaymentProvider(
@@ -108,10 +108,7 @@ describe('canonical payment provider adapters', () => {
   });
 
   it('fails safely when Mercado Pago does not return valid Pix QR data', async () => {
-    vi.stubGlobal('fetch', async () => ({
-      ok: true,
-      json: async () => ({ id: 123, status: 'opened', transactions: [] }),
-    }));
+    vi.stubGlobal('fetch', async () => ordersResponse({ id: 123, status: 'opened', transactions: [] }));
     const provider = new MercadoPagoPaymentProvider('access', 'webhook', 'https://staging.example.test');
     await expect(provider.createPayment({ paymentId: 'pay_fail', amount: 100, currency: 'brl', reservation, method: 'pix' }))
       .rejects.toThrow('PAYMENT_PROVIDER_INVALID_PIX_RESPONSE');
@@ -193,18 +190,14 @@ describe('canonical payment provider adapters', () => {
     const fakeWebhookSecret = 'TEST_MP_WEBHOOK_SECRET_67890';
     const fakeCardToken = 'TEST_CARD_TOKEN_ABCDEF';
 
-    vi.stubGlobal('fetch', async () => ({
-      ok: false,
-      status: 400,
-      json: async () => ({
+    vi.stubGlobal('fetch', async () => ordersResponse({
         message: 'Invalid transaction amount or payment method',
         error: 'bad_request',
         status: 400,
         cause: [
           { code: '3001', description: 'Invalid total amount', message: 'Amount must be positive' },
         ],
-      }),
-    }));
+    }, false, 400));
 
     const provider = new MercadoPagoPaymentProvider(fakeAccessToken, fakeWebhookSecret, 'https://staging.example.test');
 
@@ -245,6 +238,28 @@ describe('canonical payment provider adapters', () => {
     expect(fullLogString).not.toContain('Authorization');
     expect(fullLogString).not.toContain('Bearer');
 
+    consoleSpy.mockRestore();
+  });
+
+  it('preserves a bounded non-JSON Orders error body for sanitized diagnostics', async () => {
+    const errorLogs: string[] = [];
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
+      errorLogs.push(args.map(String).join(' '));
+    });
+    vi.stubGlobal('fetch', async () => ({
+      ok: false,
+      status: 400,
+      text: async () => '<html>upstream validation failure</html>',
+    }));
+
+    const provider = new MercadoPagoPaymentProvider('access', 'webhook', 'https://staging.example.test');
+    await expect(provider.createPayment({
+      paymentId: 'pay_raw_error_001', amount: 150, currency: 'brl', reservation, method: 'pix',
+    })).rejects.toThrow('PAYMENT_PROVIDER_HTTP_400');
+
+    expect(JSON.parse(errorLogs[0])).toMatchObject({
+      providerError: { raw: '<html>upstream validation failure</html>' },
+    });
     consoleSpy.mockRestore();
   });
 });
