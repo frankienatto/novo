@@ -312,6 +312,30 @@ export class MercadoPagoPaymentProvider implements PaymentProviderAdapter {
     const expected = createHmac('sha256', this.webhookSecret).update(manifest).digest('hex');
     return Boolean(values.v1 && safeEqual(expected, values.v1));
   }
+
+  diagnoseWebhookSignature(headers: Record<string, string | undefined>, lowerDataId: string, originalDataId: string) {
+    const signature = headers['x-signature'];
+    const requestId = headers['x-request-id'];
+    if (!this.webhookSecret || !signature) return null;
+
+    const values = Object.fromEntries(
+      signature.split(',').map(part => part.trim().split('=', 2))
+    );
+    if (!values.ts || !values.v1) return null;
+
+    const matches = (manifest: string) =>
+      safeEqual(
+        createHmac('sha256', this.webhookSecret!).update(manifest).digest('hex'),
+        values.v1,
+      );
+
+    return {
+      lowerWithRequestId: Boolean(requestId && matches(`id:${lowerDataId};request-id:${requestId};ts:${values.ts};`)),
+      lowerWithoutRequestId: matches(`id:${lowerDataId};ts:${values.ts};`),
+      originalWithRequestId: Boolean(requestId && matches(`id:${originalDataId};request-id:${requestId};ts:${values.ts};`)),
+      originalWithoutRequestId: matches(`id:${originalDataId};ts:${values.ts};`),
+    };
+  }
 }
 
 export class PicPayPixPaymentProvider implements PaymentProviderAdapter {
