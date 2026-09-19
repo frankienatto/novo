@@ -21,11 +21,12 @@ docker build \
   --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID="$VITE_FIREBASE_MESSAGING_SENDER_ID" \
   --build-arg VITE_FIREBASE_MEASUREMENT_ID="$VITE_FIREBASE_MEASUREMENT_ID" \
   --build-arg VITE_FIRESTORE_DATABASE_ID="$VITE_FIRESTORE_DATABASE_ID" \
+  --build-arg VITE_PUBLIC_PROPERTY_ID="$VITE_PUBLIC_PROPERTY_ID" \
   --tag "$IMAGE" .
 docker push "$IMAGE"
 ```
 
-Esses build args são somente a configuração pública da Firebase Web App de staging e serão incorporados ao bundle frontend. Nunca passe secret server-side por build args. Também é aceitável usar Cloud Build com o mesmo Dockerfile, sem build args contendo segredos.
+Esses build args são somente a configuração pública da Firebase Web App de staging e serão incorporados ao bundle frontend. `VITE_PUBLIC_PROPERTY_ID` é um identificador público opaco que define a entrada de reservas do deployment, por exemplo `stg-public-synapse-core`; não use `organizationId` ou `propertyId` interno. Nunca passe secret server-side por build args. Também é aceitável usar Cloud Build com o mesmo Dockerfile, sem build args contendo segredos.
 
 ## Serviço
 

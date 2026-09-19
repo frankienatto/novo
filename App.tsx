@@ -21,6 +21,7 @@ import {
     type CanonicalSession,
 } from './services/canonicalPmsRuntime';
 import { restoreCanonicalInternalRuntime } from './services/authenticatedRuntime';
+import { resolvePublicBookingPropertyId } from './services/publicBookingRuntime.ts';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { db as localDefaultDb } from './database';
 import BookingWidgetView from './components/BookingWidgetView';
@@ -298,6 +299,7 @@ export const App: React.FC = () => {
         return { user: null, token: null };
     });
     const isProductionBuild = import.meta.env.PROD;
+    const configuredPublicPropertyId = import.meta.env.VITE_PUBLIC_PROPERTY_ID;
     const [dbState, setDbState] = useState<DBState | null>(() => import.meta.env.DEV ? localDefaultDb : null);
     const [loading, setLoading] = useState<boolean>(true);
     const [authHydrationPending, setAuthHydrationPending] = useState(false);
@@ -894,13 +896,31 @@ export const App: React.FC = () => {
         const canUseLegacyBooking = canRenderLegacyBooking(dbState, isProductionBuild);
         const provisionedInternalUser = isProvisionedInternalUser(dbState, currentUser);
         const provisionedGuestUser = isProvisionedGuestUser(dbState, currentUser);
+        const publicPropertyId = resolvePublicBookingPropertyId({
+            pageParams,
+            search: window.location.search,
+            configuredPublicPropertyId,
+        });
+        // URL/page parameters remain the most explicit public entry point.
+        // The deployment-level public property is the fail-closed fallback for
+        // a bare staging hostname, where no browser DB is authoritative.
+        const resolvedPublicPropertyId = activePublicPropertyId ?? publicPropertyId;
 
         switch (page) {
             case 'home':
+                // Production has no browser-authoritative public presentation.
+                // A configured public entry point goes straight to its
+                // server-resolved catalog instead of falling back to fixtures.
+                if (isProductionBuild && resolvedPublicPropertyId) {
+                    return <CanonicalPublicBookingView publicPropertyId={resolvedPublicPropertyId} onReturnHome={() => setPageAndParams('home')} />;
+                }
                 if (!hasPublicPresentation) return <ProvisioningRequired scope="public" />;
                 return <PublicView setPage={setPageAndParams} db={dbState!} chatData={chatData} onStartChat={apiService.startChat} onSendMessage={apiService.sendMessage} publicPropertyId={activePublicPropertyId} />;
             case 'booking':
-                if (isProductionBuild || activePublicPropertyId) {
+                if (isProductionBuild) {
+                    return <CanonicalPublicBookingView publicPropertyId={resolvedPublicPropertyId} onReturnHome={() => setPageAndParams('home')} />;
+                }
+                if (activePublicPropertyId) {
                     return <CanonicalPublicBookingView publicPropertyId={activePublicPropertyId} onReturnHome={() => setPageAndParams('home')} />;
                 }
                 if (!canUseLegacyBooking) return <ProvisioningRequired scope="booking" onReturnHome={() => setPageAndParams('home')} />;

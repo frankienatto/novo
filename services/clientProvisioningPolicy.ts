@@ -3,6 +3,7 @@ declare global {
     readonly env: {
       readonly DEV: boolean;
       readonly PROD: boolean;
+      readonly VITE_PUBLIC_PROPERTY_ID?: string;
     };
   }
 }
