@@ -2,7 +2,13 @@
 
 O `Dockerfile` compila frontend e backend em estágio separado e a imagem final não contém `.env`, service accounts, `node_modules` de desenvolvimento nem segredos. Cloud Run fornece `PORT`; o servidor o respeita. Use `GET /health/liveness` para liveness e `GET /health/readiness` para prontidão.
 
-## Artifact Registry
+## Artifact Registry e build do frontend
+
+Antes de iniciar uma build, exporte os nove valores públicos da Firebase Web
+App e do deployment. Eles não são secrets, mas são obrigatórios: o Vite os
+incorpora ao bundle estático e o `Dockerfile` interrompe a build se qualquer
+um estiver ausente. Não use `.env` na imagem e não passe secrets server-side
+por `--build-arg`.
 
 ```bash
 export PROJECT_ID=<GCP_STAGING_PROJECT_ID>
@@ -26,7 +32,33 @@ docker build \
 docker push "$IMAGE"
 ```
 
-Esses build args são somente a configuração pública da Firebase Web App de staging e serão incorporados ao bundle frontend. `VITE_PUBLIC_PROPERTY_ID` é um identificador público opaco que define a entrada de reservas do deployment, por exemplo `stg-public-synapse-core`; não use `organizationId` ou `propertyId` interno. Nunca passe secret server-side por build args. Também é aceitável usar Cloud Build com o mesmo Dockerfile, sem build args contendo segredos.
+Os nove build args são obrigatórios e públicos: `VITE_FIREBASE_API_KEY`,
+`VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`,
+`VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_STORAGE_BUCKET`,
+`VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_MEASUREMENT_ID`,
+`VITE_FIRESTORE_DATABASE_ID` e `VITE_PUBLIC_PROPERTY_ID`.
+
+Para o staging atual, use `VITE_FIRESTORE_DATABASE_ID=synapse-staging` e
+`VITE_PUBLIC_PROPERTY_ID=stg-public-synapse-core`. Este último continua sendo
+um identificador público opaco; não o substitua por `organizationId` ou pelo
+`propertyId` interno. O fallback de host do frontend é limitado ao Cloud Run
+de staging e não cria fallback automático em produção.
+
+### Cloud Build (recomendado)
+
+O repositório inclui `cloudbuild.staging.yaml`. Ele exige a passagem explícita
+de todos os nove valores e os encaminha ao Dockerfile. No Cloud Shell, carregue
+os valores públicos de uma fonte local segura (por exemplo, variáveis da
+sessão), sem gravá-los no Git, e execute:
+
+```bash
+gcloud builds submit --config=cloudbuild.staging.yaml \
+  --substitutions=_IMAGE_URI="$IMAGE",_VITE_FIREBASE_API_KEY="$VITE_FIREBASE_API_KEY",_VITE_FIREBASE_AUTH_DOMAIN="$VITE_FIREBASE_AUTH_DOMAIN",_VITE_FIREBASE_PROJECT_ID="$VITE_FIREBASE_PROJECT_ID",_VITE_FIREBASE_APP_ID="$VITE_FIREBASE_APP_ID",_VITE_FIREBASE_STORAGE_BUCKET="$VITE_FIREBASE_STORAGE_BUCKET",_VITE_FIREBASE_MESSAGING_SENDER_ID="$VITE_FIREBASE_MESSAGING_SENDER_ID",_VITE_FIREBASE_MEASUREMENT_ID="$VITE_FIREBASE_MEASUREMENT_ID",_VITE_FIRESTORE_DATABASE_ID="$VITE_FIRESTORE_DATABASE_ID",_VITE_PUBLIC_PROPERTY_ID="$VITE_PUBLIC_PROPERTY_ID" \
+  .
+```
+
+Não forneça `JWT_SECRET`, tokens de provedores de pagamento, segredos de
+webhook, Gemini ou qualquer outro secret nessa build.
 
 ## Serviço
 

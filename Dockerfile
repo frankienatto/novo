@@ -26,7 +26,18 @@ ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY \
     VITE_PUBLIC_PROPERTY_ID=$VITE_PUBLIC_PROPERTY_ID \
     VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY \
     VITE_MERCADOPAGO_PUBLIC_KEY=$VITE_MERCADOPAGO_PUBLIC_KEY
-RUN npm run build
+# A production bundle cannot recover missing Vite values at runtime. Fail the
+# image build before it can be pushed/deployed with an unusable Firebase client.
+RUN test -n "$VITE_FIREBASE_API_KEY" \
+    && test -n "$VITE_FIREBASE_AUTH_DOMAIN" \
+    && test -n "$VITE_FIREBASE_PROJECT_ID" \
+    && test -n "$VITE_FIREBASE_APP_ID" \
+    && test -n "$VITE_FIREBASE_STORAGE_BUCKET" \
+    && test -n "$VITE_FIREBASE_MESSAGING_SENDER_ID" \
+    && test -n "$VITE_FIREBASE_MEASUREMENT_ID" \
+    && test -n "$VITE_FIRESTORE_DATABASE_ID" \
+    && test -n "$VITE_PUBLIC_PROPERTY_ID" \
+    && npm run build
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
