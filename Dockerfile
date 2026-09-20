@@ -34,7 +34,6 @@ RUN test -n "$VITE_FIREBASE_API_KEY" \
     && test -n "$VITE_FIREBASE_APP_ID" \
     && test -n "$VITE_FIREBASE_STORAGE_BUCKET" \
     && test -n "$VITE_FIREBASE_MESSAGING_SENDER_ID" \
-    && test -n "$VITE_FIREBASE_MEASUREMENT_ID" \
     && test -n "$VITE_FIRESTORE_DATABASE_ID" \
     && test -n "$VITE_PUBLIC_PROPERTY_ID" \
     && npm run build
