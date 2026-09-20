@@ -911,7 +911,12 @@ export const App: React.FC = () => {
                 // Production has no browser-authoritative public presentation.
                 // A configured public entry point goes straight to its
                 // server-resolved catalog instead of falling back to fixtures.
-                if (isProductionBuild && resolvedPublicPropertyId) {
+                const isExplicitPublicEntry =
+                    window.location.pathname.startsWith('/booking') ||
+                    window.location.pathname.startsWith('/p') ||
+                    new URLSearchParams(window.location.search).has('publicPropertyId');
+
+                if (isProductionBuild && resolvedPublicPropertyId && isExplicitPublicEntry) {
                     return <CanonicalPublicBookingView publicPropertyId={resolvedPublicPropertyId} onReturnHome={() => setPageAndParams('home')} />;
                 }
                 if (!hasPublicPresentation) return <ProvisioningRequired scope="public" />;
