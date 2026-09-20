@@ -96,6 +96,24 @@ export class StagingBootstrapService {
         },
       })),
       {
+        collection: 'siteContent', id: 'main', data: {
+          ...common,
+          hero: {
+            title: 'Synapse Staging Property',
+            subtitle: 'Hospitalidade inteligente com tecnologia Synapse.',
+          },
+          facilities: [],
+        },
+      },
+      {
+        collection: 'themeSettings', id: 'main', data: {
+          ...common,
+          publicSite: {
+            primaryColor: '#1a4731',
+          },
+        },
+      },
+      {
         collection: 'stagingBootstrapAudits', id: IDS.audit, data: {
           ...common, actorUserId: actor.uid, action: 'STAGING_TENANT_BOOTSTRAP', status: 'completed',
           organizationId, propertyId, publicPropertyId,
